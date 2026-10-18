@@ -20,7 +20,7 @@ import type { Convite } from '../lib/tipos';
 const TEXTO_ESTADO: Record<EstadoNotificacao, string> = {
   'sem-suporte': 'Este navegador não suporta avisos.',
   'ios-instalar': 'No iPhone, os avisos só funcionam com o app instalado: no Safari, toque em Compartilhar → "Adicionar à Tela de Início", abra pelo ícone e volte aqui.',
-  negado: 'Os avisos foram bloqueados. Libere em Ajustes do iPhone → Notificações → Nenê.',
+  negado: 'Os avisos foram bloqueados. Libere em Ajustes do iPhone → Notificações → Heitor.',
   pendente: 'Avisos ainda não ativados neste aparelho.',
   ativo: 'Avisos ativos neste aparelho.',
   'ativo-sem-servidor': 'Permissão concedida, mas o envio automático exige a nuvem configurada.',
@@ -297,7 +297,7 @@ export function Ajustes() {
       <CartaoCalendario />
       <CartaoConta />
       <p className="mudo" style={{ textAlign: 'center' }}>
-        Nenê · versão {__VERSAO_APP__}
+        Heitor · versão {__VERSAO_APP__}
       </p>
     </div>
   );

@@ -83,7 +83,7 @@ export function textoMeses(n: number): string {
 
 function eventoCompromisso(c: CompromissoIcs, fuso: string, agora: Date, site: string): string[] {
   const emoji = EMOJI_TIPO[c.tipo] ?? EMOJI_TIPO.outro;
-  const descricao = [c.observacao?.trim(), `Agenda do app Nenê: ${site}`].filter(Boolean).join('\n\n');
+  const descricao = [c.observacao?.trim(), `Agenda do app Heitor: ${site}`].filter(Boolean).join('\n\n');
   const linhas = ['BEGIN:VEVENT', `UID:compromisso-${c.id}@app-nenem`, `DTSTAMP:${carimbo(agora)}`];
   if (c.hora) {
     const inicio = localParaUtc(c.data, c.hora, fuso);
@@ -147,7 +147,7 @@ export function montarIcs({ compromissos, bebes, fuso, agora, site, nomeCalendar
       'PRODID:-//app-nenem//Nenê//PT-BR',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
-      `X-WR-CALNAME:${escaparIcs(nomeCalendario ?? 'Nenê')}`,
+      `X-WR-CALNAME:${escaparIcs(nomeCalendario ?? 'Heitor')}`,
       `X-WR-TIMEZONE:${fuso}`,
       // Cor sugerida ao assinar: rosa-claro
       'X-APPLE-CALENDAR-COLOR:#F28AB2',

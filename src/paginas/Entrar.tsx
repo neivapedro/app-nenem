@@ -39,7 +39,7 @@ export function Entrar() {
       <form className="entrada pilha" onSubmit={enviar}>
         <div className="pilha" style={{ alignItems: 'center', textAlign: 'center', gap: 8 }}>
           <Marca classe="marca-heroi" />
-          <span className="nome-app">Nenê</span>
+          <span className="nome-app">Heitor</span>
           <h1>O dia a dia do bebê, juntos</h1>
           <p className="mudo">Mamadas, fraldas, sono e agenda, compartilhados entre os pais em tempo real.</p>
         </div>

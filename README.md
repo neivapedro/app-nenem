@@ -1,4 +1,4 @@
-# app-nenem · Nenê
+# app-nenem · Heitor
 
 App (PWA) de acompanhamento do bebê, compartilhado entre os pais. Abre no Safari e é instalado na Tela de Início do iPhone. Cada responsável tem o próprio login, e os dois ficam ligados à mesma família: o que um registra aparece na hora no celular do outro.
 
