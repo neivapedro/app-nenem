@@ -1,0 +1,9 @@
+project_id = "app-nenem"
+
+[functions.nenem-lembretes]
+# A função valida o próprio cabeçalho (só aceita o CRON_SECRET enviado pelo pg_cron).
+verify_jwt = false
+
+[functions.nenem-calendario]
+# Acesso pelo token secreto na URL (o app de Calendário não envia login).
+verify_jwt = false

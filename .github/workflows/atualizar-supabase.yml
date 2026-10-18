@@ -1,0 +1,117 @@
+# Configura o Supabase sozinho (mesmo projeto do Diário de Carga e do app-dieta):
+#   1. aplica as migrações deste app (tabelas nenem_*, idempotentes);
+#   2. publica as funções de avisos e de calendário;
+#   3. inclui o endereço do app nos Redirect URLs do login (confirmação de
+#      e-mail e "Esqueci minha senha"), sem mexer nos endereços que já existem.
+# Roda a cada mudança em supabase/ na main e também pelo botão "Run workflow".
+# Requer o segredo SUPABASE_ACCESS_TOKEN (token pessoal do Supabase) em
+# Settings → Secrets and variables → Actions. Sem ele, só avisa e não faz nada.
+name: Atualizar Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/**'
+      - '.github/workflows/atualizar-supabase.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase
+  cancel-in-progress: false
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJETO: dqxpiyjdwwrcwkcuuyys
+      SITE: https://neivapedro.github.io/app-nenem/**
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confere o token
+        id: token
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::warning::Falta o segredo SUPABASE_ACCESS_TOKEN: nada foi atualizado no Supabase."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Aplica as migrações
+        if: steps.token.outputs.ok == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in supabase/migrations/*.sql; do
+            echo "Aplicando $(basename "$f")"
+            jq -Rs '{query: .}' "$f" > /tmp/consulta.json
+            codigo=$(curl -sS -o /tmp/resposta.json -w '%{http_code}' -X POST \
+              "https://api.supabase.com/v1/projects/$PROJETO/database/query" \
+              -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              -H 'Content-Type: application/json' \
+              --data @/tmp/consulta.json)
+            cat /tmp/resposta.json; echo
+            if [ "$codigo" -lt 200 ] || [ "$codigo" -ge 300 ]; then
+              echo "::error::A migração $(basename "$f") falhou (HTTP $codigo)."
+              exit 1
+            fi
+          done
+
+      - name: Confere os segredos dos avisos
+        if: steps.token.outputs.ok == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "select count(*)::int as n from vault.decrypted_secrets where name in ('app_dieta_projeto_url', 'app_dieta_cron_secret')" | jq -Rs '{query: .}' > /tmp/consulta.json
+          curl -sS -o /tmp/resposta.json -X POST "https://api.supabase.com/v1/projects/$PROJETO/database/query" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'Content-Type: application/json' --data @/tmp/consulta.json
+          n=$(jq -r '.[0].n // 0' /tmp/resposta.json 2>/dev/null || echo 0)
+          if [ "$n" != "2" ]; then
+            echo "::warning::Os avisos no celular usam os segredos do Vault do app-dieta (app_dieta_projeto_url e app_dieta_cron_secret), que não foram encontrados. Rode a parte do Vault de supabase/configurar_tudo.sql do app-dieta."
+          else
+            echo "Segredos do Vault encontrados."
+          fi
+
+      - uses: supabase/setup-cli@v1
+        if: steps.token.outputs.ok == 'true'
+        with:
+          version: latest
+
+      - name: Publica as funções
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          supabase functions deploy nenem-lembretes --project-ref "$PROJETO" --no-verify-jwt
+          supabase functions deploy nenem-calendario --project-ref "$PROJETO" --no-verify-jwt
+
+      - name: Endereço do app no login (Redirect URLs)
+        if: steps.token.outputs.ok == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          codigo=$(curl -sS -o /tmp/auth.json -w '%{http_code}' "https://api.supabase.com/v1/projects/$PROJETO/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN")
+          if [ "$codigo" != "200" ]; then
+            echo "::warning::Não foi possível ler a configuração do login (HTTP $codigo). Adicione $SITE em Authentication → URL Configuration → Redirect URLs."
+            exit 0
+          fi
+          atual=$(jq -r '.uri_allow_list // ""' /tmp/auth.json)
+          if printf '%s' "$atual" | tr ',' '\n' | grep -Fxq "$SITE"; then
+            echo "O endereço já está na lista."
+            exit 0
+          fi
+          novo=$( [ -n "$atual" ] && printf '%s,%s' "$atual" "$SITE" || printf '%s' "$SITE" )
+          jq -n --arg v "$novo" '{uri_allow_list: $v}' > /tmp/patch.json
+          codigo=$(curl -sS -o /tmp/resposta.json -w '%{http_code}' -X PATCH "https://api.supabase.com/v1/projects/$PROJETO/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H 'Content-Type: application/json' --data @/tmp/patch.json)
+          if [ "$codigo" -ge 200 ] && [ "$codigo" -lt 300 ]; then
+            echo "Endereço incluído nos Redirect URLs."
+          else
+            cat /tmp/resposta.json; echo
+            echo "::warning::Não foi possível incluir o endereço (HTTP $codigo). Adicione $SITE em Authentication → URL Configuration → Redirect URLs."
+          fi
