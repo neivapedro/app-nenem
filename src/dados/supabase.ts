@@ -177,6 +177,10 @@ export class RepositorioSupabase implements Repositorio {
   async cadastrar(email: string, senha: string) {
     const { data, error } = await this.sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: location.origin + import.meta.env.BASE_URL } });
     if (error) throw new Error(traduzirAuth(error.message));
+    // E-mail que já tem conta: o Supabase responde "ok" sem enviar e-mail nenhum (lista de identidades vazia)
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error('Esse e-mail já tem conta (é o mesmo login do Diário de Carga e do app-dieta). Toque em Entrar e use a mesma senha.');
+    }
     return { confirmarEmail: !data.session };
   }
 
