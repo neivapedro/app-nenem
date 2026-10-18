@@ -70,7 +70,7 @@ self.addEventListener('push', (e) => {
     d = { corpo: e.data && e.data.text() };
   }
   e.waitUntil(
-    self.registration.showNotification(d.titulo || 'Nenê', {
+    self.registration.showNotification(d.titulo || 'Heitor', {
       body: d.corpo || '',
       icon: BASE + 'icone-192.png',
       badge: BASE + 'icone-192.png',

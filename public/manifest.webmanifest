@@ -1,13 +1,13 @@
 {
-  "name": "Nenê · Acompanhamento do bebê",
-  "short_name": "Nenê",
+  "name": "Heitor",
+  "short_name": "Heitor",
   "description": "Mamadas, fraldas, sono e agenda do bebê, compartilhado entre os pais.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "lang": "pt-BR",
-  "background_color": "#0e0f13",
+  "background_color": "#8a6650",
   "theme_color": "#0e0f13",
   "icons": [
     { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },

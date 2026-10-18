@@ -33,7 +33,6 @@ Deno.serve(async (req) => {
     db.from('nenem_bebes').select('id, nome, nascimento').eq('familia_id', membro.familia_id),
   ]);
   const compromissos = (comp ?? []).map((c) => ({ ...c, hora: c.hora ? String(c.hora).slice(0, 5) : null })) as CompromissoIcs[];
-  const nomes = (bebes ?? []).map((b) => String(b.nome ?? '').trim()).filter(Boolean);
 
   const ics = montarIcs({
     compromissos,
@@ -41,7 +40,7 @@ Deno.serve(async (req) => {
     fuso,
     agora,
     site: SITE,
-    nomeCalendario: nomes.length ? `Nenê · ${nomes.join(' e ')}` : 'Nenê',
+    nomeCalendario: 'Heitor',
   });
   return new Response(ics, {
     headers: {
