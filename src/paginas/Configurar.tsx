@@ -72,7 +72,7 @@ export function Configurar() {
 
         {caminho === 'convite' ? (
           <>
-            <Campo rotulo="Código de convite" dica="O outro responsável gera o código em Ajustes → Família.">
+            <Campo rotulo="Código de convite" dica="O outro responsável gera o código em Mais → Ajustes → Família.">
               <input
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
