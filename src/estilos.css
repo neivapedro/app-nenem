@@ -79,10 +79,13 @@ a { color: var(--destaque); }
 
 .app { max-width: 640px; margin: 0 auto; padding: 0 16px calc(var(--nav-altura) + 28px + env(safe-area-inset-bottom)); }
 
+/* O cabeçalho ocupa a largura inteira da tela (sem as margens de 16px), com fundo sólido:
+   assim o iOS 26 usa a cor dele no topo em vez de desfocar o cabeçalho ("scroll edge effect") */
 .topo {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: calc(12px + env(safe-area-inset-top)) 0 12px;
+  margin: 0 -16px;
+  padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
   background: var(--fundo);
 }
 .topo .sub { color: var(--texto-2); font-size: 0.85rem; overflow-wrap: anywhere; }
