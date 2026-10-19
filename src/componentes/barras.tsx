@@ -34,6 +34,7 @@ export function BarrasDiarias({
   rotulo,
   rotulos,
   nomes,
+  formatarEixo,
 }: {
   dados: BarraDia[];
   formatar: (v: number) => string;
@@ -43,6 +44,8 @@ export function BarrasDiarias({
   rotulos?: string[];
   /** Nome de cada coluna para leitores de tela, ex.: "1º mês" */
   nomes?: string[];
+  /** Texto das marcas do eixo (padrão: o número) */
+  formatarEixo?: (v: number) => string;
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const max = Math.max(...dados.map((d) => d.valor), 0);
@@ -62,7 +65,7 @@ export function BarrasDiarias({
           <g key={v}>
             <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} className="grade-linha" />
             <text x={L - 5} y={y(v) + 3.5} textAnchor="end" className="eixo-texto">
-              {Number.isInteger(v) ? v : v.toFixed(1)}
+              {formatarEixo ? formatarEixo(v) : Number.isInteger(v) ? v : v.toFixed(1)}
             </text>
           </g>
         ))}

@@ -82,7 +82,7 @@ function Exportar() {
   }
 
   function copia() {
-    const { bebe, membros, compromissos, medidas, vacinas, remedios, leite, marcos, tarefas, documentos } = dados;
+    const { bebe, membros, compromissos, medidas, vacinas, remedios, leite, marcos, tarefas, documentos, cofrinho_contas, cofrinho_movimentos, cofrinho_metas, cofrinho_planos } = dados;
     const json = {
       app: 'Heitor',
       exportado_em: new Date().toISOString(),
@@ -97,6 +97,7 @@ function Exportar() {
       marcos,
       tarefas,
       documentos,
+      cofrinho: { contas: cofrinho_contas, movimentos: cofrinho_movimentos, metas: cofrinho_metas, plano: cofrinho_planos },
     };
     baixar(`heitor-copia-${hoje}.json`, JSON.stringify(json, null, 2), 'application/json');
   }

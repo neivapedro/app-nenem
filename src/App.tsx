@@ -6,7 +6,9 @@ import { useAgora, useDados } from './dados/contexto';
 import { idadeBebe, semanasGestacao } from './lib/datas';
 import { Agenda } from './paginas/Agenda';
 import { Configurar } from './paginas/Configurar';
+import { SincronizarDocumentos } from './componentes/doc-offline';
 import { SecaoDocumentos } from './componentes/documentos';
+import { Cofrinho } from './paginas/Cofrinho';
 import { SECOES_MAIS, TelaMais } from './paginas/Mais';
 import { Noite } from './paginas/Noite';
 import { Saude } from './paginas/Saude';
@@ -18,7 +20,8 @@ const ABAS = [
   { para: '/', rotulo: 'Hoje', icone: 'hoje' },
   { para: '/historico', rotulo: 'Histórico', icone: 'historico' },
   { para: '/saude', rotulo: 'Saúde', icone: 'saude' },
-  { para: '/documentos', rotulo: 'Documentos', icone: 'documento' },
+  { para: '/documentos', rotulo: 'Documentos', icone: 'documento', curto: 'Docs' },
+  { para: '/cofrinho', rotulo: 'Cofrinho', icone: 'cofrinho' },
   { para: '/agenda', rotulo: 'Agenda', icone: 'agenda' },
   { para: '/mais', rotulo: 'Mais', icone: 'menu' },
 ];
@@ -161,6 +164,7 @@ function Estrutura() {
               <Route path="/historico" element={<Historico />} />
               <Route path="/saude" element={<Saude />} />
               <Route path="/documentos" element={<SecaoDocumentos />} />
+              <Route path="/cofrinho" element={<Cofrinho />} />
               <Route path="/mais/documentos" element={<Navigate to="/documentos" replace />} />
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/mais" element={<TelaMais />} />
@@ -172,12 +176,22 @@ function Estrutura() {
         </main>
       </div>
       <AvisoRapido />
+      <SincronizarDocumentos />
       <nav className="nav" aria-label="Navegação principal">
         <div className="nav-itens">
           {ABAS.map((a) => (
             <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} className={({ isActive }) => (isActive ? 'ativo' : '')}>
               <Icone nome={a.icone} />
-              {a.rotulo}
+              {'curto' in a && a.curto ? (
+                <>
+                  <span className="rotulo-longo">{a.rotulo}</span>
+                  <span className="rotulo-curto" aria-hidden="true">
+                    {a.curto}
+                  </span>
+                </>
+              ) : (
+                a.rotulo
+              )}
             </NavLink>
           ))}
         </div>

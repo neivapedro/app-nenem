@@ -224,6 +224,43 @@ export function eventosTarefas(familiaId: string, nascimento: string | null, tar
   return eventos;
 }
 
+export interface DocumentoIcs {
+  id: string;
+  titulo: string;
+  validade: string | null;
+}
+
+/** Validade dos documentos: aviso 30 dias antes ("renovar") e no dia do vencimento */
+export function eventosDocumentos(documentos: DocumentoIcs[]): EventoDia[] {
+  const eventos: EventoDia[] = [];
+  for (const d of documentos) {
+    if (!d.validade) continue;
+    const data = d.validade.split('-').reverse().join('/');
+    eventos.push({ uid: `documento-${d.id}-${d.validade}`, inicio: d.validade, titulo: `📄 Vence: ${d.titulo}`, descricao: `Validade: ${data}. Depois de renovar, troque a foto na aba Documentos do app.`, aviso: 0 });
+    eventos.push({ uid: `documento-renovar-${d.id}-${d.validade}`, inicio: somarDias(d.validade, -30), titulo: `📄 Renovar: ${d.titulo}`, descricao: `Vence em 30 dias (${data}).`, aviso: 0 });
+  }
+  return eventos;
+}
+
+/** Dia do cofrinho nos próximos 12 meses (o mês atual só se ainda não depositaram e o dia não passou) */
+export function eventosCofrinho(familiaId: string, nomeBebe: string, diaAporte: number | null, aporteCentavos: number, depositouNoMes: boolean, hoje: string): EventoDia[] {
+  if (!diaAporte) return [];
+  const eventos: EventoDia[] = [];
+  const valor = aporteCentavos > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(aporteCentavos / 100).replace(/\u00a0/g, ' ') : null;
+  for (let i = 0; i < 12; i++) {
+    const dia = `${somarMeses(`${hoje.slice(0, 7)}-01`, i).slice(0, 7)}-${String(diaAporte).padStart(2, '0')}`;
+    if (i === 0 && (depositouNoMes || dia < hoje)) continue;
+    eventos.push({
+      uid: `cofrinho-${familiaId}-${dia.slice(0, 7)}`,
+      inicio: dia,
+      titulo: `🐷 Dia do cofrinho${nomeBebe ? ` do ${nomeBebe}` : ''}`,
+      descricao: valor ? `Depósito planejado: ${valor}. Depois de depositar, registre no app (aba Cofrinho).` : 'Depois de depositar, registre no app (aba Cofrinho).',
+      aviso: 60,
+    });
+  }
+  return eventos;
+}
+
 export interface EntradaIcs {
   compromissos: CompromissoIcs[];
   bebes: BebeIcs[];

@@ -14,6 +14,8 @@ export interface MembroAviso {
   lembrete_agenda: boolean;
   lembrete_remedio?: boolean;
   lembrete_vacina?: boolean;
+  lembrete_documento?: boolean;
+  lembrete_cofrinho?: boolean;
 }
 
 export interface Alimentacao {
@@ -229,4 +231,87 @@ export function avisosTarefas(
     avisos.push({ chave: `tarefa:${t.id}:${hoje}:${m.user_id}`, titulo: `📋 ${t.titulo}`, corpo: 'Prazo: hoje.', tag: `tarefa-${t.id}`, url: `${site}mais/primeiros-dias` });
   }
   return avisos;
+}
+
+export interface DocumentoAviso {
+  id: string;
+  titulo: string;
+  validade: string | null;
+}
+
+/** Dias antes do vencimento em que o aviso sai (às 8h) */
+export const AVISO_DOCUMENTO_DIAS = [30, 7, 0];
+
+/** Documento vencendo: 30 dias antes, 7 dias antes e no dia, às 8h. */
+export function avisosDocumentos(m: MembroAviso, documentos: DocumentoAviso[], agora: Date, site: string): Aviso[] {
+  if (m.lembrete_documento === false) return [];
+  const fuso = m.fuso_horario;
+  const desde8 = minutosDesde(agora, fuso, '08:00');
+  if (desde8 < 0 || desde8 > 12 * 60) return [];
+  const hoje = dataNoFuso(agora, fuso);
+  const avisos: Aviso[] = [];
+  for (const d of documentos) {
+    if (!d.validade) continue;
+    const faltam = diferencaDias(hoje, d.validade);
+    if (!AVISO_DOCUMENTO_DIAS.includes(faltam)) continue;
+    const data = d.validade.split('-').reverse().join('/');
+    avisos.push({
+      chave: `documento:${d.id}:${d.validade}:${faltam}:${m.user_id}`,
+      titulo: faltam === 0 ? `📄 ${d.titulo} vence hoje` : `📄 ${d.titulo} vence em ${faltam} dias`,
+      corpo: faltam === 0 ? `Validade: ${data}. Depois de renovar, troque a foto na aba Documentos.` : `Validade: ${data}. Dá tempo de renovar com calma.`,
+      tag: `documento-${d.id}`,
+      url: `${site}documentos`,
+    });
+  }
+  return avisos;
+}
+
+export interface CofrinhoAviso {
+  familiaId: string;
+  nomeBebe: string;
+  diaAporte: number | null;
+  aporteCentavos: number;
+  /** Já tem depósito registrado neste mês */
+  depositouNoMes: boolean;
+  /** Tem conta no cofrinho */
+  temConta?: boolean;
+  /** Data da última vez que anotaram o saldo do banco (null = nunca) */
+  ultimoSaldo?: string | null;
+}
+
+const brl = (centavos: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(centavos / 100).replace(/\u00a0/g, ' ');
+
+/** Dia do cofrinho: às 9h do dia do aporte (até as 21h), se o depósito do mês ainda não foi registrado. */
+export function avisoCofrinho(m: MembroAviso, c: CofrinhoAviso, agora: Date, site: string): Aviso | null {
+  if (m.lembrete_cofrinho === false || !c.diaAporte || c.depositouNoMes) return null;
+  const fuso = m.fuso_horario;
+  const hoje = dataNoFuso(agora, fuso);
+  if (Number(hoje.slice(8, 10)) !== c.diaAporte) return null;
+  const desde9 = minutosDesde(agora, fuso, '09:00');
+  if (desde9 < 0 || desde9 > 12 * 60) return null;
+  return {
+    chave: `cofrinho:${c.familiaId}:${hoje.slice(0, 7)}:${m.user_id}`,
+    titulo: `🐷 Dia do cofrinho ${c.nomeBebe ? `do ${c.nomeBebe}` : ''}`.trim(),
+    corpo: c.aporteCentavos > 0 ? `Depósito do mês: ${brl(c.aporteCentavos)}. Toque para registrar.` : 'Toque para registrar o depósito do mês.',
+    tag: 'cofrinho',
+    url: `${site}cofrinho`,
+  };
+}
+
+/** Dia 1 de cada mês, às 9h: lembra de anotar o saldo do banco se a última anotação tem mais de 20 dias. */
+export function avisoSaldoCofrinho(m: MembroAviso, c: CofrinhoAviso, agora: Date, site: string): Aviso | null {
+  if (m.lembrete_cofrinho === false || !c.temConta) return null;
+  const fuso = m.fuso_horario;
+  const hoje = dataNoFuso(agora, fuso);
+  if (hoje.slice(8, 10) !== '01') return null;
+  const desde9 = minutosDesde(agora, fuso, '09:00');
+  if (desde9 < 0 || desde9 > 12 * 60) return null;
+  if (c.ultimoSaldo && diferencaDias(c.ultimoSaldo, hoje) < 20) return null;
+  return {
+    chave: `cofrinho-saldo:${c.familiaId}:${hoje.slice(0, 7)}:${m.user_id}`,
+    titulo: '🐷 Quanto rendeu o cofrinho?',
+    corpo: 'Abra o app do banco, veja o saldo e anote no app. Leva 10 segundos.',
+    tag: 'cofrinho-saldo',
+    url: `${site}cofrinho?atualizar=1`,
+  };
 }

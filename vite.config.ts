@@ -16,7 +16,7 @@ function serviceWorkerVersionado(): Plugin {
     enforce: 'post',
     generateBundle(_opcoes, pacote) {
       this.emitFile({ type: 'asset', fileName: 'versao.json', source: JSON.stringify({ versao: VERSAO }) });
-      const arquivos = Object.keys(pacote).filter((f) => f.startsWith('assets/') && /\.(js|css)$/.test(f));
+      const arquivos = Object.keys(pacote).filter((f) => f.startsWith('assets/') && /\.(m?js|css)$/.test(f));
       const fonte = readFileSync(resolve(__dirname, 'pwa/sw.js'), 'utf8')
         .replace("'__VERSAO__'", `'${VERSAO}'`)
         .replace("['__ARQUIVOS__']", JSON.stringify(arquivos));

@@ -1,126 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDados } from '../dados/contexto';
 import { chaveDia, dataBr } from '../lib/datas';
 import {
   CATEGORIAS,
   combinaBusca,
+  formatoPadrao,
   guardado,
-  LIMITE_ARQUIVO,
+  KITS,
   MODELO_POR_ID,
   MODELOS,
+  montarKit,
+  naCarteira,
   NOME_CATEGORIA,
   nomeArquivo,
   situacaoValidade,
   SUGESTOES,
   tamanhoTexto,
+  type FormatoCopia,
+  type Kit,
   type ModeloDocumento,
 } from '../lib/documentos';
 import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
-import { reduzirFoto } from '../lib/imagem';
-import type { DocParaPdf } from '../lib/pdf-documentos';
 import type { ArquivoDocumento, CategoriaDocumento, Documento } from '../lib/tipos';
+import { arquivoPdf, compartilhar, ehImagem, enviarFotoPronta, nomeGuardado, obterArquivo, paraPdf, prepararEEnviar, useUrlArquivo } from './doc-arquivos';
+import { EditorFoto } from './doc-editor-foto';
+import { useEstadoOffline } from './doc-offline';
+import { Visualizador } from './doc-visualizador';
 import { Campo, Escolhas, Folha, Icone } from './ui';
 
-// ---------- Arquivos: endereço, envio e compartilhamento ----------
-
-/** Endereço temporário do arquivo (pedido ao servidor; precisa de internet) */
-function useUrlArquivo(caminho: string | null): string | null {
-  const { repo } = useDados();
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!caminho) return;
-    let vivo = true;
-    repo
-      .urlArquivo(caminho)
-      .then((u) => vivo && setUrl(u))
-      .catch(() => undefined);
-    return () => {
-      vivo = false;
-    };
-  }, [repo, caminho]);
-  return caminho ? url : null;
-}
-
-/**
- * Abre a folha de compartilhar do iPhone (WhatsApp, e-mail, AirDrop, Salvar em
- * Arquivos, Imprimir...). 'bloqueado' = o iPhone pediu um toque novo (o PDF
- * demorou para ficar pronto): o app mostra um botão para compartilhar.
- */
-async function compartilhar(arquivos: File[], titulo: string): Promise<'ok' | 'bloqueado'> {
-  if (navigator.canShare?.({ files: arquivos })) {
-    try {
-      await navigator.share({ files: arquivos, title: titulo });
-      return 'ok';
-    } catch (e) {
-      const nome = (e as Error).name;
-      if (nome === 'AbortError') return 'ok';
-      if (nome === 'NotAllowedError') return 'bloqueado';
-    }
-  }
-  // Sem a folha de compartilhar (computador): baixa
-  for (const arquivo of arquivos) {
-    const url = URL.createObjectURL(arquivo);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = arquivo.name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
-  }
-  return 'ok';
-}
-
-const ehPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
-const ehImagem = (f: File) => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp|gif)$/i.test(f.name);
-
-/** Nome do arquivo: câmera do iPhone manda "image.jpg"; aí vira "Foto 2.jpg" */
-function nomeGuardado(f: File, ordem: number): string {
-  if (ehPdf(f)) return f.name || `Documento ${ordem}.pdf`;
-  const base = f.name.replace(/\.[^.]+$/, '');
-  return /^(image|img_\d+|photo|imagem)$/i.test(base) || !base ? `Foto ${ordem}.jpg` : `${base}.jpg`;
-}
-
-/** Prepara (foto reduzida para JPEG nítido; PDF como está) e envia. */
-async function prepararEEnviar(repo: ReturnType<typeof useDados>['repo'], f: File, ordem: number): Promise<ArquivoDocumento> {
-  if (ehPdf(f)) {
-    if (f.size > LIMITE_ARQUIVO) throw new Error(`"${f.name}" tem ${tamanhoTexto(f.size)}; o limite é 20 MB.`);
-    const caminho = await repo.enviarArquivo(f, 'pdf');
-    return { caminho, nome: nomeGuardado(f, ordem), tipo: 'application/pdf', tamanho: f.size };
-  }
-  if (ehImagem(f)) {
-    // 2400 px no lado maior: dá para ler letras pequenas e ocupa pouco
-    const blob = await reduzirFoto(f, 2400, 0.86);
-    const caminho = await repo.enviarArquivo(blob, 'jpg');
-    return { caminho, nome: nomeGuardado(f, ordem), tipo: 'image/jpeg', tamanho: blob.size };
-  }
-  throw new Error(`"${f.name}" não é foto nem PDF. Para Word ou outros, salve como PDF antes.`);
-}
-
-/** Documentos no formato do gerador de PDF (baixa os arquivos) */
-async function paraPdf(repo: ReturnType<typeof useDados>['repo'], docs: Documento[], aoProgredir?: (feito: number, total: number) => void): Promise<DocParaPdf[]> {
-  const total = docs.reduce((s, d) => s + d.arquivos.length, 0);
-  let feito = 0;
-  const saida: DocParaPdf[] = [];
-  for (const d of docs) {
-    const arquivos = [];
-    for (const a of d.arquivos) {
-      const blob = await repo.baixarArquivo(a.caminho);
-      arquivos.push({ nome: a.nome, tipo: a.tipo, bytes: await blob.arrayBuffer() });
-      aoProgredir?.(++feito, total);
-    }
-    saida.push({
-      titulo: d.titulo,
-      categoria: NOME_CATEGORIA[d.categoria],
-      numero: d.numero,
-      data: d.data ? dataBr(d.data) : null,
-      validade: d.validade ? dataBr(d.validade) : null,
-      observacao: d.observacao,
-      arquivos,
-    });
-  }
-  return saida;
-}
+const qtd = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+const ehFoto = (a: ArquivoDocumento) => a.tipo.startsWith('image/');
 
 function ordenar(docs: Documento[]): Documento[] {
   const ordemModelo = new Map(MODELOS.map((m, i) => [m.id, i]));
@@ -134,10 +45,45 @@ function ordenar(docs: Documento[]): Documento[] {
   );
 }
 
+/** Gera o comprovante de vacinação (PDF) com as doses marcadas no app */
+async function gerarComprovanteVacinacao(dados: ReturnType<typeof useDados>): Promise<Uint8Array> {
+  const { bebe, vacinas, documentos, hoje } = dados;
+  if (!bebe) throw new Error('Cadastre o bebê primeiro.');
+  const [{ modeloCarteiraVacinacao }, { montarCarteiraVacinacao }] = await Promise.all([import('../lib/carteira-vacinacao'), import('../lib/pdf-documentos')]);
+  return montarCarteiraVacinacao(modeloCarteiraVacinacao(bebe, vacinas, documentos, hoje, new Date().toLocaleString('pt-BR')));
+}
+
+/** Estado comum dos botões que preparam um PDF e abrem o compartilhar */
+function usePreparo() {
+  const [preparando, setPreparando] = useState<string | null>(null);
+  const [pronto, setPronto] = useState<{ arquivo: File; titulo: string } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function rodar(titulo: string, fazer: (passo: (t: string) => void) => Promise<File | File[]>) {
+    setMsg(null);
+    setPronto(null);
+    try {
+      setPreparando('Preparando…');
+      const r = await fazer(setPreparando);
+      const lista = Array.isArray(r) ? r : [r];
+      setPreparando(null);
+      if ((await compartilhar(lista, titulo)) === 'bloqueado' && lista.length === 1) setPronto({ arquivo: lista[0], titulo });
+    } catch (e) {
+      setPreparando(null);
+      setMsg(traduzirErro(e));
+    }
+  }
+  const botaoPronto = pronto && (
+    <button className="botao" onClick={() => void compartilhar([pronto.arquivo], pronto.titulo)}>
+      <Icone nome="compartilhar" /> Pronto: toque para enviar ou imprimir
+    </button>
+  );
+  return { preparando, msg, setMsg, rodar, botaoPronto };
+}
+
 // ---------- Peças da tela ----------
 
 function Miniatura({ doc, modelo }: { doc?: Documento; modelo?: ModeloDocumento }) {
-  const primeiraFoto = doc?.arquivos.find((a) => a.tipo.startsWith('image/'))?.caminho ?? null;
+  const primeiraFoto = doc?.arquivos.find(ehFoto)?.caminho ?? null;
   const url = useUrlArquivo(primeiraFoto);
   if (!doc && modelo)
     return (
@@ -168,17 +114,13 @@ function EtiquetaValidade({ validade }: { validade: string | null }) {
 }
 
 function LinhaDocumento({ doc, aoAbrir }: { doc: Documento; aoAbrir: () => void }) {
-  const partes = [
-    doc.arquivos.length ? `${doc.arquivos.length} ${doc.arquivos.length === 1 ? 'arquivo' : 'arquivos'}` : doc.numero ? 'Só o número' : 'Sem arquivo',
-    doc.data && dataBr(doc.data),
-  ].filter(Boolean);
+  const partes = [doc.arquivos.length ? qtd(doc.arquivos.length, 'arquivo', 'arquivos') : doc.numero ? 'Só o número' : 'Sem arquivo', doc.data && dataBr(doc.data)].filter(Boolean);
   return (
     <button type="button" className="doc-linha" onClick={aoAbrir}>
       <Miniatura doc={doc} />
       <span className="cresce">
         <span className="doc-titulo">{doc.titulo}</span>
-        <span className="texto-2">{partes.join(' · ')}</span>{' '}
-        <EtiquetaValidade validade={doc.validade} />
+        <span className="texto-2">{partes.join(' · ')}</span> <EtiquetaValidade validade={doc.validade} />
       </span>
       <span className="seta" style={{ color: 'var(--texto-3)' }}>
         <Icone nome="seta" />
@@ -206,14 +148,47 @@ function CopiarNumero({ numero }: { numero: string }) {
   );
 }
 
+/** Cartão da carteira: a foto do documento de fundo, nome e número */
+function CartaoCarteira({ doc, aoAbrir }: { doc: Documento; aoAbrir: () => void }) {
+  const url = useUrlArquivo(doc.arquivos.find(ehFoto)?.caminho ?? null);
+  return (
+    <button type="button" className="carteira-cartao" onClick={aoAbrir} aria-label={`Mostrar ${doc.titulo}`}>
+      {url ? <img src={url} alt="" /> : <span className="carteira-icone"><Icone nome="documento" /></span>}
+      <span className="carteira-texto">
+        <strong>{doc.titulo}</strong>
+        {doc.numero && <span>{doc.numero}</span>}
+      </span>
+    </button>
+  );
+}
+
+function StatusOffline() {
+  const e = useEstadoOffline();
+  if (!e.total) return null;
+  const tudo = e.guardados >= e.total;
+  return (
+    <p className={`doc-offline ${tudo ? 'ok' : ''}`}>
+      <Icone nome="nuvem" />
+      {tudo
+        ? `Disponível sem internet neste celular (${qtd(e.total, 'arquivo', 'arquivos')}, ${tamanhoTexto(e.bytes)})`
+        : e.sincronizando
+          ? `Guardando cópia no celular para abrir sem internet: ${e.guardados} de ${e.total}…`
+          : `Sem internet agora: ${e.guardados} de ${e.total} arquivos já estão no celular. O resto vem quando a conexão voltar.`}
+    </p>
+  );
+}
+
 // ---------- Editar / novo ----------
+
+type Ajuste = { tipo: 'nova'; foto: File } | { tipo: 'existente'; indice: number; foto: Blob };
 
 function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento; novo: boolean; aoFechar: () => void; aoSalvar: (d: Documento) => void }) {
   const { repo, gravar, mostrarAviso, setErro } = useDados();
   const [d, setD] = useState<Documento>(inicial);
   const [enviando, setEnviando] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  // Arquivos enviados nesta edição: se cancelar, apaga do servidor
+  const [ajuste, setAjuste] = useState<Ajuste | null>(null);
+  // Arquivos enviados nesta edição: se cancelar, saem do servidor
   const enviados = useRef(new Set<string>());
   const camera = useRef<HTMLInputElement>(null);
   const galeria = useRef<HTMLInputElement>(null);
@@ -226,6 +201,11 @@ function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento
     aoFechar();
   };
 
+  const acrescentar = (novos: ArquivoDocumento[]) => {
+    for (const a of novos) enviados.current.add(a.caminho);
+    if (novos.length) setD((atual) => ({ ...atual, arquivos: [...atual.arquivos, ...novos] }));
+  };
+
   async function adicionar(lista: FileList | null) {
     const arquivos = [...(lista ?? [])];
     if (!arquivos.length) return;
@@ -235,15 +215,53 @@ function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento
     try {
       for (let i = 0; i < arquivos.length; i++) {
         setEnviando(arquivos.length > 1 ? `Enviando ${i + 1} de ${arquivos.length}…` : 'Enviando…');
-        const a = await prepararEEnviar(repo, arquivos[i], ++ordem);
-        enviados.current.add(a.caminho);
-        novos.push(a);
+        novos.push(await prepararEEnviar(repo, arquivos[i], ++ordem));
       }
     } catch (e) {
       setMsg(`${novos.length ? 'Parte dos arquivos foi enviada. ' : ''}Não deu para enviar: ${traduzirErro(e)}`);
     } finally {
       setEnviando(null);
-      if (novos.length) setD((atual) => ({ ...atual, arquivos: [...atual.arquivos, ...novos] }));
+      acrescentar(novos);
+    }
+  }
+
+  /** Foto ajustada (recortada e endireitada): envia e entra no lugar certo */
+  async function usarAjustada(blob: Blob) {
+    const a = ajuste;
+    setAjuste(null);
+    if (!a) return;
+    setEnviando('Enviando…');
+    setMsg(null);
+    try {
+      if (a.tipo === 'nova') {
+        if (blob === a.foto) acrescentar([await prepararEEnviar(repo, a.foto, d.arquivos.length + 1)]);
+        else acrescentar([await enviarFotoPronta(repo, blob, nomeGuardado(a.foto, d.arquivos.length + 1))]);
+      } else {
+        const antigo = d.arquivos[a.indice];
+        const novo = await enviarFotoPronta(repo, blob, antigo.nome);
+        enviados.current.add(novo.caminho);
+        if (enviados.current.has(antigo.caminho)) {
+          enviados.current.delete(antigo.caminho);
+          void repo.excluirArquivos([antigo.caminho]).catch(() => undefined);
+        }
+        setD((atual) => ({ ...atual, arquivos: atual.arquivos.map((x, i) => (i === a.indice ? novo : x)) }));
+      }
+    } catch (e) {
+      setMsg(`Não deu para enviar: ${traduzirErro(e)}`);
+    } finally {
+      setEnviando(null);
+    }
+  }
+
+  async function ajustarExistente(i: number) {
+    try {
+      setEnviando('Abrindo…');
+      const blob = await obterArquivo(repo, d.arquivos[i].caminho);
+      setAjuste({ tipo: 'existente', indice: i, foto: blob });
+    } catch (e) {
+      setMsg(traduzirErro(e));
+    } finally {
+      setEnviando(null);
     }
   }
 
@@ -254,7 +272,7 @@ function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento
     if (enviando) return setMsg('Espere terminar o envio dos arquivos.');
     const final: Documento = { ...d, titulo, numero: d.numero?.trim() || null, observacao: d.observacao?.trim() || null };
     gravar({ tipo: 'colecao', colecao: 'documentos', dado: final });
-    // Arquivos tirados na edição saem do servidor
+    // Arquivos tirados ou trocados na edição saem do servidor
     const ficam = new Set(final.arquivos.map((a) => a.caminho));
     const sairam = inicial.arquivos.filter((a) => !ficam.has(a.caminho)).map((a) => a.caminho);
     if (sairam.length) void repo.excluirArquivos(sairam).catch((err) => setErro(traduzirErro(err)));
@@ -271,7 +289,6 @@ function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento
 
   function tirar(i: number) {
     const a = d.arquivos[i];
-    // Enviado agora e tirado antes de salvar: apaga já
     if (enviados.current.has(a.caminho)) {
       enviados.current.delete(a.caminho);
       void repo.excluirArquivos([a.caminho]).catch(() => undefined);
@@ -280,135 +297,162 @@ function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento
   }
 
   return (
-    <Folha titulo={novo ? 'Novo documento' : 'Editar documento'} aoFechar={cancelar}>
-      <form className="pilha" onSubmit={salvar}>
-        {modelo ? (
-          <div>
-            <div className="doc-titulo">{modelo.titulo}</div>
-            <p className="texto-2">{modelo.dica}</p>
-          </div>
-        ) : (
-          <>
-            <Campo rotulo="Tipo" grupo>
-              <div className="chips">
-                {CATEGORIAS.map((c) => (
-                  <button key={c.id} type="button" className={`chip ${d.categoria === c.id ? 'ativo' : ''}`} onClick={() => setD({ ...d, categoria: c.id })}>
-                    {c.nome}
-                  </button>
-                ))}
-              </div>
-            </Campo>
-            <Campo rotulo="Nome do documento">
-              <input value={d.titulo} maxLength={200} onChange={(e) => setD({ ...d, titulo: e.target.value })} placeholder="Ex.: Receita do pediatra" autoCapitalize="sentences" />
-            </Campo>
-            {!d.titulo && SUGESTOES[d.categoria].length > 0 && (
-              <div className="chips" aria-label="Sugestões">
-                {SUGESTOES[d.categoria].map((s) => (
-                  <button key={s} type="button" className="chip" onClick={() => setD({ ...d, titulo: s })}>
-                    {s}
-                  </button>
+    <>
+      <Folha titulo={novo ? 'Novo documento' : 'Editar documento'} aoFechar={cancelar}>
+        <form className="pilha" onSubmit={salvar}>
+          {modelo ? (
+            <div>
+              <div className="doc-titulo">{modelo.titulo}</div>
+              <p className="texto-2">{modelo.dica}</p>
+            </div>
+          ) : (
+            <>
+              <Campo rotulo="Tipo" grupo>
+                <div className="chips">
+                  {CATEGORIAS.map((c) => (
+                    <button key={c.id} type="button" className={`chip ${d.categoria === c.id ? 'ativo' : ''}`} onClick={() => setD({ ...d, categoria: c.id })}>
+                      {c.nome}
+                    </button>
+                  ))}
+                </div>
+              </Campo>
+              <Campo rotulo="Nome do documento">
+                <input value={d.titulo} maxLength={200} onChange={(e) => setD({ ...d, titulo: e.target.value })} placeholder="Ex.: Receita do pediatra" autoCapitalize="sentences" />
+              </Campo>
+              {!d.titulo && SUGESTOES[d.categoria].length > 0 && (
+                <div className="chips" aria-label="Sugestões">
+                  {SUGESTOES[d.categoria].map((s) => (
+                    <button key={s} type="button" className="chip" onClick={() => setD({ ...d, titulo: s })}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          <Campo rotulo="Arquivos" grupo dica="Frente e verso? Tire uma foto de cada lado. Depois de tirar, o app pede para marcar as pontas do papel e endireita a foto.">
+            {d.arquivos.length > 0 && (
+              <div className="doc-arquivos" style={{ marginBottom: 8 }}>
+                {d.arquivos.map((a, i) => (
+                  <ArquivoTile
+                    key={a.caminho}
+                    arquivo={a}
+                    ordem={i + 1}
+                    aoTirar={() => tirar(i)}
+                    aoSubir={i > 0 ? () => mover(i) : undefined}
+                    aoAjustar={ehFoto(a) ? () => void ajustarExistente(i) : undefined}
+                  />
                 ))}
               </div>
             )}
-          </>
-        )}
-
-        <Campo rotulo="Arquivos" grupo dica="Frente e verso? Tire uma foto de cada lado. Dica: no app Arquivos do iPhone (⋯ → Digitalizar documentos) dá para escanear em PDF e anexar aqui.">
-          {d.arquivos.length > 0 && (
-            <div className="doc-arquivos" style={{ marginBottom: 8 }}>
-              {d.arquivos.map((a, i) => (
-                <ArquivoTile key={a.caminho} arquivo={a} ordem={i + 1} aoTirar={() => tirar(i)} aoSubir={i > 0 ? () => mover(i) : undefined} />
-              ))}
+            <div className="doc-botoes">
+              <button type="button" className="botao" disabled={!!enviando} onClick={() => camera.current?.click()}>
+                <Icone nome="camera" /> Tirar foto
+              </button>
+              <button type="button" className="botao" disabled={!!enviando} onClick={() => galeria.current?.click()}>
+                <Icone nome="imagem" /> Galeria
+              </button>
+              <button type="button" className="botao" disabled={!!enviando} onClick={() => arquivosRef.current?.click()}>
+                <Icone nome="pasta" /> Arquivos
+              </button>
             </div>
-          )}
-          <div className="doc-botoes">
-            <button type="button" className="botao" disabled={!!enviando} onClick={() => camera.current?.click()}>
-              <Icone nome="camera" /> Tirar foto
-            </button>
-            <button type="button" className="botao" disabled={!!enviando} onClick={() => galeria.current?.click()}>
-              <Icone nome="imagem" /> Galeria
-            </button>
-            <button type="button" className="botao" disabled={!!enviando} onClick={() => arquivosRef.current?.click()}>
-              <Icone nome="pasta" /> Arquivos
-            </button>
-          </div>
-          {enviando && <p className="mudo">{enviando}</p>}
-          <input
-            ref={camera}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => {
-              void adicionar(e.target.files);
-              e.target.value = '';
-            }}
-          />
-          <input
-            ref={galeria}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(e) => {
-              void adicionar(e.target.files);
-              e.target.value = '';
-            }}
-          />
-          <input
-            ref={arquivosRef}
-            type="file"
-            accept="application/pdf,.pdf,image/*"
-            multiple
-            hidden
-            onChange={(e) => {
-              void adicionar(e.target.files);
-              e.target.value = '';
-            }}
-          />
-        </Campo>
+            {enviando && <p className="mudo">{enviando}</p>}
+            <input
+              ref={camera}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f && ehImagem(f)) setAjuste({ tipo: 'nova', foto: f });
+              }}
+            />
+            <input
+              ref={galeria}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                const fs = e.target.files;
+                // Uma foto só: já abre o ajuste; várias: envia direto (dá para ajustar cada uma depois)
+                if (fs?.length === 1 && ehImagem(fs[0])) setAjuste({ tipo: 'nova', foto: fs[0] });
+                else void adicionar(fs);
+                e.target.value = '';
+              }}
+            />
+            <input
+              ref={arquivosRef}
+              type="file"
+              accept="application/pdf,.pdf,image/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                void adicionar(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </Campo>
 
-        {(modelo?.numero || !modelo) && (
-          <Campo rotulo={modelo?.numero ?? 'Número (opcional)'} dica="Fica na lista de números para copiar rápido.">
-            <input value={d.numero ?? ''} maxLength={100} onChange={(e) => setD({ ...d, numero: e.target.value })} inputMode={d.modelo_id === 'cpf' || d.modelo_id === 'cns' ? 'numeric' : 'text'} autoComplete="off" />
-          </Campo>
-        )}
-        <div className="grade">
-          <Campo rotulo="Data do documento">
-            <input type="date" value={d.data ?? ''} onChange={(e) => setD({ ...d, data: e.target.value || null })} />
-          </Campo>
-          {(modelo?.validade || !modelo) && (
-            <Campo rotulo="Validade (se tiver)">
-              <input type="date" value={d.validade ?? ''} onChange={(e) => setD({ ...d, validade: e.target.value || null })} />
+          {(modelo?.numero || !modelo) && (
+            <Campo rotulo={modelo?.numero ?? 'Número (opcional)'} dica="Fica na lista de números para copiar rápido.">
+              <input value={d.numero ?? ''} maxLength={100} onChange={(e) => setD({ ...d, numero: e.target.value })} inputMode={d.modelo_id === 'cpf' || d.modelo_id === 'cns' ? 'numeric' : 'text'} autoComplete="off" />
             </Campo>
           )}
-        </div>
-        <Campo rotulo="Anotação (opcional)">
-          <textarea value={d.observacao ?? ''} maxLength={2000} onChange={(e) => setD({ ...d, observacao: e.target.value })} placeholder="Ex.: original na pasta azul do armário" />
-        </Campo>
-        {msg && (
-          <div className="alerta erro" role="alert">
-            {msg}
+          <div className="grade">
+            <Campo rotulo="Data do documento">
+              <input type="date" value={d.data ?? ''} onChange={(e) => setD({ ...d, data: e.target.value || null })} />
+            </Campo>
+            {(modelo?.validade || !modelo) && (
+              <Campo rotulo="Validade (se tiver)">
+                <input type="date" value={d.validade ?? ''} onChange={(e) => setD({ ...d, validade: e.target.value || null })} />
+              </Campo>
+            )}
           </div>
-        )}
-        <button className="botao primario" disabled={!!enviando}>
-          Salvar
-        </button>
-      </form>
-    </Folha>
+          <Campo rotulo="Anotação (opcional)">
+            <textarea value={d.observacao ?? ''} maxLength={2000} onChange={(e) => setD({ ...d, observacao: e.target.value })} placeholder="Ex.: original na pasta azul do armário" />
+          </Campo>
+          {msg && (
+            <div className="alerta erro" role="alert">
+              {msg}
+            </div>
+          )}
+          <button className="botao primario" disabled={!!enviando}>
+            Salvar
+          </button>
+        </form>
+      </Folha>
+      {ajuste && <EditorFoto foto={ajuste.foto} aoCancelar={() => setAjuste(null)} aoPronto={(b) => void usarAjustada(b)} textoPular={ajuste.tipo === 'nova' ? 'Usar a foto como está' : undefined} />}
+    </>
   );
 }
 
-function ArquivoTile({ arquivo, ordem, aoTirar, aoSubir }: { arquivo: ArquivoDocumento; ordem: number; aoTirar?: () => void; aoSubir?: () => void }) {
-  const url = useUrlArquivo(arquivo.caminho);
-  const foto = arquivo.tipo.startsWith('image/');
+function ArquivoTile({
+  arquivo,
+  ordem,
+  aoTirar,
+  aoSubir,
+  aoAjustar,
+  aoAbrir,
+}: {
+  arquivo: ArquivoDocumento;
+  ordem: number;
+  aoTirar?: () => void;
+  aoSubir?: () => void;
+  aoAjustar?: () => void;
+  aoAbrir?: () => void;
+}) {
+  const url = useUrlArquivo(ehFoto(arquivo) ? arquivo.caminho : null);
   const conteudo = (
     <>
-      {foto && url ? (
+      {url ? (
         <img src={url} alt={arquivo.nome} loading="lazy" />
       ) : (
         <>
-          <Icone nome={foto ? 'imagem' : 'documento'} />
+          <Icone nome={ehFoto(arquivo) ? 'imagem' : 'documento'} />
           <span className="nome">{arquivo.nome}</span>
           <span className="mudo">{tamanhoTexto(arquivo.tamanho)}</span>
         </>
@@ -420,6 +464,11 @@ function ArquivoTile({ arquivo, ordem, aoTirar, aoSubir }: { arquivo: ArquivoDoc
     return (
       <div className="doc-arquivo">
         <span className="acoes-arquivo">
+          {aoAjustar && (
+            <button type="button" onClick={aoAjustar} aria-label={`Recortar e endireitar ${arquivo.nome}`}>
+              <Icone nome="recortar" />
+            </button>
+          )}
           {aoSubir && (
             <button type="button" onClick={aoSubir} aria-label={`Passar ${arquivo.nome} para antes`}>
               <Icone nome="subir" />
@@ -432,62 +481,50 @@ function ArquivoTile({ arquivo, ordem, aoTirar, aoSubir }: { arquivo: ArquivoDoc
         {conteudo}
       </div>
     );
-  // Toque abre o original (o iPhone mostra com zoom, e dá para compartilhar ou imprimir de lá)
-  return url ? (
-    <a className="doc-arquivo" href={url} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${arquivo.nome}`}>
+  return (
+    <button type="button" className="doc-arquivo" onClick={aoAbrir} aria-label={`Abrir ${arquivo.nome}`}>
       {conteudo}
-    </a>
-  ) : (
-    <div className="doc-arquivo">{conteudo}</div>
+    </button>
   );
 }
 
 // ---------- Ver ----------
 
-function FolhaVer({ doc, aoFechar, aoEditar }: { doc: Documento; aoFechar: () => void; aoEditar: () => void }) {
+const FORMATOS: { valor: FormatoCopia; rotulo: string }[] = [
+  { valor: 'cartao', rotulo: 'Cartão' },
+  { valor: 'meia', rotulo: 'Meia folha' },
+  { valor: 'folha', rotulo: 'Folha A4' },
+];
+
+function FolhaVer({ doc, aoFechar, aoEditar, aoMostrar }: { doc: Documento; aoFechar: () => void; aoEditar: () => void; aoMostrar: (pagina: number) => void }) {
   const { repo, bebe, nomeDe, gravar, mostrarAviso } = useDados();
-  const [preparando, setPreparando] = useState<string | null>(null);
-  const [pronto, setPronto] = useState<File | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const { preparando, msg, setMsg, rodar, botaoPronto } = usePreparo();
+  const [copia, setCopia] = useState(false);
+  const [formato, setFormato] = useState<FormatoCopia>(() => formatoPadrao(doc));
   const modelo = doc.modelo_id ? MODELO_POR_ID.get(doc.modelo_id) : undefined;
+  const fotos = doc.arquivos.filter(ehFoto);
+  const fixado = naCarteira(doc);
 
-  async function enviarPdf() {
-    setMsg(null);
-    setPronto(null);
-    try {
-      let arquivo: File;
+  const enviarPdf = () =>
+    rodar(doc.titulo, async (passo) => {
       const so = doc.arquivos.length === 1 ? doc.arquivos[0] : null;
-      if (so?.tipo === 'application/pdf') {
-        // Um PDF só: vai o original
-        setPreparando('Baixando…');
-        arquivo = new File([await repo.baixarArquivo(so.caminho)], nomeArquivo(doc.titulo, bebe?.nome), { type: 'application/pdf' });
-      } else {
-        setPreparando('Montando o PDF…');
-        const [mod, docs] = await Promise.all([import('../lib/pdf-documentos'), paraPdf(repo, [doc])]);
-        const { bytes, avisos } = await mod.montarPdfDocumentos(docs, null);
-        if (avisos.length) setMsg(avisos.join(' '));
-        arquivo = new File([bytes as BlobPart], nomeArquivo(doc.titulo, bebe?.nome), { type: 'application/pdf' });
-      }
-      setPreparando(null);
-      if ((await compartilhar([arquivo], doc.titulo)) === 'bloqueado') setPronto(arquivo);
-    } catch (e) {
-      setPreparando(null);
-      setMsg(`Não foi possível preparar o PDF: ${traduzirErro(e)}`);
-    }
-  }
+      if (so?.tipo === 'application/pdf') return new File([await obterArquivo(repo, so.caminho)], nomeArquivo(doc.titulo, bebe?.nome), { type: 'application/pdf' });
+      passo('Montando o PDF…');
+      const [mod, docs] = await Promise.all([import('../lib/pdf-documentos'), paraPdf(repo, [doc])]);
+      const { bytes, avisos } = await mod.montarPdfDocumentos(docs, null);
+      if (avisos.length) setMsg(avisos.join(' '));
+      return arquivoPdf(bytes, nomeArquivo(doc.titulo, bebe?.nome));
+    });
 
-  async function enviarOriginais() {
-    setMsg(null);
-    try {
-      setPreparando('Baixando…');
-      const arquivos = await Promise.all(doc.arquivos.map(async (a) => new File([await repo.baixarArquivo(a.caminho)], a.nome, { type: a.tipo })));
-      setPreparando(null);
-      await compartilhar(arquivos, doc.titulo);
-    } catch (e) {
-      setPreparando(null);
-      setMsg(`Não foi possível baixar os arquivos: ${traduzirErro(e)}`);
-    }
-  }
+  const enviarCopia = () =>
+    rodar(`Cópia – ${doc.titulo}`, async (passo) => {
+      passo('Montando a cópia…');
+      const [mod, [conv]] = await Promise.all([import('../lib/pdf-documentos'), paraPdf(repo, [{ ...doc, arquivos: fotos }])]);
+      const bytes = await mod.montarCopiaTamanhoReal(conv.arquivos, formato, [doc.titulo, bebe?.nome].filter(Boolean).join(' – '));
+      return arquivoPdf(bytes, nomeArquivo(`Cópia ${doc.titulo}`, bebe?.nome));
+    });
+
+  const enviarOriginais = () => rodar(doc.titulo, async () => Promise.all(doc.arquivos.map(async (a) => new File([await obterArquivo(repo, a.caminho)], a.nome, { type: a.tipo }))));
 
   function excluir() {
     if (!window.confirm(`Excluir "${doc.titulo}" e ${doc.arquivos.length ? 'os arquivos dele' : 'os dados'}? Não dá para desfazer.`)) return;
@@ -497,11 +534,17 @@ function FolhaVer({ doc, aoFechar, aoEditar }: { doc: Documento; aoFechar: () =>
     aoFechar();
   }
 
+  function alternarCarteira() {
+    gravar({ tipo: 'colecao', colecao: 'documentos', dado: { ...doc, fixado: !fixado } });
+    mostrarAviso({ texto: fixado ? 'Saiu da carteira' : 'Está na carteira, no topo da aba' });
+  }
+
   return (
     <Folha titulo={doc.titulo} aoFechar={aoFechar}>
       <div className="pilha">
         <div className="linha" style={{ gap: 6 }}>
           <span className="etiqueta">{NOME_CATEGORIA[doc.categoria]}</span>
+          {fixado && <span className="etiqueta bom">Na carteira</span>}
           <EtiquetaValidade validade={doc.validade} />
         </div>
         {modelo && !doc.arquivos.length && <p className="texto-2">{modelo.dica}</p>}
@@ -535,31 +578,51 @@ function FolhaVer({ doc, aoFechar, aoEditar }: { doc: Documento; aoFechar: () =>
           <>
             <div className="doc-arquivos">
               {doc.arquivos.map((a, i) => (
-                <ArquivoTile key={a.caminho} arquivo={a} ordem={i + 1} />
+                <ArquivoTile key={a.caminho} arquivo={a} ordem={i + 1} aoAbrir={() => aoMostrar(i)} />
               ))}
             </div>
-            <p className="mudo">Toque num arquivo para abrir em tela cheia (com zoom).</p>
-            <button className="botao primario" disabled={!!preparando} onClick={() => void enviarPdf()}>
-              <Icone nome="compartilhar" /> {preparando ?? 'Enviar ou salvar em PDF'}
+            <button className="botao primario" onClick={() => aoMostrar(0)}>
+              <Icone nome="olho" /> Mostrar em tela cheia
             </button>
-            {pronto && (
-              <button className="botao" onClick={() => void compartilhar([pronto], doc.titulo)}>
-                <Icone nome="compartilhar" /> PDF pronto: toque para enviar
+            <div className="grade">
+              <button className="botao" disabled={!!preparando} onClick={() => void enviarPdf()}>
+                <Icone nome="compartilhar" /> Enviar / imprimir
               </button>
+              <button className="botao" disabled={!!preparando || !fotos.length} onClick={() => setCopia(!copia)} aria-expanded={copia}>
+                <Icone nome="imprimir" /> Cópia
+              </button>
+            </div>
+            {copia && (
+              <div className="cartao-interno pilha-p">
+                <strong>Cópia em tamanho real</strong>
+                <p className="texto-2">Frente e verso na mesma folha, no tamanho do documento, como uma xerox. Na impressão, deixe em 100% (sem ajustar à página).</p>
+                <Escolhas opcoes={FORMATOS} valor={formato} aoMudar={setFormato} rotulo="Tamanho" />
+                <p className="mudo">{formato === 'cartao' ? 'Cartão: 8,6 × 5,4 cm (cartão do SUS, carteirinha, identidade, CNH).' : formato === 'meia' ? 'Meia folha: até 2 páginas por folha A4.' : 'Folha A4: uma página por folha.'}</p>
+                <button className="botao primario" disabled={!!preparando} onClick={() => void enviarCopia()}>
+                  <Icone nome="imprimir" /> Gerar cópia
+                </button>
+              </div>
             )}
-            {doc.arquivos.length > 1 || doc.arquivos[0].tipo !== 'application/pdf' ? (
+            {preparando && <p className="mudo">{preparando}</p>}
+            {botaoPronto}
+            {(doc.arquivos.length > 1 || fotos.length > 0) && (
               <button className="botao pequeno texto" disabled={!!preparando} onClick={() => void enviarOriginais()}>
                 Enviar os arquivos originais (fotos)
               </button>
-            ) : null}
+            )}
           </>
         ) : (
           <div className="alerta info">Ainda sem arquivo. Toque em Editar para tirar uma foto ou anexar o PDF.</div>
         )}
         {msg && <div className="alerta erro">{msg}</div>}
-        <button className="botao" onClick={aoEditar}>
-          Editar
-        </button>
+        <div className="grade">
+          <button className="botao" onClick={aoEditar}>
+            Editar
+          </button>
+          <button className="botao" onClick={alternarCarteira}>
+            <Icone nome="carteira" /> {fixado ? 'Tirar da carteira' : 'Pôr na carteira'}
+          </button>
+        </div>
         {doc.criado_por && <p className="mudo">Guardado por {nomeDe(doc.criado_por)}</p>}
         <button className="botao perigo" onClick={excluir}>
           <Icone nome="lixeira" /> Excluir
@@ -569,42 +632,40 @@ function FolhaVer({ doc, aoFechar, aoEditar }: { doc: Documento; aoFechar: () =>
   );
 }
 
-// ---------- Exportar vários ----------
+// ---------- Exportar vários / kits ----------
 
-function FolhaExportar({ docs, aoFechar }: { docs: Documento[]; aoFechar: () => void }) {
-  const { repo, bebe } = useDados();
-  const [marcados, setMarcados] = useState<Set<string>>(() => new Set(docs.filter((d) => guardado(d)).map((d) => d.id)));
+function FolhaExportar({ docs, kit, aoFechar, aoGuardar }: { docs: Documento[]; kit?: Kit; aoFechar: () => void; aoGuardar: (m: ModeloDocumento) => void }) {
+  const dados = useDados();
+  const { repo, bebe } = dados;
+  const montado = useMemo(() => (kit ? montarKit(kit, docs) : null), [kit, docs]);
+  const lista = montado ? montado.documentos : docs;
+  const [marcados, setMarcados] = useState<Set<string>>(() => new Set(lista.filter((d) => guardado(d)).map((d) => d.id)));
+  const [vacinacao, setVacinacao] = useState(montado?.incluiVacinacao ?? false);
   const [capa, setCapa] = useState(true);
-  const [preparando, setPreparando] = useState<string | null>(null);
-  const [pronto, setPronto] = useState<File | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-  const escolhidos = docs.filter((d) => marcados.has(d.id));
+  const { preparando, msg, setMsg, rodar, botaoPronto } = usePreparo();
+  const escolhidos = lista.filter((d) => marcados.has(d.id));
   const nomeBebe = bebe?.nome || 'bebê';
+  const titulo = kit ? `${kit.titulo} – ${nomeBebe}` : `Documentos – ${nomeBebe}`;
+  const total = escolhidos.length + (vacinacao ? 1 : 0);
 
-  async function gerar() {
-    setMsg(null);
-    setPronto(null);
-    try {
-      setPreparando('Baixando os arquivos…');
-      const [mod, lista] = await Promise.all([
-        import('../lib/pdf-documentos'),
-        paraPdf(repo, escolhidos, (feito, total) => setPreparando(`Baixando ${feito} de ${total}…`)),
-      ]);
-      setPreparando('Montando o PDF…');
+  const gerar = () =>
+    rodar(titulo, async (passo) => {
+      const [mod, convertidos] = await Promise.all([import('../lib/pdf-documentos'), paraPdf(repo, escolhidos, (feito, t) => passo(`Lendo ${feito} de ${t} arquivos…`))]);
+      if (vacinacao) {
+        passo('Montando o comprovante de vacinação…');
+        const b = await gerarComprovanteVacinacao(dados);
+        const buf = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+        convertidos.push({ titulo: 'Comprovante de vacinação (gerado pelo app)', categoria: 'Saúde', numero: null, data: dataBr(dados.hoje), validade: null, observacao: null, arquivos: [{ nome: 'vacinacao.pdf', tipo: 'application/pdf', bytes: buf }] });
+      }
+      passo('Montando o PDF…');
       const nasc = bebe?.nascimento ? `Nasceu em ${dataBr(chaveDia(bebe.nascimento))}` : '';
       const { bytes, avisos } = await mod.montarPdfDocumentos(
-        lista,
-        capa ? { titulo: `Documentos – ${nomeBebe}`, subtitulo: [nasc, `${lista.length} ${lista.length === 1 ? 'documento' : 'documentos'}`].filter(Boolean).join(' · '), geradoEm: new Date().toLocaleString('pt-BR') } : null,
+        convertidos,
+        capa ? { titulo, subtitulo: [nasc, qtd(convertidos.length, 'documento', 'documentos')].filter(Boolean).join(' · '), geradoEm: new Date().toLocaleString('pt-BR') } : null,
       );
       if (avisos.length) setMsg(avisos.join(' '));
-      const arquivo = new File([bytes as BlobPart], nomeArquivo('Documentos', bebe?.nome), { type: 'application/pdf' });
-      setPreparando(null);
-      if ((await compartilhar([arquivo], `Documentos – ${nomeBebe}`)) === 'bloqueado') setPronto(arquivo);
-    } catch (e) {
-      setPreparando(null);
-      setMsg(`Não foi possível gerar o PDF: ${traduzirErro(e)}`);
-    }
-  }
+      return arquivoPdf(bytes, nomeArquivo(kit ? kit.titulo : 'Documentos', bebe?.nome));
+    });
 
   const alternar = (id: string) =>
     setMarcados((m) => {
@@ -615,30 +676,52 @@ function FolhaExportar({ docs, aoFechar }: { docs: Documento[]; aoFechar: () => 
     });
 
   return (
-    <Folha titulo="Exportar em PDF" aoFechar={aoFechar}>
+    <Folha titulo={kit ? kit.titulo : 'Exportar em PDF'} aoFechar={aoFechar}>
       <div className="pilha">
-        <p className="texto-2">Escolha os documentos: o app junta tudo num PDF só, para enviar pelo WhatsApp ou e-mail, salvar em Arquivos ou imprimir.</p>
-        <div className="linha">
-          <button type="button" className="botao pequeno" onClick={() => setMarcados(new Set(docs.map((d) => d.id)))}>
-            Marcar todos
-          </button>
-          <button type="button" className="botao pequeno" onClick={() => setMarcados(new Set())}>
-            Desmarcar
-          </button>
-        </div>
+        <p className="texto-2">{kit ? `Os documentos desta situação num PDF só: para enviar, salvar em Arquivos ou imprimir.` : 'Escolha os documentos: o app junta tudo num PDF só, para enviar pelo WhatsApp ou e-mail, salvar em Arquivos ou imprimir.'}</p>
+        {!kit && (
+          <div className="linha">
+            <button type="button" className="botao pequeno" onClick={() => setMarcados(new Set(lista.map((d) => d.id)))}>
+              Marcar todos
+            </button>
+            <button type="button" className="botao pequeno" onClick={() => setMarcados(new Set())}>
+              Desmarcar
+            </button>
+          </div>
+        )}
         <div>
-          {docs.map((d) => (
+          {lista.map((d) => (
             <label key={d.id} className="marcar">
               <input type="checkbox" checked={marcados.has(d.id)} onChange={() => alternar(d.id)} />
               <span className="cresce">
                 <span className="doc-titulo">{d.titulo}</span>
                 <span className="texto-2">
-                  {NOME_CATEGORIA[d.categoria]} · {d.arquivos.length ? `${d.arquivos.length} ${d.arquivos.length === 1 ? 'arquivo' : 'arquivos'}` : 'só os dados'}
+                  {NOME_CATEGORIA[d.categoria]} · {d.arquivos.length ? qtd(d.arquivos.length, 'arquivo', 'arquivos') : 'só os dados'}
                 </span>
               </span>
             </label>
           ))}
+          <label className="marcar">
+            <input type="checkbox" checked={vacinacao} onChange={() => setVacinacao(!vacinacao)} />
+            <span className="cresce">
+              <span className="doc-titulo">Comprovante de vacinação</span>
+              <span className="texto-2">Gerado pelo app com as doses marcadas em Saúde → Vacinas</span>
+            </span>
+          </label>
         </div>
+        {montado && montado.faltam.length > 0 && (
+          <div className="cartao-interno pilha-p">
+            <strong>Ainda não guardados</strong>
+            {montado.faltam.map((m) => (
+              <div key={m.id} className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                <span className="texto-2">{m.titulo}</span>
+                <button type="button" className="botao pequeno" onClick={() => aoGuardar(m)}>
+                  Guardar
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <Campo rotulo="Capa com índice e números" grupo>
           <Escolhas
             opcoes={[
@@ -649,14 +732,10 @@ function FolhaExportar({ docs, aoFechar }: { docs: Documento[]; aoFechar: () => 
             aoMudar={setCapa}
           />
         </Campo>
-        <button className="botao primario" disabled={!escolhidos.length || !!preparando} onClick={() => void gerar()}>
-          <Icone nome="baixar" /> {preparando ?? `Gerar PDF (${escolhidos.length} ${escolhidos.length === 1 ? 'documento' : 'documentos'})`}
+        <button className="botao primario" disabled={!total || !!preparando} onClick={() => void gerar()}>
+          <Icone nome="compartilhar" /> {preparando ?? `Gerar PDF (${qtd(total, 'documento', 'documentos')})`}
         </button>
-        {pronto && (
-          <button className="botao" onClick={() => void compartilhar([pronto], `Documentos – ${nomeBebe}`)}>
-            <Icone nome="compartilhar" /> PDF pronto: toque para enviar
-          </button>
-        )}
+        {botaoPronto}
         {msg && <div className="alerta erro">{msg}</div>}
       </div>
     </Folha>
@@ -665,19 +744,33 @@ function FolhaExportar({ docs, aoFechar }: { docs: Documento[]; aoFechar: () => 
 
 // ---------- Tela ----------
 
-type Aberta = { modo: 'ver'; id: string } | { modo: 'editar'; doc: Documento; novo: boolean } | { modo: 'exportar' } | null;
+type Aberta =
+  | { modo: 'ver'; id: string }
+  | { modo: 'editar'; doc: Documento; novo: boolean }
+  | { modo: 'exportar'; kit?: Kit }
+  | { modo: 'mostrar'; id: string; pagina: number; voltar: boolean }
+  | null;
 
 export function SecaoDocumentos() {
-  const { documentos, bebe, membro, usuario, hoje } = useDados();
+  const dados = useDados();
+  const { documentos, bebe, membro, usuario, hoje } = dados;
   const [aberta, setAberta] = useState<Aberta>(null);
   const [busca, setBusca] = useState('');
   const [verOpcionais, setVerOpcionais] = useState(false);
+  const vacina = usePreparo();
 
   const doBebe = useMemo(() => ordenar(documentos.filter((d) => !bebe || d.bebe_id === bebe.id)), [documentos, bebe]);
   const porModelo = useMemo(() => new Map(doBebe.filter((d) => d.modelo_id).map((d) => [d.modelo_id!, d])), [doBebe]);
+  // Na carteira, primeiro os que mais se mostram (SUS, plano, certidão...)
+  const carteira = useMemo(() => {
+    const prioridade = ['cns', 'carteirinha', 'certidao', 'cin', 'passaporte', 'cpf'];
+    const peso = (d: Documento) => (d.modelo_id && prioridade.includes(d.modelo_id) ? prioridade.indexOf(d.modelo_id) : 99);
+    return doBebe.filter(naCarteira).sort((a, b) => peso(a) - peso(b));
+  }, [doBebe]);
   const livres = doBebe.filter((d) => !d.modelo_id || !MODELO_POR_ID.has(d.modelo_id));
   const principais = MODELOS.filter((m) => m.principal);
-  const opcionais = MODELOS.filter((m) => !m.principal);
+  const opcionais = MODELOS.filter((m) => !m.principal && m.categoria !== 'familia');
+  const daFamilia = MODELOS.filter((m) => m.categoria === 'familia');
   const feitos = principais.filter((m) => guardado(porModelo.get(m.id))).length;
   const numeros = doBebe.filter((d) => d.numero?.trim());
   const alertas = doBebe.filter((d) => {
@@ -719,20 +812,47 @@ export function SecaoDocumentos() {
         <Miniatura doc={d} modelo={m} />
         <span className="cresce">
           <span className="doc-titulo">{m.titulo}</span>
-          <span className="texto-2">{ok && d ? (d.arquivos.length ? `${d.arquivos.length} ${d.arquivos.length === 1 ? 'arquivo' : 'arquivos'}` : 'Só o número') : 'Toque para guardar'}</span>{' '}
-          {d && <EtiquetaValidade validade={d.validade} />}
+          <span className="texto-2">{ok && d ? (d.arquivos.length ? qtd(d.arquivos.length, 'arquivo', 'arquivos') : 'Só o número') : 'Toque para guardar'}</span> {d && <EtiquetaValidade validade={d.validade} />}
         </span>
         {ok ? <span className="etiqueta bom">Guardado</span> : <span className="etiqueta">Falta</span>}
       </button>
     );
   };
 
-  const docAberto = aberta?.modo === 'ver' ? doBebe.find((d) => d.id === aberta.id) : undefined;
+  const docAberto = aberta?.modo === 'ver' || aberta?.modo === 'mostrar' ? doBebe.find((d) => d.id === aberta.id) : undefined;
+  const mostrar = (d: Documento, pagina = 0, voltar = false) => setAberta({ modo: 'mostrar', id: d.id, pagina, voltar });
+
+  /** Do visualizador: manda os arquivos como estão (já ficam no celular, então sai na hora) */
+  const enviarDoVisualizador = async (doc: Documento) => {
+    try {
+      const arquivos = await Promise.all(doc.arquivos.map(async (a) => new File([await obterArquivo(dados.repo, a.caminho)], a.nome, { type: a.tipo })));
+      await compartilhar(arquivos, doc.titulo);
+    } catch (e) {
+      dados.setErro(traduzirErro(e));
+    }
+  };
 
   if (!bebe) return <div className="alerta">Cadastre o bebê em Ajustes para guardar os documentos.</div>;
 
   return (
     <div className="pilha">
+      <section aria-label="Carteira" className="pilha-p">
+        <div className="linha" style={{ justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0 }}>Carteira</h2>
+          {carteira.length > 0 && <span className="mudo">Toque para mostrar</span>}
+        </div>
+        {carteira.length ? (
+          <div className="carteira">
+            {carteira.map((d) => (
+              <CartaoCarteira key={d.id} doc={d} aoAbrir={() => mostrar(d)} />
+            ))}
+          </div>
+        ) : (
+          <p className="texto-2 cartao">Os documentos que vocês mais mostram (cartão do SUS, carteirinha do plano, certidão) aparecem aqui assim que tiverem foto. Qualquer outro também pode entrar: abra e toque em “Pôr na carteira”.</p>
+        )}
+        <StatusOffline />
+      </section>
+
       <label className="campo busca">
         <Icone nome="busca" />
         <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar (nome, número, anotação)" aria-label="Buscar documentos" />
@@ -748,9 +868,7 @@ export function SecaoDocumentos() {
 
       {resultados ? (
         <section className="cartao">
-          <h2>
-            {resultados.length} {resultados.length === 1 ? 'resultado' : 'resultados'}
-          </h2>
+          <h2>{qtd(resultados.length, 'resultado', 'resultados')}</h2>
           <div className="doc-lista">
             {resultados.map((d) => (
               <LinhaDocumento key={d.id} doc={d} aoAbrir={() => setAberta({ modo: 'ver', id: d.id })} />
@@ -763,19 +881,37 @@ export function SecaoDocumentos() {
           {alertas.length > 0 && (
             <div className="alerta">
               <Icone nome="alerta" />
-              <span>
-                {alertas.map((d) => `${d.titulo} ${situacaoValidade(d.validade, hoje) === 'vencido' ? 'venceu' : 'vence'} em ${dataBr(d.validade!)}`).join('; ')}.
-              </span>
+              <span>{alertas.map((d) => `${d.titulo} ${situacaoValidade(d.validade, hoje) === 'vencido' ? 'venceu' : 'vence'} em ${dataBr(d.validade!)}`).join('; ')}.</span>
             </div>
           )}
 
           <section className="cartao pilha-p">
-            <h2>Principais documentos</h2>
-            <div className="linha" style={{ justifyContent: 'space-between' }}>
-              <span className="texto-2">
-                {feitos} de {principais.length} guardados
-              </span>
+            <h2>Kits prontos</h2>
+            <p className="mudo">Um toque junta os documentos de cada situação num PDF só.</p>
+            <div className="menu-lista">
+              {KITS.map((k) => {
+                const m = montarKit(k, doBebe);
+                return (
+                  <button key={k.id} type="button" onClick={() => setAberta({ modo: 'exportar', kit: k })}>
+                    <Icone nome={k.icone} />
+                    <span className="cresce">
+                      <span style={{ display: 'block', fontWeight: 600 }}>{k.titulo}</span>
+                      <span className="texto-2">{m.faltam.length ? `${qtd(m.documentos.length + (m.incluiVacinacao ? 1 : 0), 'pronto', 'prontos')} · falta ${m.faltam.length}` : k.detalhe}</span>
+                    </span>
+                    <span className="seta">
+                      <Icone nome="seta" />
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          </section>
+
+          <section className="cartao pilha-p">
+            <h2>Principais documentos</h2>
+            <span className="texto-2">
+              {feitos} de {principais.length} guardados
+            </span>
             <div className="progresso" aria-hidden="true">
               <span style={{ width: `${(feitos / principais.length) * 100}%` }} />
             </div>
@@ -784,6 +920,12 @@ export function SecaoDocumentos() {
               {verOpcionais ? 'Esconder os opcionais' : `Ver também: ${opcionais.map((m) => m.titulo.split(' (')[0].replace('Resultado do ', '')).join(', ')}`}
             </button>
             {verOpcionais && <div className="doc-lista">{opcionais.map(linhaModelo)}</div>}
+          </section>
+
+          <section className="cartao pilha-p">
+            <h2>Documentos da família</h2>
+            <p className="mudo">Quase sempre pedidos junto com os do bebê (creche, plano, benefícios).</p>
+            <div className="doc-lista">{daFamilia.map(linhaModelo)}</div>
           </section>
 
           {numeros.length > 0 && (
@@ -796,7 +938,7 @@ export function SecaoDocumentos() {
                 <div key={d.id} className="doc-numero">
                   <span className="cresce">
                     <span className="texto-2" style={{ display: 'block' }}>
-                      {d.modelo_id ? (MODELO_POR_ID.get(d.modelo_id)?.numero ?? d.titulo) : d.titulo}
+                      {d.modelo_id ? (MODELO_POR_ID.get(d.modelo_id)?.numero ? `${MODELO_POR_ID.get(d.modelo_id)!.numero} · ${d.titulo.split(' (')[0]}` : d.titulo) : d.titulo}
                     </span>
                     <span className="valor">{d.numero}</span>
                   </span>
@@ -829,7 +971,7 @@ export function SecaoDocumentos() {
           {!livres.length && (
             <section className="cartao pilha-p">
               <h2>Receitas, exames e outros</h2>
-              <p className="texto-2">Tudo o que não está na lista acima: receitas, pedidos e resultados de exames, relatórios, guias do plano, matrícula da creche, autorização de viagem…</p>
+              <p className="texto-2">Tudo o que não está nas listas acima: receitas, pedidos e resultados de exames, relatórios, guias do plano, matrícula da creche…</p>
               <div className="chips">
                 {CATEGORIAS.filter((c) => c.id !== 'identificacao').map((c) => (
                   <button key={c.id} type="button" className="chip" onClick={() => novo(undefined, c.id)}>
@@ -840,9 +982,25 @@ export function SecaoDocumentos() {
             </section>
           )}
 
-          <section className="cartao">
-            <h2>Também no app</h2>
-            <nav className="menu-lista">
+          <section className="cartao pilha-p">
+            <h2>Gerados pelo app</h2>
+            <div className="menu-lista">
+              <button
+                type="button"
+                disabled={!!vacina.preparando}
+                onClick={() =>
+                  void vacina.rodar(`Comprovante de vacinação – ${bebe.nome || 'bebê'}`, async () => arquivoPdf(await gerarComprovanteVacinacao(dados), nomeArquivo('Comprovante de vacinação', bebe.nome)))
+                }
+              >
+                <Icone nome="vacina" />
+                <span className="cresce">
+                  <span style={{ display: 'block', fontWeight: 600 }}>Comprovante de vacinação (PDF)</span>
+                  <span className="texto-2">{vacina.preparando ?? 'Doses aplicadas, lotes e próximas doses'}</span>
+                </span>
+                <span className="seta">
+                  <Icone nome="compartilhar" />
+                </span>
+              </button>
               <Link to="/mais/resumo">
                 <Icone nome="grafico" />
                 <span className="cresce">
@@ -853,27 +1011,29 @@ export function SecaoDocumentos() {
                   <Icone nome="seta" />
                 </span>
               </Link>
-              <Link to="/saude">
-                <Icone nome="vacina" />
-                <span className="cresce">
-                  <span style={{ display: 'block', fontWeight: 600 }}>Vacinas e crescimento</span>
-                  <span className="texto-2">Doses aplicadas, lotes e percentis</span>
-                </span>
-                <span className="seta">
-                  <Icone nome="seta" />
-                </span>
-              </Link>
-            </nav>
+            </div>
+            {vacina.botaoPronto}
+            {vacina.msg && <div className="alerta erro">{vacina.msg}</div>}
           </section>
           <p className="mudo" style={{ textAlign: 'center' }}>
-            Os arquivos ficam guardados com segurança na nuvem de vocês: só a sua família vê.
+            Os arquivos ficam guardados com segurança na nuvem de vocês (só a sua família vê) e com uma cópia neste celular.
           </p>
         </>
       )}
 
-      {aberta?.modo === 'ver' && docAberto && <FolhaVer doc={docAberto} aoFechar={() => setAberta(null)} aoEditar={() => setAberta({ modo: 'editar', doc: docAberto, novo: false })} />}
+      {aberta?.modo === 'ver' && docAberto && (
+        <FolhaVer doc={docAberto} aoFechar={() => setAberta(null)} aoEditar={() => setAberta({ modo: 'editar', doc: docAberto, novo: false })} aoMostrar={(p) => mostrar(docAberto, p, true)} />
+      )}
+      {aberta?.modo === 'mostrar' && docAberto && (
+        <Visualizador
+          doc={docAberto}
+          inicio={aberta.pagina}
+          aoFechar={() => setAberta(aberta.voltar ? { modo: 'ver', id: docAberto.id } : null)}
+          aoCompartilhar={docAberto.arquivos.length ? () => void enviarDoVisualizador(docAberto) : undefined}
+        />
+      )}
       {aberta?.modo === 'editar' && <FolhaEditar inicial={aberta.doc} novo={aberta.novo} aoFechar={() => setAberta(null)} aoSalvar={(d) => setAberta({ modo: 'ver', id: d.id })} />}
-      {aberta?.modo === 'exportar' && <FolhaExportar docs={doBebe} aoFechar={() => setAberta(null)} />}
+      {aberta?.modo === 'exportar' && <FolhaExportar docs={doBebe} kit={aberta.kit} aoFechar={() => setAberta(null)} aoGuardar={(m) => abrirModelo(m)} />}
     </div>
   );
 }

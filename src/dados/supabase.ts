@@ -56,6 +56,8 @@ function paraMembro(d: any): Membro {
     // Colunas da Fase 2 (ausentes no banco antigo = padrão)
     lembrete_remedio: d.lembrete_remedio !== false,
     lembrete_vacina: d.lembrete_vacina !== false,
+    lembrete_documento: d.lembrete_documento !== false,
+    lembrete_cofrinho: d.lembrete_cofrinho !== false,
     token_calendario: d.token_calendario ?? null,
   };
 }
@@ -100,6 +102,10 @@ const TABELAS: Record<NomeColecao, { tabela: string; numeros: string[]; ordem: s
   marcos: { tabela: 'nenem_marcos', numeros: [], ordem: 'data' },
   tarefas: { tabela: 'nenem_tarefas', numeros: [], ordem: 'criado_em' },
   documentos: { tabela: 'nenem_documentos', numeros: [], ordem: 'criado_em' },
+  cofrinho_contas: { tabela: 'nenem_cofrinho_contas', numeros: [], ordem: 'criado_em' },
+  cofrinho_movimentos: { tabela: 'nenem_cofrinho_movimentos', numeros: ['valor_centavos'], ordem: 'data' },
+  cofrinho_metas: { tabela: 'nenem_cofrinho_metas', numeros: ['valor_centavos', 'idade_anos'], ordem: 'criado_em' },
+  cofrinho_planos: { tabela: 'nenem_cofrinho_planos', numeros: ['aporte_mensal_centavos', 'taxa_real', 'dia_aporte', 'idade_alvo'], ordem: 'criado_em' },
 };
 
 /** Só os campos do app (sem criado_em/atualizado_em) e números como número */
