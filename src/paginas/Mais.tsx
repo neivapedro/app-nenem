@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { SecaoChegada, useProgressoFamilia } from '../componentes/chegada';
+import { SecaoChegada } from '../componentes/chegada';
 import { SecaoDesenvolvimento } from '../componentes/desenvolvimento';
 import { SecaoAlimentacao, SecaoLeite } from '../componentes/leite-alimentacao';
 import { SecaoPrimeirosDias } from '../componentes/primeiros-dias';
@@ -18,40 +18,16 @@ export const SECOES_MAIS: { id: string; titulo: string; detalhe: string; icone: 
   { id: 'desenvolvimento', titulo: 'Desenvolvimento', detalhe: 'Marcos, primeiras vezes e foto do mês', icone: 'estrela', tipo: 'mamadeira' },
   { id: 'leite', titulo: 'Leite materno', detalhe: 'Extrações e estoque com validade', icone: 'extracao', tipo: 'mamada' },
   { id: 'alimentacao', titulo: 'Introdução alimentar', detalhe: 'Refeições e alimentos já oferecidos', icone: 'refeicao', tipo: 'mamadeira' },
-  { id: 'noite', titulo: 'Modo noite', detalhe: 'Tela escura com botões grandes para a madrugada', icone: 'lua', tipo: 'sono' },
   { id: 'exportar', titulo: 'Exportar dados', detalhe: 'Planilha e cópia de segurança', icone: 'baixar', tipo: 'saude' },
   { id: 'ajustes', titulo: 'Ajustes', detalhe: 'Bebê, família, avisos, calendário e conta', icone: 'ajustes', tipo: 'saude' },
 ];
 
 function Menu() {
-  const { bebe } = useDados();
-  const { feitas, total } = useProgressoFamilia();
-  const nome = bebe?.nome?.trim().split(' ')[0] || 'bebê';
-  // Em destaque até o bebê fazer 6 meses (ou até a família conferir tudo)
-  const idadeDias = bebe?.nascimento ? (Date.now() - new Date(bebe.nascimento).getTime()) / 86_400_000 : 0;
-  const destaque = idadeDias < 183 && feitas < total;
   return (
-    <>
-    {destaque && (
-      <Link to="/mais/chegada" className="cartao destaque-chegada">
-        <span className="cofrinho-emoji" aria-hidden="true">
-          🛡️
-        </span>
-        <span className="cresce">
-          <strong style={{ display: 'block' }}>A família está vacinada para o {nome}?</strong>
-          <span className="texto-2">
-            Coqueluche, gripe e mais: o que pais, avós e quem cuida precisam tomar. {feitas} de {total} conferidas.
-          </span>
-        </span>
-        <span className="seta">
-          <Icone nome="seta" />
-        </span>
-      </Link>
-    )}
     <section className="cartao">
       <nav className="menu-lista" aria-label="Mais">
         {SECOES_MAIS.map((s) => (
-          <Link key={s.id} to={s.id === 'noite' ? '/noite' : `/mais/${s.id}`}>
+          <Link key={s.id} to={`/mais/${s.id}`}>
             <Selo tipo={s.tipo} icone={s.icone} />
             <span className="cresce">
               <span style={{ display: 'block', fontWeight: 600 }}>{s.titulo}</span>
@@ -64,7 +40,6 @@ function Menu() {
         ))}
       </nav>
     </section>
-    </>
   );
 }
 
