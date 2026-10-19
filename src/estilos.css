@@ -85,12 +85,14 @@ a { color: var(--destaque); }
   background: var(--superficie); border-top: 1px solid var(--borda);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.nav-itens { display: grid; grid-template-columns: repeat(5, 1fr); width: 100%; max-width: 640px; }
+.nav-itens { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; max-width: 640px; }
 .nav a {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  height: var(--nav-altura); text-decoration: none; color: var(--texto-3); font-size: 0.72rem; font-weight: 500;
+  height: var(--nav-altura); text-decoration: none; color: var(--texto-3); font-size: 0.66rem; font-weight: 500; min-width: 0; white-space: nowrap; letter-spacing: -0.01em;
 }
 .nav a.ativo { color: var(--destaque); }
+/* 6 abas: em telas estreitas (iPhone SE/mini) a letra encolhe um pouco */
+@media (max-width: 380px) { .nav a { font-size: 0.6rem; letter-spacing: -0.02em; } }
 .nav svg { width: 22px; height: 22px; }
 
 .pilha { display: flex; flex-direction: column; gap: 14px; }
