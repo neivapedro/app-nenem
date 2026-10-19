@@ -15,7 +15,18 @@ import {
   notificacaoTeste,
   type EstadoNotificacao,
 } from '../lib/notificacoes';
-import type { Convite } from '../lib/tipos';
+import type { Convite, Membro, PreferenciasMembro } from '../lib/tipos';
+
+function preferencias(m: Membro): PreferenciasMembro {
+  return {
+    nome: m.nome,
+    lembrete_mamada: m.lembrete_mamada,
+    lembrete_mamada_min: m.lembrete_mamada_min,
+    lembrete_agenda: m.lembrete_agenda,
+    lembrete_remedio: m.lembrete_remedio,
+    lembrete_vacina: m.lembrete_vacina,
+  };
+}
 
 const TEXTO_ESTADO: Record<EstadoNotificacao, string> = {
   'sem-suporte': 'Este navegador não suporta avisos.',
@@ -169,17 +180,9 @@ function CartaoAvisos() {
     setEstado(await estadoNotificacao().catch(() => 'sem-suporte' as const));
   }
 
-  function mudar(p: Partial<{ lembrete_mamada: boolean; lembrete_mamada_min: number; lembrete_agenda: boolean }>) {
+  function mudar(p: Partial<PreferenciasMembro>) {
     if (!membro) return;
-    void executar((r) =>
-      r.salvarPreferencias({
-        nome: membro.nome,
-        lembrete_mamada: membro.lembrete_mamada,
-        lembrete_mamada_min: membro.lembrete_mamada_min,
-        lembrete_agenda: membro.lembrete_agenda,
-        ...p,
-      }),
-    );
+    void executar((r) => r.salvarPreferencias({ ...preferencias(membro), ...p }));
   }
 
   return (
@@ -233,7 +236,25 @@ function CartaoAvisos() {
           )}
           <label className="marcar">
             <input type="checkbox" checked={membro.lembrete_agenda} onChange={(e) => mudar({ lembrete_agenda: e.target.checked })} />
-            <span>Avisar dos compromissos da agenda</span>
+            <span>Avisar dos compromissos da agenda e dos prazos dos primeiros dias</span>
+          </label>
+          <label className="marcar">
+            <input type="checkbox" checked={membro.lembrete_vacina} onChange={(e) => mudar({ lembrete_vacina: e.target.checked })} />
+            <span>
+              Avisar das vacinas
+              <small className="texto-2" style={{ display: 'block' }}>
+                Na véspera, às 8h, e se alguma dose atrasar.
+              </small>
+            </span>
+          </label>
+          <label className="marcar">
+            <input type="checkbox" checked={membro.lembrete_remedio} onChange={(e) => mudar({ lembrete_remedio: e.target.checked })} />
+            <span>
+              Avisar a hora do próximo remédio
+              <small className="texto-2" style={{ display: 'block' }}>
+                Para remédios com intervalo definido (ex.: de 8 em 8 horas).
+              </small>
+            </span>
           </label>
           <p className="mudo">Cada responsável escolhe os próprios avisos. Eles chegam em até 5 minutos depois do horário.</p>
         </div>
@@ -256,14 +277,7 @@ function CartaoConta() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!membro || !nome.trim()) return;
-          void executar((r) =>
-            r.salvarPreferencias({
-              nome: nome.trim(),
-              lembrete_mamada: membro.lembrete_mamada,
-              lembrete_mamada_min: membro.lembrete_mamada_min,
-              lembrete_agenda: membro.lembrete_agenda,
-            }),
-          ).then((ok) => ok && setMsg('Nome salvo.'));
+          void executar((r) => r.salvarPreferencias({ ...preferencias(membro), nome: nome.trim() })).then((ok) => ok && setMsg('Nome salvo.'));
         }}
       >
         <div className="cresce">

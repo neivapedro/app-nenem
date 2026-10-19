@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Compromisso, Registro } from '../lib/tipos';
-import { aplicarFila, enfileirar, type ItemFila } from './fila';
+import { aplicarFila, enfileirar, LISTAS_VAZIAS, type ItemFila } from './fila';
 
 const reg = (id: string, inicio: string, ml = 60): Registro => ({
   id,
@@ -30,7 +30,7 @@ describe('fila offline', () => {
   });
 
   it('aplica sobre os dados do servidor, em ordem (mais recente primeiro)', () => {
-    const servidor = { bebe: null, registros: [reg('a', '2026-11-15T10:00:00.000Z'), reg('c', '2026-11-15T08:00:00.000Z')], compromissos: [] as Compromisso[] };
+    const servidor = { ...LISTAS_VAZIAS, bebe: null, registros: [reg('a', '2026-11-15T10:00:00.000Z'), reg('c', '2026-11-15T08:00:00.000Z')], compromissos: [] as Compromisso[] };
     const r = aplicarFila(servidor, [
       { tipo: 'registro', dado: reg('b', '2026-11-15T09:00:00.000Z') },
       { tipo: 'excluir', dado: { alvo: 'registro', id: 'c' } },

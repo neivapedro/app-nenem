@@ -22,7 +22,7 @@ export function Entrar() {
       else if (modo === 'cadastrar') {
         if (senha.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres.');
         const { confirmarEmail } = await repo.cadastrar(email.trim(), senha);
-        if (confirmarEmail) setMsg({ tipo: 'info', texto: 'Conta criada! Abra o link de confirmação enviado para o seu e-mail e depois entre.' });
+        if (confirmarEmail) setMsg({ tipo: 'info', texto: 'Conta criada! Abra o link de confirmação enviado para o seu e-mail (confira também o Spam ou Lixo eletrônico; pode levar alguns minutos) e depois entre.' });
       } else {
         await repo.recuperarSenha(email.trim());
         setMsg({ tipo: 'info', texto: 'Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.' });

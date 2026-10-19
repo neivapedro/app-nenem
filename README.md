@@ -60,7 +60,27 @@ Os avisos usam os segredos que o app-dieta já configurou no projeto: as chaves 
    - em **Ajustes → Família → Convidar**, envia o código para o outro responsável, que escolhe **Tenho um código**.
 4. **Ajustes → Avisos → Ativar avisos** e **Ajustes → Calendário → Adicionar ao Calendário → Assinar**.
 
+## Fase 2
+
+| Onde | O que faz |
+|---|---|
+| **Saúde → Vacinas** | Calendário do SUS (PNI 2026) ou SUS + particular (SBP 2026–2027) montado pela data de nascimento: aplicadas, já pode tomar, próximas e atrasadas (15 dias de tolerância). Marcar aplicada (data, SUS/particular, local, lote), "não vai tomar" e vacinas fora do calendário. Pendentes entram no Calendário do iPhone e no aviso da véspera. Itens com * pedem confirmação do pediatra. |
+| **Saúde → Crescimento** | Peso, comprimento e perímetro cefálico com as curvas da OMS (P3, P15, P50, P85, P97), percentil de cada medida e ganho de peso por dia. Tabelas LMS oficiais da OMS (`scripts/gerar-oms.py`). |
+| **Saúde → Remédios** | Remédios em uso com intervalo, "Dei agora", próxima dose, quem deu a última, aviso no celular na hora. |
+| **Saúde → Febre** | Temperatura com alerta (febre a partir de 37,5 °C, SBP 2025; em menores de 3 meses, procurar atendimento no mesmo dia). |
+| **Mais → Primeiros dias** | Testes do pezinho, orelhinha, olhinho, coraçãozinho e linguinha, consultas e documentos com prazos pela data de nascimento (no calendário e nos avisos). |
+| **Mais → Gráficos e relatório** | Médias e colunas por dia (7, 14 ou 30 dias) e PDF para o pediatra. |
+| **Mais → Desenvolvimento** | Marcos da Caderneta da Criança (7ª ed.) por faixa de idade, primeiras vezes com foto e foto do mês (fotos no armazenamento privado da família). |
+| **Mais → Leite materno** | Extrações e estoque com validade (12 h na geladeira, 15 dias no freezer, MS). |
+| **Mais → Introdução alimentar** | Refeições, aceitação, reações e alimentos já oferecidos. |
+| **Modo noite** | Ícone da lua no Hoje: tela preta, letras âmbar e botões grandes. |
+| **Mais → Atalhos da Siri** | "E aí Siri, fralda xixi": endereços secretos por pessoa (função `nenem-atalho`). |
+| **Mais → Exportar dados** | Planilha CSV e cópia completa em JSON. |
+
+O conteúdo de saúde vem do Ministério da Saúde, da SBP e da OMS (fontes na própria tela) e é apoio: a palavra final é do pediatra.
+
+Tudo da Fase 2 é configurado pelo mesmo workflow **Atualizar Supabase** (migração `20261020000000_nenem_fase2.sql`, funções e armazenamento das fotos).
+
 ## Próximas fases
 
-- **Fase 2:** peso, comprimento e perímetro cefálico com as curvas da OMS (percentis); vacinas do calendário do PNI (SUS) e da SBP (rede particular) com doses aplicadas, próximas e atrasadas, no calendário e nos avisos.
-- **Fase 3:** marcos do desenvolvimento, remédios, alergias, exames, documentos, relatório em PDF para o pediatra e introdução alimentar.
+- IA (registro por voz e perguntas sobre os dados), quando vocês quiserem.

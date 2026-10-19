@@ -2,7 +2,9 @@
 // app (vitest) e usado pela função nenem-lembretes (Deno), que roda a cada 5 min.
 
 import { EMOJI_TIPO, HORA_AVISO_DIA_INTEIRO, type CompromissoIcs } from './ics.ts';
-import { dataNoFuso, diferencaDias, horaNoFuso, localParaUtc } from './tempo.ts';
+import { inicioTarefa, TAREFAS_PADRAO } from './primeiros-dias.ts';
+import { dataNoFuso, diferencaDias, horaNoFuso, localParaUtc, somarDias } from './tempo.ts';
+import { calendarioDoBebe, type AplicacaoVacina, type Calendario } from './vacinas.ts';
 
 export interface MembroAviso {
   user_id: string;
@@ -10,6 +12,8 @@ export interface MembroAviso {
   lembrete_mamada: boolean;
   lembrete_mamada_min: number;
   lembrete_agenda: boolean;
+  lembrete_remedio?: boolean;
+  lembrete_vacina?: boolean;
 }
 
 export interface Alimentacao {
@@ -104,6 +108,125 @@ export function avisosAgenda(m: MembroAviso, compromissos: CompromissoIcs[], ago
       tag: `agenda-${c.id}`,
       url: `${site}agenda`,
     });
+  }
+  return avisos;
+}
+
+/** Janela do aviso de remédio depois da hora da dose */
+export const JANELA_REMEDIO_MIN = 120;
+
+/** Minutos desde a hora local `hhmm` de hoje (negativo = ainda não chegou) */
+function minutosDesde(agora: Date, fuso: string, hhmm: string): number {
+  return (agora.getTime() - localParaUtc(dataNoFuso(agora, fuso), hhmm, fuso).getTime()) / 60_000;
+}
+
+/**
+ * Vacinas: na véspera às 8h (doses do dia seguinte, num aviso só) e uma vez
+ * quando uma dose fica atrasada (até 30 dias depois).
+ */
+export function avisosVacina(
+  m: MembroAviso,
+  bebe: { id: string; nome: string; nascimento: string; calendario: Calendario },
+  aplicacoes: AplicacaoVacina[],
+  agora: Date,
+  site: string,
+): Aviso[] {
+  if (m.lembrete_vacina === false) return [];
+  const fuso = m.fuso_horario;
+  const hoje = dataNoFuso(agora, fuso);
+  const desde8 = minutosDesde(agora, fuso, '08:00');
+  if (desde8 < 0 || desde8 > 12 * 60) return [];
+  const lista = calendarioDoBebe(bebe.nascimento, bebe.calendario, aplicacoes, hoje);
+  const avisos: Aviso[] = [];
+  const amanha = somarDias(hoje, 1);
+  const deAmanha = lista.filter((d) => d.prevista === amanha && (d.situacao === 'proxima' || d.situacao === 'futura'));
+  if (deAmanha.length) {
+    const nomes = [...new Set(deAmanha.map((d) => d.dose.vacina.split(' (')[0].split(' /')[0]))];
+    avisos.push({
+      chave: `vacina-vespera:${bebe.id}:${amanha}:${m.user_id}`,
+      titulo: `💉 Amanhã: ${nomes.length === 1 ? 'vacina' : `${nomes.length} vacinas`}`,
+      corpo: nomes.join(', '),
+      tag: `vacina-${amanha}`,
+      url: `${site}saude?aba=vacinas`,
+    });
+  }
+  for (const d of lista) {
+    if (d.situacao !== 'atrasada') continue;
+    if (diferencaDias(d.prevista, hoje) > 45) continue;
+    avisos.push({
+      chave: `vacina-atrasada:${bebe.id}:${d.dose.id}:${m.user_id}`,
+      titulo: `💉 Vacina atrasada: ${d.dose.vacina.split(' (')[0]}`,
+      corpo: `${d.dose.dose}, indicada desde ${d.prevista.split('-').reverse().slice(0, 2).join('/')}. Se já tomou, marque no app.`,
+      tag: `vacina-${d.dose.id}`,
+      url: `${site}saude?aba=vacinas`,
+    });
+  }
+  return avisos;
+}
+
+export interface RemedioAviso {
+  id: string;
+  nome: string;
+  dose: string | null;
+  intervalo_h: number | null;
+  /** Última dose dada (id e início) */
+  ultima: { id: string; inicio: string } | null;
+}
+
+/** Remédio com intervalo: avisa quando chega a hora da próxima dose. */
+export function avisosRemedio(m: MembroAviso, remedios: RemedioAviso[], agora: Date, site: string): Aviso[] {
+  if (m.lembrete_remedio === false) return [];
+  const avisos: Aviso[] = [];
+  for (const r of remedios) {
+    if (!r.intervalo_h || !r.ultima) continue;
+    const proxima = new Date(r.ultima.inicio).getTime() + r.intervalo_h * 3_600_000;
+    const atraso = (agora.getTime() - proxima) / 60_000;
+    if (atraso < 0 || atraso > JANELA_REMEDIO_MIN) continue;
+    avisos.push({
+      chave: `remedio:${r.ultima.id}:${m.user_id}`,
+      titulo: `💊 Hora do remédio: ${r.nome}`,
+      corpo: `${r.dose ? `${r.dose} · ` : ''}última dose às ${horaNoFuso(new Date(r.ultima.inicio), m.fuso_horario)}. Toque em "Dei agora" no app.`,
+      tag: `remedio-${r.id}`,
+      url: `${site}saude?aba=remedios`,
+    });
+  }
+  return avisos;
+}
+
+/** Primeiros dias: às 8h do dia em que a janela abre (ou do prazo), se ainda não foi feito. */
+export function avisosTarefas(
+  m: MembroAviso,
+  familiaId: string,
+  nascimento: string | null,
+  tarefas: { item_id: string | null; id: string; titulo: string | null; data: string | null; feito_em: string | null }[],
+  agora: Date,
+  site: string,
+): Aviso[] {
+  if (!m.lembrete_agenda) return [];
+  const fuso = m.fuso_horario;
+  const hoje = dataNoFuso(agora, fuso);
+  const desde8 = minutosDesde(agora, fuso, '08:00');
+  if (desde8 < 0 || desde8 > 12 * 60) return [];
+  const feitas = new Set(tarefas.filter((t) => t.item_id && t.feito_em).map((t) => t.item_id));
+  const avisos: Aviso[] = [];
+  if (nascimento) {
+    for (const t of TAREFAS_PADRAO) {
+      if (t.prazo_dias === undefined || feitas.has(t.id)) continue;
+      const prazo = somarDias(nascimento, t.prazo_dias);
+      const dia = inicioTarefa(t, nascimento) ?? prazo;
+      if (dia !== hoje) continue;
+      avisos.push({
+        chave: `tarefa:${familiaId}:${t.id}:${dia}:${m.user_id}`,
+        titulo: `📋 ${t.titulo}`,
+        corpo: dia === prazo ? 'Prazo: hoje.' : `Até ${prazo.split('-').reverse().slice(0, 2).join('/')}.`,
+        tag: `tarefa-${t.id}`,
+        url: `${site}mais/primeiros-dias`,
+      });
+    }
+  }
+  for (const t of tarefas) {
+    if (t.item_id || t.feito_em || t.data !== hoje || !t.titulo) continue;
+    avisos.push({ chave: `tarefa:${t.id}:${hoje}:${m.user_id}`, titulo: `📋 ${t.titulo}`, corpo: 'Prazo: hoje.', tag: `tarefa-${t.id}`, url: `${site}mais/primeiros-dias` });
   }
   return avisos;
 }

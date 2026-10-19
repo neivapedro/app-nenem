@@ -2,7 +2,9 @@
 // Sem dependências externas: testado pelo app (vitest) e usado pela função
 // nenem-calendario (Deno).
 
+import { inicioTarefa, prazoTarefa, TAREFAS_PADRAO } from './primeiros-dias.ts';
 import { dataNoFuso, localParaUtc, somarDias, somarMeses } from './tempo.ts';
+import { calendarioDoBebe, type AplicacaoVacina, type Calendario } from './vacinas.ts';
 
 export type TipoCompromisso = 'consulta' | 'exame' | 'vacina' | 'outro';
 
@@ -126,19 +128,118 @@ function eventosMesversario(b: BebeIcs, fuso: string, agora: Date): string[] {
   return linhas;
 }
 
+/** Evento de dia inteiro (vacinas e prazos dos primeiros dias) */
+export interface EventoDia {
+  uid: string;
+  inicio: string;
+  /** Último dia (inclusive); vazio = só o dia do início */
+  fim?: string;
+  titulo: string;
+  descricao: string;
+  /** Aviso em minutos contados a partir das 8h do 1º dia (negativo = antes); vazio = sem aviso */
+  aviso?: number;
+}
+
+function eventoDia(e: EventoDia, agora: Date, site: string): string[] {
+  const linhas = [
+    'BEGIN:VEVENT',
+    `UID:${e.uid}@app-nenem`,
+    `DTSTAMP:${carimbo(agora)}`,
+    `DTSTART;VALUE=DATE:${soData(e.inicio)}`,
+    `DTEND;VALUE=DATE:${soData(somarDias(e.fim ?? e.inicio, 1))}`,
+    `SUMMARY:${escaparIcs(e.titulo)}`,
+    `DESCRIPTION:${escaparIcs([e.descricao, `App Heitor: ${site}`].filter(Boolean).join('\n\n'))}`,
+    `URL:${site}`,
+    'TRANSP:TRANSPARENT',
+  ];
+  if (e.aviso !== undefined) {
+    const [h, m] = HORA_AVISO_DIA_INTEIRO.split(':').map(Number);
+    linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${escaparIcs(e.titulo)}`, `TRIGGER:${duracaoIcs(h * 60 + m + e.aviso)}`, 'END:VALARM');
+  }
+  linhas.push('END:VEVENT');
+  return linhas;
+}
+
+const primeiroNome = (v: string) => v.split(' (')[0].split(' /')[0];
+
+/**
+ * Vacinas no calendário: as aplicadas (✓, sem aviso) e as pendentes agrupadas por
+ * dia, com aviso na véspera às 8h. Dose atrasada aparece hoje, marcada "atrasada".
+ */
+export function eventosVacinas(bebeId: string, nascimento: string, cal: Calendario, aplicacoes: AplicacaoVacina[], hoje: string): EventoDia[] {
+  const lista = calendarioDoBebe(nascimento, cal, aplicacoes, hoje);
+  const eventos: EventoDia[] = [];
+  const pendentes = new Map<string, { nomes: string[]; atrasada: boolean }>();
+  for (const d of lista) {
+    if (d.situacao === 'pulada') continue;
+    if (d.situacao === 'aplicada') {
+      if (d.aplicacao?.data) {
+        eventos.push({ uid: `vacina-${bebeId}-${d.dose.id}`, inicio: d.aplicacao.data, titulo: `✓ 💉 ${primeiroNome(d.dose.vacina)} (${d.dose.dose})`, descricao: 'Aplicada.' });
+      }
+      continue;
+    }
+    const atrasada = d.situacao === 'atrasada';
+    const dia = atrasada || d.prevista < hoje ? hoje : d.prevista;
+    const g = pendentes.get(dia) ?? { nomes: [], atrasada: false };
+    g.nomes.push(`${primeiroNome(d.dose.vacina)} (${d.dose.dose})`);
+    g.atrasada ||= atrasada;
+    pendentes.set(dia, g);
+  }
+  for (const [dia, g] of pendentes) {
+    eventos.push({
+      uid: `vacinas-${bebeId}-${dia}`,
+      inicio: dia,
+      titulo: `💉 ${g.nomes.length === 1 ? 'Vacina' : 'Vacinas'}${g.atrasada ? ' (atrasada)' : ''}: ${g.nomes.map((n) => n.split(' (')[0]).join(', ')}`,
+      descricao: `${g.nomes.join('\n')}\n\nMarque no app (Saúde → Vacinas) depois de aplicar.`,
+      aviso: dia === hoje ? 0 : -1440,
+    });
+  }
+  return eventos;
+}
+
+export interface TarefaIcs {
+  item_id: string | null;
+  id: string;
+  titulo: string | null;
+  data: string | null;
+  feito_em: string | null;
+}
+
+/** Prazos pendentes dos primeiros dias (lista padrão + itens criados por vocês) */
+export function eventosTarefas(familiaId: string, nascimento: string | null, tarefas: TarefaIcs[]): EventoDia[] {
+  const feitas = new Set(tarefas.filter((t) => t.item_id && t.feito_em).map((t) => t.item_id));
+  const eventos: EventoDia[] = [];
+  if (nascimento) {
+    for (const t of TAREFAS_PADRAO) {
+      const prazo = prazoTarefa(t, nascimento);
+      if (!prazo || feitas.has(t.id)) continue;
+      const inicio = inicioTarefa(t, nascimento) ?? prazo;
+      eventos.push({ uid: `tarefa-${familiaId}-${t.id}`, inicio, fim: prazo, titulo: `📋 ${t.titulo}`, descricao: t.detalhe, aviso: 0 });
+    }
+  }
+  for (const t of tarefas) {
+    if (t.item_id || t.feito_em || !t.data || !t.titulo) continue;
+    eventos.push({ uid: `tarefa-${t.id}`, inicio: t.data, titulo: `📋 ${t.titulo}`, descricao: '', aviso: 0 });
+  }
+  return eventos;
+}
+
 export interface EntradaIcs {
   compromissos: CompromissoIcs[];
   bebes: BebeIcs[];
+  /** Vacinas e prazos (eventos de dia inteiro) */
+  eventos?: EventoDia[];
   fuso: string;
   agora: Date;
   site: string;
   nomeCalendario?: string;
 }
 
-export function montarIcs({ compromissos, bebes, fuso, agora, site, nomeCalendario }: EntradaIcs): string {
+export function montarIcs({ compromissos, bebes, eventos: extras, fuso, agora, site, nomeCalendario }: EntradaIcs): string {
   const eventos = [
     ...compromissos.flatMap((c) => eventoCompromisso(c, fuso, agora, site)),
     ...bebes.flatMap((b) => eventosMesversario(b, fuso, agora)),
+    ...(extras ?? []).flatMap((e) => eventoDia(e, agora, site)),
   ];
   return (
     [

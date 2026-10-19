@@ -6,13 +6,14 @@ import { nomeDia, textoDuracao } from '../lib/datas';
 import { agruparPorDia, descrever, resumoDia } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 
-type Filtro = 'todos' | 'alimentacao' | 'fralda' | 'sono';
+type Filtro = 'todos' | 'alimentacao' | 'fralda' | 'sono' | 'saude';
 
 const FILTROS: { valor: Filtro; rotulo: string; tipos: TipoRegistro[] }[] = [
-  { valor: 'todos', rotulo: 'Tudo', tipos: ['mamada', 'mamadeira', 'fralda', 'sono'] },
+  { valor: 'todos', rotulo: 'Tudo', tipos: ['mamada', 'mamadeira', 'fralda', 'sono', 'remedio', 'temperatura', 'extracao', 'refeicao'] },
   { valor: 'alimentacao', rotulo: 'Mamadas', tipos: ['mamada', 'mamadeira'] },
   { valor: 'fralda', rotulo: 'Fraldas', tipos: ['fralda'] },
   { valor: 'sono', rotulo: 'Sono', tipos: ['sono'] },
+  { valor: 'saude', rotulo: 'Saúde', tipos: ['remedio', 'temperatura'] },
 ];
 
 export function Historico() {
