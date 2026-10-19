@@ -181,3 +181,162 @@ export async function montarPdfDocumentos(docs: DocParaPdf[], capa: Capa | null)
   pdf.setCreator('App Heitor');
   return { bytes: await pdf.save(), avisos };
 }
+
+// ---------- Cópia em tamanho real ----------
+
+/** Milímetros para pontos do PDF */
+const mm = (v: number) => (v * 72) / 25.4;
+
+export type FormatoCopiaPdf = 'cartao' | 'meia' | 'folha';
+
+/**
+ * Frente e verso (ou mais páginas) no tamanho do documento físico, para imprimir
+ * como cópia: cartão = 8,6 × 5,4 cm (com linha de corte), meia folha ou folha A4.
+ */
+export async function montarCopiaTamanhoReal(imagens: ArquivoParaPdf[], formato: FormatoCopiaPdf, rotulo: string): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const fonte = await pdf.embedFont(StandardFonts.Helvetica);
+  const limpo = limpador(fonte);
+  const embutidas = [];
+  for (const a of imagens) {
+    if (a.tipo === 'application/pdf') continue;
+    embutidas.push(a.tipo === 'image/png' ? await pdf.embedPng(a.bytes) : await pdf.embedJpg(a.bytes));
+  }
+  if (!embutidas.length) throw new Error('A cópia em tamanho real é feita a partir de fotos.');
+
+  if (formato === 'folha') {
+    for (const img of embutidas) {
+      const p = pdf.addPage(A4);
+      const caixaW = A4[0] - MARGEM * 2;
+      const caixaH = A4[1] - MARGEM * 2;
+      const k = Math.min(caixaW / img.width, caixaH / img.height);
+      p.drawImage(img, { x: (A4[0] - img.width * k) / 2, y: (A4[1] - img.height * k) / 2, width: img.width * k, height: img.height * k });
+    }
+  } else {
+    // Caixa de cada página do documento: cartão deitado (ou em pé, se a foto for em pé) ou meia folha
+    // Meia folha: duas por folha A4 (descontadas margens, cabeçalho e o espaço entre elas)
+    const meia = (A4[1] - MARGEM * 3 - 14) / 2;
+    const caixa = (deitada: boolean): [number, number] =>
+      formato === 'cartao' ? (deitada ? [mm(85.6), mm(54)] : [mm(54), mm(85.6)]) : deitada ? [A4[0] - MARGEM * 2, meia] : [meia * 0.707, meia];
+    const espaco = formato === 'cartao' ? mm(12) : MARGEM;
+    let p: PDFPage | null = null;
+    let y = 0;
+    for (const img of embutidas) {
+      const [cw, ch] = caixa(img.width >= img.height);
+      if (!p || y - ch < MARGEM - 0.5) {
+        p = pdf.addPage(A4);
+        p.drawText(cortar(limpo(`Cópia · ${rotulo}${formato === 'cartao' ? ' · tamanho real (8,6 × 5,4 cm): imprima em 100%, sem ajustar à página' : ''}`), fonte, 8, A4[0] - MARGEM * 2), {
+          x: MARGEM,
+          y: A4[1] - 24,
+          size: 8,
+          font: fonte,
+          color: CINZA,
+        });
+        y = A4[1] - MARGEM - 14;
+      }
+      const x = (A4[0] - cw) / 2;
+      const k = Math.min(cw / img.width, ch / img.height);
+      const w = img.width * k;
+      const h = img.height * k;
+      p.drawImage(img, { x: x + (cw - w) / 2, y: y - ch + (ch - h) / 2, width: w, height: h });
+      // Linha de corte
+      p.drawRectangle({ x, y: y - ch, width: cw, height: ch, borderColor: CINZA, borderWidth: 0.5, borderDashArray: [3, 3] });
+      y -= ch + espaco;
+    }
+  }
+  pdf.setTitle(`Cópia – ${rotulo}`);
+  pdf.setCreator('App Heitor');
+  return pdf.save();
+}
+
+// ---------- Comprovante de vacinação ----------
+
+export interface CarteiraVacinacaoPdf {
+  nome: string;
+  nascimento: string | null;
+  calendario: string;
+  identificacao: [string, string][];
+  aplicadas: [string, string, string, string][];
+  pendentes: [string, string, string, string][];
+  geradoEm: string;
+}
+
+/** Tabela simples: cabeçalho e linhas, quebrando de página quando precisa */
+function tabela(pdf: PDFDocument, estado: { p: PDFPage; y: number }, fontes: { n: PDFFont; b: PDFFont }, colunas: { titulo: string; largura: number }[], linhas: string[][], limpo: (s: string) => string) {
+  const x0 = MARGEM;
+  const alturaLinha = 15;
+  const cab = () => {
+    let x = x0;
+    for (const c of colunas) {
+      estado.p.drawText(limpo(c.titulo), { x, y: estado.y, size: 8.5, font: fontes.b, color: CINZA });
+      x += c.largura;
+    }
+    estado.y -= 6;
+    estado.p.drawLine({ start: { x: x0, y: estado.y }, end: { x: A4[0] - MARGEM, y: estado.y }, thickness: 0.5, color: CINZA });
+    estado.y -= 11;
+  };
+  cab();
+  for (const l of linhas) {
+    if (estado.y < MARGEM + 20) {
+      estado.p = pdf.addPage(A4);
+      estado.y = A4[1] - MARGEM - 10;
+      cab();
+    }
+    let x = x0;
+    l.forEach((v, i) => {
+      estado.p.drawText(cortar(limpo(v), fontes.n, 9, colunas[i].largura - 6), { x, y: estado.y, size: 9, font: fontes.n, color: ESCURO });
+      x += colunas[i].largura;
+    });
+    estado.y -= alturaLinha;
+  }
+}
+
+export async function montarCarteiraVacinacao(m: CarteiraVacinacaoPdf): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const n = await pdf.embedFont(StandardFonts.Helvetica);
+  const b = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const limpo = limpador(n);
+  const p = pdf.addPage(A4);
+  const estado = { p, y: A4[1] - MARGEM - 14 };
+  p.drawText(limpo('Comprovante de vacinação'), { x: MARGEM, y: estado.y, size: 20, font: b, color: ESCURO });
+  estado.y -= 26;
+  p.drawText(cortar(limpo(m.nome), b, 13, A4[0] - MARGEM * 2), { x: MARGEM, y: estado.y, size: 13, font: b, color: ESCURO });
+  estado.y -= 18;
+  const info = [m.nascimento && `Nascimento: ${m.nascimento}`, `Calendário: ${m.calendario}`, ...m.identificacao.map(([k, v]) => `${k}: ${v}`)].filter(Boolean) as string[];
+  for (const l of info) {
+    p.drawText(cortar(limpo(l), n, 10, A4[0] - MARGEM * 2), { x: MARGEM, y: estado.y, size: 10, font: n, color: ESCURO });
+    estado.y -= 14;
+  }
+  estado.y -= 12;
+  const largura = A4[0] - MARGEM * 2;
+  const cols = [
+    { titulo: 'Data', largura: largura * 0.14 },
+    { titulo: 'Vacina', largura: largura * 0.44 },
+    { titulo: 'Dose', largura: largura * 0.18 },
+    { titulo: 'Rede · local · lote', largura: largura * 0.24 },
+  ];
+  estado.p.drawText(limpo(`Doses aplicadas (${m.aplicadas.length})`), { x: MARGEM, y: estado.y, size: 12, font: b, color: ESCURO });
+  estado.y -= 18;
+  if (m.aplicadas.length) tabela(pdf, estado, { n, b }, cols, m.aplicadas, limpo);
+  else {
+    estado.p.drawText(limpo('Nenhuma dose marcada no app ainda.'), { x: MARGEM, y: estado.y, size: 10, font: n, color: CINZA });
+    estado.y -= 16;
+  }
+  if (m.pendentes.length) {
+    estado.y -= 14;
+    if (estado.y < MARGEM + 60) {
+      estado.p = pdf.addPage(A4);
+      estado.y = A4[1] - MARGEM - 10;
+    }
+    estado.p.drawText(limpo('Próximas doses'), { x: MARGEM, y: estado.y, size: 12, font: b, color: ESCURO });
+    estado.y -= 18;
+    tabela(pdf, estado, { n, b }, [{ ...cols[0], titulo: 'A partir de' }, cols[1], cols[2], { ...cols[3], titulo: 'Situação' }], m.pendentes, limpo);
+  }
+  const rodape = `Gerado pelo app Heitor em ${m.geradoEm} a partir das doses marcadas pela família. Não substitui a Caderneta da Criança nem o registro oficial (Meu SUS Digital).`;
+  const linhas = quebrar(limpo(rodape), n, 8, largura);
+  const pags = pdf.getPages();
+  linhas.forEach((l, i) => pags[pags.length - 1].drawText(l, { x: MARGEM, y: MARGEM - 4 + (linhas.length - 1 - i) * 10, size: 8, font: n, color: CINZA }));
+  pdf.setTitle(`Comprovante de vacinação – ${m.nome}`);
+  pdf.setCreator('App Heitor');
+  return pdf.save();
+}

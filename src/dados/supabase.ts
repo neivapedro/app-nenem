@@ -56,6 +56,7 @@ function paraMembro(d: any): Membro {
     // Colunas da Fase 2 (ausentes no banco antigo = padrão)
     lembrete_remedio: d.lembrete_remedio !== false,
     lembrete_vacina: d.lembrete_vacina !== false,
+    lembrete_documento: d.lembrete_documento !== false,
     token_calendario: d.token_calendario ?? null,
   };
 }

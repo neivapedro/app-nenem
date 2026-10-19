@@ -224,6 +224,24 @@ export function eventosTarefas(familiaId: string, nascimento: string | null, tar
   return eventos;
 }
 
+export interface DocumentoIcs {
+  id: string;
+  titulo: string;
+  validade: string | null;
+}
+
+/** Validade dos documentos: aviso 30 dias antes ("renovar") e no dia do vencimento */
+export function eventosDocumentos(documentos: DocumentoIcs[]): EventoDia[] {
+  const eventos: EventoDia[] = [];
+  for (const d of documentos) {
+    if (!d.validade) continue;
+    const data = d.validade.split('-').reverse().join('/');
+    eventos.push({ uid: `documento-${d.id}-${d.validade}`, inicio: d.validade, titulo: `📄 Vence: ${d.titulo}`, descricao: `Validade: ${data}. Depois de renovar, troque a foto na aba Documentos do app.`, aviso: 0 });
+    eventos.push({ uid: `documento-renovar-${d.id}-${d.validade}`, inicio: somarDias(d.validade, -30), titulo: `📄 Renovar: ${d.titulo}`, descricao: `Vence em 30 dias (${data}).`, aviso: 0 });
+  }
+  return eventos;
+}
+
 export interface EntradaIcs {
   compromissos: CompromissoIcs[];
   bebes: BebeIcs[];

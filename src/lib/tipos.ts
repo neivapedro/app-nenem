@@ -109,11 +109,12 @@ export interface Membro {
   lembrete_agenda: boolean;
   lembrete_remedio: boolean;
   lembrete_vacina: boolean;
+  lembrete_documento: boolean;
   token_calendario: string | null;
 }
 
 /** O que cada membro pode mudar em si mesmo */
-export type PreferenciasMembro = Pick<Membro, 'nome' | 'lembrete_mamada' | 'lembrete_mamada_min' | 'lembrete_agenda' | 'lembrete_remedio' | 'lembrete_vacina'>;
+export type PreferenciasMembro = Pick<Membro, 'nome' | 'lembrete_mamada' | 'lembrete_mamada_min' | 'lembrete_agenda' | 'lembrete_remedio' | 'lembrete_vacina' | 'lembrete_documento'>;
 
 export interface Compromisso {
   id: string;
@@ -211,7 +212,7 @@ export interface Tarefa extends Item {
   observacao: string | null;
 }
 
-export type CategoriaDocumento = 'identificacao' | 'saude' | 'exames' | 'plano' | 'escola' | 'viagem' | 'outros';
+export type CategoriaDocumento = 'identificacao' | 'saude' | 'exames' | 'plano' | 'escola' | 'viagem' | 'familia' | 'outros';
 
 export interface ArquivoDocumento {
   /** Caminho no armazenamento (bucket nenem-documentos): <familia>/<arquivo> */
@@ -234,6 +235,8 @@ export interface Documento extends Item {
   validade: string | null;
   observacao: string | null;
   arquivos: ArquivoDocumento[];
+  /** Fixado na carteira (null = o app decide pelo tipo do documento) */
+  fixado?: boolean | null;
 }
 
 /** Listas guardadas em tabelas próprias (mesma fila e mesmo tempo real dos registros) */

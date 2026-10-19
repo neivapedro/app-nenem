@@ -6,6 +6,7 @@ import { useAgora, useDados } from './dados/contexto';
 import { idadeBebe, semanasGestacao } from './lib/datas';
 import { Agenda } from './paginas/Agenda';
 import { Configurar } from './paginas/Configurar';
+import { SincronizarDocumentos } from './componentes/doc-offline';
 import { SecaoDocumentos } from './componentes/documentos';
 import { SECOES_MAIS, TelaMais } from './paginas/Mais';
 import { Noite } from './paginas/Noite';
@@ -172,6 +173,7 @@ function Estrutura() {
         </main>
       </div>
       <AvisoRapido />
+      <SincronizarDocumentos />
       <nav className="nav" aria-label="Navegação principal">
         <div className="nav-itens">
           {ABAS.map((a) => (

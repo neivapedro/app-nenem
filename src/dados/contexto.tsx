@@ -4,6 +4,7 @@ import { hojeLocal, inicioDoDia, somarDiasLocal } from '../lib/datas';
 import { ehErroDeRede, ehSessaoExpirada, traduzirErro } from '../lib/erros';
 import { esquecerAparelho, sincronizarInscricao } from '../lib/notificacoes';
 import { COLECOES, type Bebe, type Compromisso, type Membro, type Registro } from '../lib/tipos';
+import { apagarTudoLocal } from '../lib/offline-docs';
 import { apagarDadosLocais, aplicarFila, enfileirar, executarOperacao, gravarCache, gravarFila, lerCache, lerFila, LISTAS_VAZIAS, type ItemFila, type ListasColecoes, type Operacao } from './fila';
 import { RepositorioLocal } from './local';
 import type { Repositorio, Usuario } from './repositorio';
@@ -259,6 +260,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     await esquecerAparelho(repositorio).catch(() => undefined);
     await repositorio.sair();
     if (id) apagarDadosLocais(id);
+    await apagarTudoLocal();
     carregouNaSessao.current = false;
     await recarregar();
   }, [recarregar]);

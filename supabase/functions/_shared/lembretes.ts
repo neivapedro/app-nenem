@@ -14,6 +14,7 @@ export interface MembroAviso {
   lembrete_agenda: boolean;
   lembrete_remedio?: boolean;
   lembrete_vacina?: boolean;
+  lembrete_documento?: boolean;
 }
 
 export interface Alimentacao {
@@ -227,6 +228,39 @@ export function avisosTarefas(
   for (const t of tarefas) {
     if (t.item_id || t.feito_em || t.data !== hoje || !t.titulo) continue;
     avisos.push({ chave: `tarefa:${t.id}:${hoje}:${m.user_id}`, titulo: `📋 ${t.titulo}`, corpo: 'Prazo: hoje.', tag: `tarefa-${t.id}`, url: `${site}mais/primeiros-dias` });
+  }
+  return avisos;
+}
+
+export interface DocumentoAviso {
+  id: string;
+  titulo: string;
+  validade: string | null;
+}
+
+/** Dias antes do vencimento em que o aviso sai (às 8h) */
+export const AVISO_DOCUMENTO_DIAS = [30, 7, 0];
+
+/** Documento vencendo: 30 dias antes, 7 dias antes e no dia, às 8h. */
+export function avisosDocumentos(m: MembroAviso, documentos: DocumentoAviso[], agora: Date, site: string): Aviso[] {
+  if (m.lembrete_documento === false) return [];
+  const fuso = m.fuso_horario;
+  const desde8 = minutosDesde(agora, fuso, '08:00');
+  if (desde8 < 0 || desde8 > 12 * 60) return [];
+  const hoje = dataNoFuso(agora, fuso);
+  const avisos: Aviso[] = [];
+  for (const d of documentos) {
+    if (!d.validade) continue;
+    const faltam = diferencaDias(hoje, d.validade);
+    if (!AVISO_DOCUMENTO_DIAS.includes(faltam)) continue;
+    const data = d.validade.split('-').reverse().join('/');
+    avisos.push({
+      chave: `documento:${d.id}:${d.validade}:${faltam}:${m.user_id}`,
+      titulo: faltam === 0 ? `📄 ${d.titulo} vence hoje` : `📄 ${d.titulo} vence em ${faltam} dias`,
+      corpo: faltam === 0 ? `Validade: ${data}. Depois de renovar, troque a foto na aba Documentos.` : `Validade: ${data}. Dá tempo de renovar com calma.`,
+      tag: `documento-${d.id}`,
+      url: `${site}documentos`,
+    });
   }
   return avisos;
 }

@@ -27,7 +27,8 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    // Só apaga as versões antigas do app: a cópia dos documentos (heitor-documentos-*) fica
+    caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('app-nenem-') && k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
   );
 });
 

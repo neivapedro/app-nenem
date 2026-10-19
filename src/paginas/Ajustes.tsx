@@ -26,6 +26,7 @@ function preferencias(m: Membro): PreferenciasMembro {
     lembrete_agenda: m.lembrete_agenda,
     lembrete_remedio: m.lembrete_remedio,
     lembrete_vacina: m.lembrete_vacina,
+    lembrete_documento: m.lembrete_documento,
   };
 }
 
@@ -255,6 +256,15 @@ function CartaoAvisos() {
               Avisar a hora do próximo remédio
               <small className="texto-2" style={{ display: 'block' }}>
                 Para remédios com intervalo definido (ex.: de 8 em 8 horas).
+              </small>
+            </span>
+          </label>
+          <label className="marcar">
+            <input type="checkbox" checked={membro.lembrete_documento} onChange={(e) => mudar({ lembrete_documento: e.target.checked })} />
+            <span>
+              Avisar quando um documento for vencer
+              <small className="texto-2" style={{ display: 'block' }}>
+                30 dias antes, 7 dias antes e no dia (passaporte, carteirinha, receita...).
               </small>
             </span>
           </label>

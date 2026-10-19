@@ -108,6 +108,23 @@ const caminhos: Record<string, ReactNode> = {
       <path d="m20 20-3.5-3.5" />
     </>
   ),
+  girar: <path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5" />,
+  recortar: <path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2" />,
+  carteira: (
+    <>
+      <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+      <path d="M21 9h-5a3 3 0 0 0 0 6h5z" />
+    </>
+  ),
+  imprimir: <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" />,
+  olho: (
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  alfinete: <path d="M12 17v5M9 10.8V4h6v6.8l3 3.2v2H6v-2z" />,
+  nuvem: <path d="M17.5 19H8a6 6 0 1 1 5.7-7.9A4.5 4.5 0 1 1 17.5 19zM9 14l2 2 4-4" />,
   subir: <path d="m18 15-6-6-6 6" />,
   vacina: <path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6" />,
 };

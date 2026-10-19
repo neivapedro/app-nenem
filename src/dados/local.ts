@@ -123,6 +123,7 @@ export class RepositorioLocal implements Repositorio {
       lembrete_agenda: true,
       lembrete_remedio: true,
       lembrete_vacina: true,
+      lembrete_documento: true,
       token_calendario: crypto.randomUUID().replace(/-/g, ''),
     };
   }

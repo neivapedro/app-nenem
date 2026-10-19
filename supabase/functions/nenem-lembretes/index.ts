@@ -6,7 +6,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { avisoMamada, avisosAgenda, avisosRemedio, avisosTarefas, avisosVacina, type Alimentacao, type Aviso, type MembroAviso, type RemedioAviso } from '../_shared/lembretes.ts';
+import { avisoMamada, avisosAgenda, avisosDocumentos, avisosRemedio, avisosTarefas, avisosVacina, type Alimentacao, type Aviso, type DocumentoAviso, type MembroAviso, type RemedioAviso } from '../_shared/lembretes.ts';
 import type { AplicacaoVacina, Calendario } from '../_shared/vacinas.ts';
 import type { CompromissoIcs } from '../_shared/ics.ts';
 import { dataNoFuso, somarDias } from '../_shared/tempo.ts';
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
   const { data: membros } = await db
     .from('nenem_membros')
-    .select('familia_id, user_id, fuso_horario, lembrete_mamada, lembrete_mamada_min, lembrete_agenda, lembrete_remedio, lembrete_vacina')
+    .select('*')
     .in('user_id', [...porUsuario.keys()]);
 
   // Dados de cada família, buscados uma vez só
@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
     vacinas: AplicacaoVacina[];
     remedios: RemedioAviso[];
     tarefas: { item_id: string | null; id: string; titulo: string | null; data: string | null; feito_em: string | null }[];
+    documentos: DocumentoAviso[];
   }
   const familias = new Map<string, DadosFamilia>();
   async function dadosDaFamilia(fid: string, fuso: string): Promise<DadosFamilia> {
@@ -66,7 +67,7 @@ Deno.serve(async (req) => {
     const b0 = (bebes ?? []).find((b) => b.nascimento);
     const bebe = b0 ? { id: b0.id as string, nome: String(b0.nome ?? ''), nascimento: dataNoFuso(new Date(b0.nascimento), fuso), calendario: (b0.calendario_vacinal === 'sbp' ? 'sbp' : 'pni') as Calendario } : null;
     // Tabelas da Fase 2: se ainda não existirem, seguem vazias
-    const [{ data: vac }, { data: rem }, { data: tar }, { data: doses }] = await Promise.all([
+    const [{ data: vac }, { data: rem }, { data: tar }, { data: doses }, { data: docs }] = await Promise.all([
       db.from('nenem_vacinas').select('dose_id, status, data').eq('familia_id', fid),
       db.from('nenem_remedios').select('id, nome, dose, intervalo_h').eq('familia_id', fid).eq('ativo', true),
       db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', fid),
@@ -77,6 +78,8 @@ Deno.serve(async (req) => {
         .eq('tipo', 'remedio')
         .gte('inicio', new Date(agora.getTime() - 8 * 86_400_000).toISOString())
         .order('inicio', { ascending: false }),
+      // Documentos com validade (tabela nova: vazia se ainda não existir)
+      db.from('nenem_documentos').select('id, titulo, validade').eq('familia_id', fid).not('validade', 'is', null),
     ]);
     const ultimaPorRemedio = new Map<string, { id: string; inicio: string }>();
     for (const d of doses ?? []) {
@@ -106,7 +109,7 @@ Deno.serve(async (req) => {
       .gte('data', somarDias(hoje, -1))
       .lte('data', somarDias(hoje, 15));
     const compromissos = (comp ?? []).map((c) => ({ ...c, hora: c.hora ? String(c.hora).slice(0, 5) : null })) as CompromissoIcs[];
-    const d: DadosFamilia = { ultima, emAndamento, compromissos, bebe, vacinas: (vac ?? []) as AplicacaoVacina[], remedios, tarefas: tar ?? [] };
+    const d: DadosFamilia = { ultima, emAndamento, compromissos, bebe, vacinas: (vac ?? []) as AplicacaoVacina[], remedios, tarefas: tar ?? [], documentos: (docs ?? []) as DocumentoAviso[] };
     familias.set(fid, d);
     return d;
   }
@@ -123,6 +126,7 @@ Deno.serve(async (req) => {
     if (f.bebe) avisos.push(...avisosVacina(mf, f.bebe, f.vacinas, agora, SITE));
     avisos.push(...avisosRemedio(mf, f.remedios, agora, SITE));
     avisos.push(...avisosTarefas(mf, m.familia_id, f.bebe?.nascimento ?? null, f.tarefas, agora, SITE));
+    avisos.push(...avisosDocumentos(mf, f.documentos, agora, SITE));
     if (!avisos.length) continue;
 
     const lista = porUsuario.get(m.user_id) ?? [];
