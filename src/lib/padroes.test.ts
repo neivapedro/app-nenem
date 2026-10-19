@@ -77,3 +77,24 @@ describe('meses de vida', () => {
     ]);
   });
 });
+
+import { diasDoPeriodo, mediasPorMes } from './padroes';
+
+describe('relatório por período', () => {
+  it('dias do período e médias por mês do calendário', () => {
+    const registros = [mamadeira('a', '2026-11-30', 60), mamadeira('b', '2026-12-01', 90), mamadeira('c', '2026-12-01', 90)];
+    const dias = diasDoPeriodo(registros, '2026-11-29', '2026-12-02', new Date(em('2026-12-03', '12:00')));
+    expect(dias.map((d) => [d.dia, d.alimentacoes])).toEqual([
+      ['2026-11-29', 0],
+      ['2026-11-30', 1],
+      ['2026-12-01', 2],
+      ['2026-12-02', 0],
+    ]);
+    const meses = mediasPorMes(dias);
+    expect(meses.map((m) => [m.mes, m.dias, m.alimentacoes])).toEqual([
+      ['2026-11', 2, 0.5],
+      ['2026-12', 2, 1],
+    ]);
+    expect(meses[1].ml).toBe(90);
+  });
+});
