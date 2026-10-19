@@ -544,3 +544,11 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .aviso-saldo { border: 1px dashed color-mix(in srgb, var(--aviso) 60%, transparent); background: color-mix(in srgb, var(--aviso) 10%, transparent); color: var(--texto); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 0.82rem; text-align: left; cursor: pointer; }
 .campo .positivo, .positivo { color: var(--bom); }
 .campo .negativo, .negativo { color: var(--ruim); }
+
+/* Chegada do bebê */
+.chegada-heroi { background: linear-gradient(160deg, color-mix(in srgb, var(--c-fralda) 12%, var(--superficie)), var(--superficie) 70%); }
+.destaque-chegada { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--texto); border-color: color-mix(in srgb, var(--c-fralda) 40%, var(--borda)); background: linear-gradient(160deg, color-mix(in srgb, var(--c-fralda) 12%, var(--superficie)), var(--superficie) 80%); margin-bottom: 14px; }
+.destaque-chegada .cofrinho-emoji { font-size: 2.2rem; }
+.destaque-chegada .seta { color: var(--texto-3); }
+.lista-cuidados { margin: 10px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.cuidado-alerta { border-color: color-mix(in srgb, var(--ruim) 40%, var(--borda)); }

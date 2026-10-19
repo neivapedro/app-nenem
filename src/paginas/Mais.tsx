@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { SecaoChegada, useProgressoFamilia } from '../componentes/chegada';
 import { SecaoDesenvolvimento } from '../componentes/desenvolvimento';
 import { SecaoAlimentacao, SecaoLeite } from '../componentes/leite-alimentacao';
 import { SecaoPrimeirosDias } from '../componentes/primeiros-dias';
@@ -11,6 +12,7 @@ import { Ajustes } from './Ajustes';
 import { Resumo } from './Resumo';
 
 export const SECOES_MAIS: { id: string; titulo: string; detalhe: string; icone: string; tipo: Parameters<typeof Selo>[0]['tipo'] }[] = [
+  { id: 'chegada', titulo: 'Chegada do bebê', detalhe: 'Vacinas de quem convive e cuidados essenciais', icone: 'vacina', tipo: 'saude' },
   { id: 'primeiros-dias', titulo: 'Primeiros dias', detalhe: 'Testes do bebê, consultas e documentos', icone: 'lista', tipo: 'agenda' },
   { id: 'resumo', titulo: 'Gráficos e relatório', detalhe: 'Padrões da semana e PDF para o pediatra', icone: 'grafico', tipo: 'fralda' },
   { id: 'desenvolvimento', titulo: 'Desenvolvimento', detalhe: 'Marcos, primeiras vezes e foto do mês', icone: 'estrela', tipo: 'mamadeira' },
@@ -22,7 +24,30 @@ export const SECOES_MAIS: { id: string; titulo: string; detalhe: string; icone: 
 ];
 
 function Menu() {
+  const { bebe } = useDados();
+  const { feitas, total } = useProgressoFamilia();
+  const nome = bebe?.nome?.trim().split(' ')[0] || 'bebê';
+  // Em destaque até o bebê fazer 6 meses (ou até a família conferir tudo)
+  const idadeDias = bebe?.nascimento ? (Date.now() - new Date(bebe.nascimento).getTime()) / 86_400_000 : 0;
+  const destaque = idadeDias < 183 && feitas < total;
   return (
+    <>
+    {destaque && (
+      <Link to="/mais/chegada" className="cartao destaque-chegada">
+        <span className="cofrinho-emoji" aria-hidden="true">
+          🛡️
+        </span>
+        <span className="cresce">
+          <strong style={{ display: 'block' }}>A família está vacinada para o {nome}?</strong>
+          <span className="texto-2">
+            Coqueluche, gripe e mais: o que pais, avós e quem cuida precisam tomar. {feitas} de {total} conferidas.
+          </span>
+        </span>
+        <span className="seta">
+          <Icone nome="seta" />
+        </span>
+      </Link>
+    )}
     <section className="cartao">
       <nav className="menu-lista" aria-label="Mais">
         {SECOES_MAIS.map((s) => (
@@ -39,6 +64,7 @@ function Menu() {
         ))}
       </nav>
     </section>
+    </>
   );
 }
 
@@ -140,6 +166,7 @@ function Exportar() {
 export function TelaMais() {
   const { secao } = useParams();
   if (!secao) return <Menu />;
+  if (secao === 'chegada') return <SecaoChegada />;
   if (secao === 'primeiros-dias') return <SecaoPrimeirosDias />;
   if (secao === 'resumo') return <Resumo />;
   if (secao === 'desenvolvimento') return <SecaoDesenvolvimento />;
