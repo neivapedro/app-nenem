@@ -7,7 +7,8 @@ export interface ModeloRelatorio {
   subtitulo: string;
   periodo: string;
   destaques: [string, string][];
-  dias: RowInput[];
+  /** Tabela do resumo: por dia (períodos curtos) ou por mês (longos) */
+  resumo: { titulo: string; cabecalho: string[]; linhas: RowInput[] };
   medidas: RowInput[];
   vacinasAplicadas: RowInput[];
   vacinasPendentes: RowInput[];
@@ -76,7 +77,7 @@ export function gerarRelatorioPdf(m: ModeloRelatorio): Blob {
     });
   };
 
-  secao('Resumo por dia', ['Dia', 'Alimentações', 'No peito', 'Mamadeira', 'Fraldas', 'Xixi', 'Cocô', 'Sono'], m.dias, 'Sem registros no período.');
+  secao(m.resumo.titulo, m.resumo.cabecalho, m.resumo.linhas, 'Sem registros no período.');
   secao('Crescimento (percentis da OMS)', ['Data', 'Idade', 'Peso', 'Comprimento', 'Perímetro cefálico'], m.medidas, 'Sem medidas registradas.');
   secao('Vacinas aplicadas', ['Data', 'Vacina', 'Dose', 'Onde'], m.vacinasAplicadas, 'Nenhuma vacina marcada no app.');
   secao('Próximas vacinas e atrasadas', ['A partir de', 'Vacina', 'Dose', 'Situação'], m.vacinasPendentes, 'Nenhuma pendência.');

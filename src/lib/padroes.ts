@@ -106,3 +106,40 @@ export function mesesDeVida(registros: Registro[], nascimento: string, hoje: str
   }
   return meses;
 }
+
+/** Resumo de cada dia entre `de` e `ate` (inclusive), do mais antigo para o mais novo */
+export function diasDoPeriodo(registros: Registro[], de: string, ate: string, agora: Date): DiaResumo[] {
+  const dias: DiaResumo[] = [];
+  // Só os registros perto do período (o sono pode começar na véspera)
+  const ini = inicioDoDia(somarDiasLocal(de, -1)).getTime();
+  const fim = inicioDoDia(somarDiasLocal(ate, 1)).getTime();
+  const perto = registros.filter((r) => {
+    const t = new Date(r.inicio).getTime();
+    return t >= ini && t < fim;
+  });
+  for (let dia = de; dia <= ate && dias.length < 4000; dia = somarDiasLocal(dia, 1)) dias.push({ dia, ...resumoDia(perto, dia, agora) });
+  return dias;
+}
+
+export interface MesDoPeriodo {
+  /** AAAA-MM */
+  mes: string;
+  dias: number;
+  alimentacoes: number;
+  peitoMs: number;
+  ml: number;
+  fraldas: number;
+  xixi: number;
+  coco: number;
+  sonoMs: number;
+}
+
+/** Médias por dia de cada mês do calendário dentro dos dias dados */
+export function mediasPorMes(dias: DiaResumo[]): MesDoPeriodo[] {
+  const grupos = new Map<string, DiaResumo[]>();
+  for (const d of dias) grupos.set(d.dia.slice(0, 7), [...(grupos.get(d.dia.slice(0, 7)) ?? []), d]);
+  return [...grupos.entries()].map(([mes, ds]) => {
+    const m = (f: (d: DiaResumo) => number) => media(ds.map(f));
+    return { mes, dias: ds.length, alimentacoes: m((d) => d.alimentacoes), peitoMs: m((d) => d.peitoMs), ml: m((d) => d.ml), fraldas: m((d) => d.fraldas), xixi: m((d) => d.xixi), coco: m((d) => d.coco), sonoMs: m((d) => d.sonoMs) };
+  });
+}
