@@ -17,6 +17,8 @@ alter table public.nenem_bebes add constraint nenem_bebes_calendario_vacinal_che
 -- ---------- Membros: avisos novos ----------
 alter table public.nenem_membros add column if not exists lembrete_remedio boolean not null default true;
 alter table public.nenem_membros add column if not exists lembrete_vacina boolean not null default true;
+-- Os atalhos da Siri saíram do app: apaga o endereço secreto deles
+alter table public.nenem_membros drop column if exists token_atalho;
 
 -- ---------- Crescimento ----------
 create table if not exists public.nenem_medidas (
