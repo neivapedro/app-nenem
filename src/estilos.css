@@ -69,7 +69,9 @@
 html, body { margin: 0; background: var(--fundo); color: var(--texto); }
 body { min-height: 100dvh; overscroll-behavior-y: none; }
 /* Segurar o dedo em um link, botão ou imagem não abre a prévia do Safari: no app, fica no app */
-a, button, img, svg, [role='tab'], [role='radio'], label { -webkit-touch-callout: none; }
+a, button, img, svg, [role='tab'], [role='radio'] { -webkit-touch-callout: none; }
+/* Nos campos de texto o menu Copiar/Colar continua */
+input, textarea, select, [contenteditable] { -webkit-touch-callout: default; }
 a, button, [role='tab'], [role='radio'] { -webkit-user-select: none; user-select: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { touch-action: manipulation; }
@@ -553,9 +555,6 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 
 /* Chegada do bebê */
 .chegada-heroi { background: linear-gradient(160deg, color-mix(in srgb, var(--c-fralda) 12%, var(--superficie)), var(--superficie) 70%); }
-.destaque-chegada { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--texto); border-color: color-mix(in srgb, var(--c-fralda) 40%, var(--borda)); background: linear-gradient(160deg, color-mix(in srgb, var(--c-fralda) 12%, var(--superficie)), var(--superficie) 80%); margin-bottom: 14px; }
-.destaque-chegada .cofrinho-emoji { font-size: 2.2rem; }
-.destaque-chegada .seta { color: var(--texto-3); }
 .lista-cuidados { margin: 10px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
 .cuidado-alerta { border-color: color-mix(in srgb, var(--ruim) 40%, var(--borda)); }
 
@@ -569,8 +568,9 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .kpi-ponto { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .kpi-valor { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; overflow-wrap: anywhere; }
 .kpi-rodape { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; min-height: 28px; }
-.kpi-delta { font-size: 0.75rem; color: var(--texto-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.kpi-spark { width: 56%; height: 26px; overflow: visible; flex: none; }
+.kpi-delta { font-size: 0.75rem; color: var(--texto-2); white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 0; }
+.kpi-delta.mudo { white-space: normal; }
+.kpi-spark { flex: 1 1 auto; min-width: 0; max-width: 56%; height: 26px; overflow: visible; }
 .kpi-spark path { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: 0.85; }
 .kpi-spark circle { stroke: var(--superficie); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .cartao-titulo { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }

@@ -4,8 +4,8 @@ import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Proporcao } from '../com
 import { RelatorioPediatra } from '../componentes/relatorio-pediatra';
 import { useAgora, useDados } from '../dados/contexto';
 import { useRegistrosDesde } from '../dados/historico';
-import { dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
-import { diasPainel, ladosDoPeito, linhaDoTempo, mapaHorarios, mediasPeriodo, type MetricaMapa, variacao } from '../lib/painel';
+import { chaveDia, dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
+import { diasPainel, inicioDosDados, ladosDoPeito, periodoCoberto, linhaDoTempo, mapaHorarios, mediasPeriodo, type MetricaMapa, variacao } from '../lib/painel';
 import { duracaoMediaMamada, intervaloMedioAlimentacao } from '../lib/padroes';
 
 const PERIODOS = [7, 14, 30, 90] as const;
@@ -13,16 +13,21 @@ type Periodo = (typeof PERIODOS)[number] | 'meses';
 
 const um = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 const horas = (ms: number) => `${um(ms / 3_600_000)} h`;
-const horasCurto = (ms: number) => (ms >= 3_600_000 ? `${Math.floor(ms / 3_600_000)}h${String(Math.round((ms % 3_600_000) / 60_000)).padStart(2, '0')}` : `${Math.round(ms / 60_000)} min`);
+const horasCurto = (ms: number) => {
+  // Arredonda os minutos antes: 1h59m45s vira 2h00 (e não 1h60)
+  const min = Math.round(ms / 60_000);
+  return min >= 60 ? `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}` : `${min} min`;
+};
 
 /** Dias que cabem no mapa de horários (os mais recentes do período) */
 const DIAS_MAPA = 14;
 
 export function Resumo() {
-  const { hoje } = useDados();
+  const { hoje, bebe } = useDados();
   const agora = useAgora(60_000);
   const [periodo, setPeriodo] = useState<Periodo>(7);
-  const [sel, setSel] = useState<number | null>(null);
+  // O dia escolhido (pela data: não muda de dia sozinho à meia-noite)
+  const [selData, setSelData] = useState<string | null>(null);
   const [metrica, setMetrica] = useState<MetricaMapa>('alimentacoes');
 
   const n = periodo === 'meses' ? 7 : periodo;
@@ -35,9 +40,11 @@ export function Resumo() {
 
   const dias = useMemo(() => diasPainel(regs, de, hoje, agora), [regs, de, hoje, agora]);
   const anteriores = useMemo(() => diasPainel(regs, deAnterior, ateAnterior, agora), [regs, deAnterior, ateAnterior, agora]);
-  const atual = mediasPeriodo(dias, hoje);
-  const antes = mediasPeriodo(anteriores, hoje);
-  const temAnterior = anteriores.some((d) => d.alimentacoes || d.fraldas || d.sonoMs);
+  // Dias antes do nascimento (ou do primeiro registro) não entram nas médias
+  const inicioDados = useMemo(() => inicioDosDados(bebe?.nascimento ? chaveDia(bebe.nascimento) : null, regs), [bebe?.nascimento, regs]);
+  const atual = mediasPeriodo(dias, hoje, inicioDados);
+  const antes = mediasPeriodo(anteriores, hoje, inicioDados);
+  const temAnterior = periodoCoberto(deAnterior, inicioDados) && anteriores.some((d) => d.alimentacoes || d.fraldas || d.sonoMs);
   const delta = (a: number, b: number) => (temAnterior ? variacao(a, b) : null);
 
   const inicio = inicioDoDia(de);
@@ -47,7 +54,9 @@ export function Resumo() {
   const lados = ladosDoPeito(regs, inicio, agora, agora);
   const temMamadeira = dias.some((d) => d.ml > 0);
   const nomes = dias.map((d) => d.dia);
-  const selDia = sel !== null && sel < dias.length ? dias[sel] : null;
+  const sel = selData && nomes.includes(selData) ? nomes.indexOf(selData) : null;
+  const setSel = (i: number | null) => setSelData(i === null ? null : (nomes[i] ?? null));
+  const selDia = sel !== null ? dias[sel] : null;
 
   // Mapa: os últimos dias do período (o dia selecionado continua marcado)
   const diasMapa = nomes.slice(-DIAS_MAPA);
@@ -88,7 +97,9 @@ export function Resumo() {
     <div className="pilha painel">
       <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
       <p className="mudo painel-legenda-periodo">
-        {dataBr(de)} a {dataBr(hoje)} · comparado com os {n} dias anteriores · médias sem contar hoje
+        {dataBr(de)} a {dataBr(hoje)} · {temAnterior ? `comparado com os ${n} dias anteriores` : 'ainda sem o período anterior para comparar'}
+        {inicioDados && inicioDados > de ? ` · médias desde ${dataBr(inicioDados)}` : ''}
+        {!inicioDados || inicioDados < hoje ? ' · médias sem contar hoje' : ''}
       </p>
       {erro && <div className="alerta erro">Não deu para buscar os registros mais antigos: {erro}</div>}
       {!registros && <p className="mudo">Carregando os registros do período…</p>}
@@ -158,6 +169,7 @@ export function Resumo() {
           <span className="mudo">toque num dia para filtrar</span>
         </div>
         <ColunasEmpilhadas
+          key={n}
           rotulo="Alimentações por dia, peito e mamadeira"
           dias={nomes}
           series={[
@@ -203,6 +215,7 @@ export function Resumo() {
           ))}
         </div>
         <MapaCalor
+          key={`${n}-${metrica}`}
           dias={diasMapa}
           matriz={mapa}
           cor={metrica === 'sono' ? 'var(--c-sono)' : metrica === 'fraldas' ? 'var(--c-fralda)' : 'var(--c-mamada)'}
@@ -219,6 +232,7 @@ export function Resumo() {
           <span className="mudo">noite = 19h às 7h</span>
         </div>
         <ColunasEmpilhadas
+          key={n}
           rotulo="Horas de sono por dia, noite e dia"
           dias={nomes}
           series={[
@@ -236,6 +250,7 @@ export function Resumo() {
       <section className="cartao pilha-p" aria-label="Fraldas por dia">
         <h2>Fraldas por dia</h2>
         <ColunasEmpilhadas
+          key={n}
           rotulo="Fraldas por dia, só xixi e com cocô"
           dias={nomes}
           series={[
@@ -253,6 +268,7 @@ export function Resumo() {
         <section className="cartao pilha-p" aria-label="Mamadeira por dia">
           <h2>Mamadeira por dia (ml)</h2>
           <ColunasEmpilhadas
+          key={n}
             rotulo="Mililitros de mamadeira por dia"
             dias={nomes}
             series={[{ id: 'ml', nome: 'Mamadeira', cor: 'var(--c-mamadeira)', valores: dias.map((d) => d.ml) }]}

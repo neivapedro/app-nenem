@@ -1,6 +1,6 @@
 // Exportar tudo: um .zip com todos os dados desde o início (JSON e planilhas)
 // e os arquivos guardados (documentos, comprovantes do cofrinho e fotos).
-import { zipSync, strToU8, type Zippable } from 'fflate';
+import { strToU8, Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { NOME_CATEGORIA } from './documentos';
 import { chaveDia, horaCurta } from './datas';
 import { descrever, NOMES_TIPO } from './registros';
@@ -8,7 +8,7 @@ import type { ContaCofrinho, Documento, Marco, MovimentoCofrinho, Registro } fro
 
 export const celula = (v: unknown) => {
   const s = v === null || v === undefined ? '' : String(v);
-  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 /** BOM para o Excel abrir com acentos */
 const planilha = (linhas: unknown[][]) => '﻿' + linhas.map((l) => l.map(celula).join(';')).join('\n');
@@ -57,13 +57,25 @@ export function juntarRegistros(doBanco: Registro[], doApp: Registro[]): Registr
   return [...porId.values()].sort((a, b) => a.inicio.localeCompare(b.inicio));
 }
 
-const limpar = (s: string) =>
+/** Nome seguro para o app Arquivos do iPhone, Windows e Mac */
+export const limpar = (s: string) =>
   s
+    .normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
     .replace(/[\\/:*?"<>|]+/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 90) || 'arquivo';
-const extensao = (a: { nome?: string; tipo?: string }) => (a.tipo === 'application/pdf' || a.nome?.toLowerCase().endsWith('.pdf') ? 'pdf' : 'jpg');
+    // Começando com ponto, o arquivo fica oculto
+    .replace(/^[.\s]+/, '')
+    .slice(0, 90)
+    .trim() || 'arquivo';
+
+/** A extensão vem do próprio caminho guardado (sempre .jpg ou .pdf); o tipo e o nome ficam de reserva */
+const extensao = (a: { caminho?: string; nome?: string; tipo?: string }) => {
+  const doCaminho = a.caminho?.toLowerCase().match(/\.(pdf|jpe?g|png)$/)?.[1];
+  if (doCaminho) return doCaminho === 'jpeg' ? 'jpg' : doCaminho;
+  return a.tipo === 'application/pdf' || a.nome?.toLowerCase().endsWith('.pdf') ? 'pdf' : 'jpg';
+};
 
 export interface ArquivoParaBaixar {
   /** Caminho no armazenamento */
@@ -71,8 +83,9 @@ export interface ArquivoParaBaixar {
   /** Onde fica dentro do .zip */
   destino: string;
   balde: 'documentos' | 'fotos';
-  /** Título do documento no app */
-  documento?: string;
+  /** De qual documento (id) e qual arquivo dele (posição) */
+  docId?: string;
+  indice?: number;
 }
 
 /** Nomes únicos dentro do .zip (sem diferenciar maiúsculas): "RG.jpg", "RG (2).jpg" */
@@ -87,6 +100,9 @@ function nomesUnicos() {
   };
 }
 
+const ordenarDocs = (documentos: Documento[]) =>
+  [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
+
 /**
  * Os arquivos dos documentos com o nome que o documento tem no app, numa pasta
  * por categoria: "Identificação/Certidão de nascimento.jpg"; com mais de um
@@ -94,8 +110,7 @@ function nomesUnicos() {
  */
 export function planejarDocumentos(documentos: Documento[], raiz = '', unico = nomesUnicos()): ArquivoParaBaixar[] {
   const lista: ArquivoParaBaixar[] = [];
-  const ordem = [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
-  for (const d of ordem) {
+  for (const d of ordenarDocs(documentos)) {
     const pasta = [raiz, limpar(NOME_CATEGORIA[d.categoria] ?? 'Outros')].filter(Boolean).join('/');
     const base = limpar(d.titulo || 'Documento');
     d.arquivos.forEach((a, i) =>
@@ -103,17 +118,19 @@ export function planejarDocumentos(documentos: Documento[], raiz = '', unico = n
         caminho: a.caminho,
         destino: unico(pasta, d.arquivos.length > 1 ? `${base} - ${i + 1}` : base, extensao(a)),
         balde: 'documentos',
-        documento: d.titulo,
+        docId: d.id,
+        indice: i,
       }),
     );
   }
   return lista;
 }
 
-/** Lista dos documentos (com número, datas e anotações), para ir junto no .zip */
-export function listaDocumentos(documentos: Documento[], noZip: Map<string, string>, bebe: string | null | undefined): string {
-  const ordem = [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
-  const linhas = [`Documentos${bebe ? ` do ${bebe}` : ''} · ${ordem.length} ${ordem.length === 1 ? 'documento' : 'documentos'}`, ''];
+/** Lista dos documentos (com número, datas e anotações), para ir junto no .zip. `baixados` = os arquivos que entraram */
+export function listaDocumentos(documentos: Documento[], baixados: ArquivoParaBaixar[], titulo: string): string {
+  const onde = new Map(baixados.filter((a) => a.docId).map((a) => [`${a.docId}#${a.indice}`, a.destino]));
+  const ordem = ordenarDocs(documentos);
+  const linhas = [`${titulo} · ${ordem.length} ${ordem.length === 1 ? 'documento' : 'documentos'}`, ''];
   let categoria = '';
   for (const d of ordem) {
     const nomeCat = NOME_CATEGORIA[d.categoria] ?? 'Outros';
@@ -126,8 +143,11 @@ export function listaDocumentos(documentos: Documento[], noZip: Map<string, stri
     if (d.data) linhas.push(`  Data: ${d.data.split('-').reverse().join('/')}`);
     if (d.validade) linhas.push(`  Validade: ${d.validade.split('-').reverse().join('/')}`);
     if (d.observacao) linhas.push(`  Anotação: ${d.observacao}`);
-    const arquivos = d.arquivos.map((a) => noZip.get(a.caminho)).filter(Boolean);
-    linhas.push(arquivos.length ? `  Arquivos: ${arquivos.map((a) => a!.split('/').slice(-2).join('/')).join(', ')}` : '  (sem arquivo)');
+    const arquivos = d.arquivos.map((_, i) => onde.get(`${d.id}#${i}`));
+    const ok = arquivos.filter((a): a is string => !!a);
+    if (ok.length) linhas.push(`  Arquivos: ${ok.map((a) => a.split('/').slice(-2).join('/')).join(', ')}`);
+    if (ok.length < arquivos.length) linhas.push(`  ${arquivos.length - ok.length} arquivo(s) não baixado(s) — tente de novo com internet`);
+    if (!arquivos.length) linhas.push('  (sem arquivo)');
     linhas.push('');
   }
   return linhas.join('\n');
@@ -138,35 +158,51 @@ export function planejarArquivos(documentos: Documento[], movimentos: MovimentoC
   const unico = nomesUnicos();
   const lista = planejarDocumentos(documentos, 'documentos', unico);
   const conta = new Map(contas.map((c) => [c.id, c.nome]));
-  for (const m of movimentos)
+  for (const m of [...movimentos].sort((a, b) => a.data.localeCompare(b.data)))
     if (m.comprovante)
       lista.push({
         caminho: m.comprovante.caminho,
-        destino: unico('cofrinho/comprovantes', limpar(`${m.data} ${conta.get(m.conta_id) ?? ''} ${m.de ?? ''}`.trim()), extensao(m.comprovante)),
+        destino: unico('cofrinho/comprovantes', limpar(`${m.data} ${conta.get(m.conta_id) ?? ''} ${m.de ?? ''}`), extensao(m.comprovante)),
         balde: 'documentos',
       });
   for (const m of [...marcos].sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''))) {
     if (!m.foto) continue;
-    lista.push({
-      caminho: m.foto,
-      destino: unico('fotos', limpar(`${m.data ?? 'sem data'} ${m.titulo ?? (m.tipo === 'mes' ? 'foto do mês' : (m.marco_id ?? 'marco'))}`), 'jpg'),
-      balde: 'fotos',
-    });
+    const nome = m.titulo?.trim() || (m.tipo === 'mes' ? 'Foto do mês' : m.marco_id?.replace(/-/g, ' ') || 'Primeira vez');
+    lista.push({ caminho: m.foto, destino: unico('fotos', limpar(`${m.data ?? 'sem data'} ${nome}`), extensao({ caminho: m.foto })), balde: 'fotos' });
   }
   return lista;
 }
 
-export interface ConteudoZip {
-  dados: unknown;
-  textos: Record<string, string>;
-  arquivos: { destino: string; bytes: Uint8Array }[];
-}
+/**
+ * Monta o .zip aos poucos: cada arquivo entra e já pode ser solto da memória
+ * (importante no iPhone, com muitas fotos e PDFs). Fotos e PDFs entram sem
+ * recomprimir; textos são comprimidos.
+ */
+export class MontadorZip {
+  private partes: Uint8Array[] = [];
+  private erro: Error | null = null;
+  private zip = new Zip((e, dados) => {
+    if (e) this.erro = e;
+    else this.partes.push(dados);
+  });
 
-/** Monta o .zip (arquivos já comprimidos, como JPEG e PDF, entram sem recomprimir) */
-export function montarZip(pasta: string, c: ConteudoZip): Uint8Array {
-  const z: Zippable = {};
-  z[`${pasta}/dados.json`] = [strToU8(JSON.stringify(c.dados, null, 2)), { level: 6 }];
-  for (const [nome, texto] of Object.entries(c.textos)) z[`${pasta}/${nome}`] = [strToU8(texto), { level: 6 }];
-  for (const a of c.arquivos) z[`${pasta}/${a.destino}`] = [a.bytes, { level: 0 }];
-  return zipSync(z);
+  adicionar(nome: string, bytes: Uint8Array) {
+    const f = new ZipPassThrough(nome);
+    this.zip.add(f);
+    f.push(bytes, true);
+  }
+
+  adicionarTexto(nome: string, texto: string) {
+    const f = new ZipDeflate(nome, { level: 6 });
+    this.zip.add(f);
+    f.push(strToU8(texto), true);
+  }
+
+  terminar(): Blob {
+    this.zip.end();
+    if (this.erro) throw this.erro;
+    const blob = new Blob(this.partes as BlobPart[], { type: 'application/zip' });
+    this.partes = [];
+    return blob;
+  }
 }

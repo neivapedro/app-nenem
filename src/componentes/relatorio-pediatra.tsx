@@ -8,7 +8,7 @@ import { escoreZ, textoPercentil, type Indicador } from '../lib/crescimento';
 import { chaveDia, dataBr, diasEntre, horaCurta, idadeBebe, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
 import { traduzirErro } from '../lib/erros';
 import { diasDoPeriodo, duracaoMediaMamada, intervaloMedioAlimentacao, media, mediasPorMes } from '../lib/padroes';
-import { diasPainel, ladosDoPeito, mapaHorarios, mediasPeriodo, variacao, type DiaPainel } from '../lib/painel';
+import { diasPainel, inicioDosDados, ladosDoPeito, mapaHorarios, mediasPeriodo, periodoCoberto, variacao, type DiaPainel } from '../lib/painel';
 import { descrever, NOMES_TIPO } from '../lib/registros';
 import type { GraficoPdf, KpiPdf, ModeloRelatorio, PainelPdf } from '../lib/relatorio';
 import { Campo, Escolhas, Icone } from './ui';
@@ -43,17 +43,18 @@ function agrupar(dias: DiaPainel[], tamanho: number): { rotulo: string; dias: Di
   return grupos;
 }
 
-function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: string, hoje: string, agora: Date, comparar: boolean): PainelPdf {
+function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: string, hoje: string, agora: Date, comparar: boolean, inicioDados: string | null): PainelPdf {
   const n = diasEntre(de, ate) + 1;
   const deAnt = somarDiasLocal(de, -n);
   const ateAnt = somarDiasLocal(de, -1);
   const dias = diasPainel(regs, de, ate, agora);
   const anteriores = comparar ? diasPainel(regs, deAnt, ateAnt, agora) : [];
-  const temAnterior = anteriores.some((d) => d.alimentacoes || d.fraldas || d.sonoMs);
-  const atual = mediasPeriodo(dias, hoje);
-  const antes = mediasPeriodo(anteriores, hoje);
+  // Só compara se o período anterior inteiro já tinha dados (bebê já nascido)
+  const temAnterior = periodoCoberto(deAnt, inicioDados) && anteriores.some((d) => d.alimentacoes || d.fraldas || d.sonoMs);
+  const atual = mediasPeriodo(dias, hoje, inicioDados);
+  const antes = mediasPeriodo(anteriores, hoje, inicioDados);
   const base = `vs ${n} ${n === 1 ? 'dia' : 'dias'} antes`;
-  const delta = (a: number, b: number) => (temAnterior && a && b ? textoDelta(variacao(a, b), base) : null);
+  const delta = (a: number, b: number) => (temAnterior && b ? textoDelta(variacao(a, b), base) : null);
   const inicio = inicioDoDia(de);
   const fim = new Date(Math.min(agora.getTime(), inicioDoDia(somarDiasLocal(ate, 1)).getTime()));
   const intervalo = intervaloMedioAlimentacao(regs, inicio, fim);
@@ -77,7 +78,8 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
   ];
 
   // Até 45 colunas: uma por dia; depois, média por semana; bem longo, a cada 30 dias
-  const completos = dias.length > 1 ? dias.filter((d) => d.dia !== hoje) : dias;
+  const validos = inicioDados ? dias.filter((d) => d.dia >= inicioDados) : dias;
+  const completos = validos.length > 1 ? validos.filter((d) => d.dia !== hoje) : validos;
   const tamanho = dias.length <= 45 ? 1 : dias.length <= 45 * 7 ? 7 : 30;
   const grupos = tamanho === 1 ? dias.map((d) => ({ rotulo: dias.length <= 7 ? semana(d.dia) : dataBr(d.dia).slice(0, 5), dias: [d] })) : agrupar(completos, tamanho);
   const rotulos = grupos.map((g) => g.rotulo);
@@ -137,7 +139,13 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
   const sufixo = diasMapa.length > 1 ? ` · últimos ${diasMapa.length} dias` : '';
   const totalLados = lados.E + lados.D;
   return {
-    comparacao: temAnterior ? `Variação (+/-) em relação aos ${n} dias anteriores (${dataBr(deAnt)} a ${dataBr(ateAnt)}). Médias sem contar o dia de hoje.` : 'Médias por dia do período, sem contar o dia de hoje.',
+    comparacao: [
+      temAnterior ? `Variação (+/-) em relação aos ${n} dias anteriores (${dataBr(deAnt)} a ${dataBr(ateAnt)}).` : 'Médias por dia do período.',
+      inicioDados && inicioDados > de ? `Médias a partir de ${dataBr(inicioDados)}.` : '',
+      ate === hoje && atual.dias > 0 && (!inicioDados || inicioDados < hoje) ? 'Sem contar o dia de hoje, que ainda não acabou.' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
     kpis,
     graficos,
     mapas: [
@@ -207,7 +215,10 @@ export function RelatorioPediatra() {
       const fimDoPeriodo = new Date(Math.min(agora.getTime(), inicioDoDia(somarDiasLocal(ate, 1)).getTime()));
       const dias = diasDoPeriodo(registros, de, ate, agora);
       // Médias sem o dia de hoje (incompleto), quando há mais de um dia
-      const completos = dias.length > 1 && ate === hoje ? dias.slice(0, -1) : dias;
+      const inicioDados = inicioDosDados(nascDia, registros);
+      // Médias sem os dias antes do nascimento e sem hoje (incompleto), quando há outros dias
+      const validos = inicioDados ? dias.filter((d) => d.dia >= inicioDados) : dias;
+      const completos = validos.length > 1 && ate === hoje ? validos.filter((d) => d.dia !== hoje) : validos;
       const noPeriodo = registros
         .filter((r) => {
           const d = chaveDia(r.inicio);
@@ -259,7 +270,7 @@ export function RelatorioPediatra() {
           ['Fraldas por dia (média)', um(media(completos.map((d) => d.fraldas)))],
           ['Sono por dia (média)', horas(media(completos.map((d) => d.sonoMs)))],
         ],
-        painel: montarPainel(registros, de, ate, hoje, agora, comparar),
+        painel: montarPainel(registros, de, ate, hoje, agora, comparar, inicioDados),
         resumo,
         medidas: linhasMedidas.map((m) => [
           dataBr(m.data),

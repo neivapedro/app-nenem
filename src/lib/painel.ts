@@ -75,9 +75,14 @@ export interface MediasPeriodo {
   dias: number;
 }
 
-/** Médias por dia (sem o dia de hoje, que ainda não acabou, quando há mais de um dia) */
-export function mediasPeriodo(dias: DiaPainel[], hoje: string): MediasPeriodo {
-  const completos = dias.length > 1 ? dias.filter((d) => d.dia !== hoje) : dias;
+/**
+ * Médias por dia (sem o dia de hoje, que ainda não acabou, quando há outros dias).
+ * `desde` = primeiro dia com dados (nascimento ou primeiro registro): os dias
+ * antes dele não entram, senão a média de um recém-nascido sai lá embaixo.
+ */
+export function mediasPeriodo(dias: DiaPainel[], hoje: string, desde?: string | null): MediasPeriodo {
+  const validos = desde ? dias.filter((d) => d.dia >= desde) : dias;
+  const completos = validos.length > 1 ? validos.filter((d) => d.dia !== hoje) : validos;
   return {
     alimentacoes: media(completos.map((d) => d.alimentacoes)),
     fraldas: media(completos.map((d) => d.fraldas)),
@@ -89,6 +94,23 @@ export function mediasPeriodo(dias: DiaPainel[], hoje: string): MediasPeriodo {
 }
 
 /** Variação em relação ao período anterior (0,12 = +12%); null sem base para comparar */
+/**
+ * Primeiro dia com dados: o nascimento ou, sem ele, o dia do registro mais antigo.
+ * Sem nada, null (todos os dias contam).
+ */
+export function inicioDosDados(nascimentoDia: string | null, registros: Registro[]): string | null {
+  if (nascimentoDia) return nascimentoDia;
+  let primeiro: string | null = null;
+  for (const r of registros) {
+    const d = chaveDia(r.inicio);
+    if (!primeiro || d < primeiro) primeiro = d;
+  }
+  return primeiro;
+}
+
+/** Dá para comparar com o período anterior só se ele inteiro já tinha dados */
+export const periodoCoberto = (deAnterior: string, inicio: string | null) => !inicio || inicio <= deAnterior;
+
 export function variacao(atual: number, anterior: number): number | null {
   if (!anterior || !isFinite(anterior)) return null;
   return (atual - anterior) / anterior;

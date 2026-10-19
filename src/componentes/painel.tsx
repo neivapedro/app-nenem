@@ -115,7 +115,8 @@ export function ColunasEmpilhadas({
   const banda = (W - L - R) / Math.max(1, n);
   const largura = Math.max(2, Math.min(24, banda * 0.66));
   const y = (v: number) => T + (1 - v / topo) * (H - T - B);
-  const ativo = toque ?? selecionado;
+  // Ao trocar de período, um toque antigo pode apontar para fora: ignora
+  const ativo = (toque !== null && toque < n ? toque : null) ?? (selecionado !== null && selecionado < n ? selecionado : null);
   const mostrarRotulo = (i: number) => n <= 14 || i % Math.ceil(n / 7) === 0 || i === n - 1;
   const eixo = formatarEixo ?? ((v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1)));
 
@@ -250,7 +251,8 @@ export function MapaCalor({
   selecionado: number | null;
   aoSelecionar: (i: number | null) => void;
 }) {
-  const [celula, setCelula] = useState<{ d: number; h: number } | null>(null);
+  const [celulaEscolhida, setCelula] = useState<{ d: number; h: number } | null>(null);
+  const celula = celulaEscolhida && celulaEscolhida.d < dias.length && celulaEscolhida.d < matriz.length ? celulaEscolhida : null;
   const max = Math.max(1e-9, ...matriz.flat());
   const passos = [0.12, 0.3, 0.5, 0.72, 1];
   const nivel = (v: number) => (v <= 0 ? -1 : passos.findIndex((p) => v / max <= p + 1e-9));
@@ -267,7 +269,7 @@ export function MapaCalor({
         </div>
         {matriz.map((linha, d) => (
           <div key={dias[d]} className={`mapa-linha ${selecionado === d ? 'selecionada' : selecionado !== null ? 'esmaecida' : ''}`} role="row">
-            <button type="button" className="mapa-dia" onClick={() => aoSelecionar(selecionado === d ? null : d)}>
+            <button type="button" role="rowheader" className="mapa-dia" onClick={() => aoSelecionar(selecionado === d ? null : d)}>
               {dias.length <= 7 ? semana(dias[d]) : diaCurto(dias[d])}
             </button>
             {linha.map((v, h) => {
@@ -277,6 +279,8 @@ export function MapaCalor({
                   key={h}
                   type="button"
                   role="gridcell"
+                  // Fora do Tab (são 336 quadrinhos): o resumo por dia está em "Ver em tabela"
+                  tabIndex={-1}
                   className={`mapa-celula ${celula?.d === d && celula.h === h ? 'ativa' : ''}`}
                   aria-label={`${diaCurto(dias[d])}, ${h}h: ${unidade(v)}`}
                   style={k < 0 ? undefined : { background: `color-mix(in srgb, ${cor} ${Math.round(18 + k * 20)}%, var(--superficie))` }}
