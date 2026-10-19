@@ -99,6 +99,7 @@ const TABELAS: Record<NomeColecao, { tabela: string; numeros: string[]; ordem: s
   leite: { tabela: 'nenem_leite', numeros: ['ml'], ordem: 'extraido_em' },
   marcos: { tabela: 'nenem_marcos', numeros: [], ordem: 'data' },
   tarefas: { tabela: 'nenem_tarefas', numeros: [], ordem: 'criado_em' },
+  documentos: { tabela: 'nenem_documentos', numeros: [], ordem: 'criado_em' },
 };
 
 /** Só os campos do app (sem criado_em/atualizado_em) e números como número */
@@ -315,6 +316,39 @@ export class RepositorioSupabase implements Repositorio {
   async excluirFoto(caminho: string) {
     await this.sb.storage.from('nenem-fotos').remove([caminho]);
     this.urls.delete(caminho);
+  }
+
+  async enviarArquivo(arquivo: Blob, extensao: 'jpg' | 'pdf'): Promise<string> {
+    const eu = erro(await this.sb.from('nenem_membros').select('familia_id').eq('user_id', await this.uid()).single());
+    const familia = (eu as { familia_id: string } | null)?.familia_id;
+    if (!familia) throw new Error('Família não encontrada.');
+    const caminho = `${familia}/${crypto.randomUUID()}.${extensao}`;
+    const tipo = extensao === 'pdf' ? 'application/pdf' : 'image/jpeg';
+    const { error } = await this.sb.storage.from('nenem-documentos').upload(caminho, arquivo, { contentType: tipo, upsert: false });
+    if (error) throw new ErroServidor(error.message, (error as { statusCode?: number }).statusCode);
+    return caminho;
+  }
+
+  async urlArquivo(caminho: string): Promise<string | null> {
+    const chave = `doc:${caminho}`;
+    const guardada = this.urls.get(chave);
+    if (guardada && guardada.ate > Date.now()) return guardada.url;
+    const { data, error } = await this.sb.storage.from('nenem-documentos').createSignedUrl(caminho, 60 * 60);
+    if (error || !data) return null;
+    this.urls.set(chave, { url: data.signedUrl, ate: Date.now() + 50 * 60_000 });
+    return data.signedUrl;
+  }
+
+  async baixarArquivo(caminho: string): Promise<Blob> {
+    const { data, error } = await this.sb.storage.from('nenem-documentos').download(caminho);
+    if (error || !data) throw new ErroServidor(error?.message ?? 'Arquivo não encontrado.', (error as { statusCode?: number } | null)?.statusCode);
+    return data;
+  }
+
+  async excluirArquivos(caminhos: string[]) {
+    if (!caminhos.length) return;
+    await this.sb.storage.from('nenem-documentos').remove(caminhos);
+    for (const c of caminhos) this.urls.delete(`doc:${c}`);
   }
 
   async salvarBebe(b: Bebe) {

@@ -211,6 +211,31 @@ export interface Tarefa extends Item {
   observacao: string | null;
 }
 
+export type CategoriaDocumento = 'identificacao' | 'saude' | 'exames' | 'plano' | 'escola' | 'viagem' | 'outros';
+
+export interface ArquivoDocumento {
+  /** Caminho no armazenamento (bucket nenem-documentos): <familia>/<arquivo> */
+  caminho: string;
+  nome: string;
+  /** image/jpeg ou application/pdf */
+  tipo: string;
+  /** Bytes */
+  tamanho: number;
+}
+
+export interface Documento extends Item {
+  bebe_id: string;
+  categoria: CategoriaDocumento;
+  /** Documento da lista principal (documentos.ts); vazio = documento livre */
+  modelo_id: string | null;
+  titulo: string;
+  numero: string | null;
+  data: string | null;
+  validade: string | null;
+  observacao: string | null;
+  arquivos: ArquivoDocumento[];
+}
+
 /** Listas guardadas em tabelas próprias (mesma fila e mesmo tempo real dos registros) */
 export interface Colecoes {
   medidas: Medida;
@@ -219,8 +244,9 @@ export interface Colecoes {
   leite: PoteLeite;
   marcos: Marco;
   tarefas: Tarefa;
+  documentos: Documento;
 }
 
 export type NomeColecao = keyof Colecoes;
 
-export const COLECOES: NomeColecao[] = ['medidas', 'vacinas', 'remedios', 'leite', 'marcos', 'tarefas'];
+export const COLECOES: NomeColecao[] = ['medidas', 'vacinas', 'remedios', 'leite', 'marcos', 'tarefas', 'documentos'];
