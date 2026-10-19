@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Campo, Escolhas, Folha, Icone, Selo } from '../componentes/ui';
-import { CartaoCalendario } from '../componentes/calendario';
 import { useAgora, useDados } from '../dados/contexto';
 import {
   compromissosAnteriores,
@@ -163,7 +162,6 @@ export function Agenda() {
         )}
       </section>
 
-      <CartaoCalendario />
 
       {anteriores.length > 0 && (
         <section className="cartao" aria-label="Compromissos anteriores">
