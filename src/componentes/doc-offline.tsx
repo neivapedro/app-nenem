@@ -25,8 +25,15 @@ export function useEstadoOffline(): Estado {
 }
 
 export function SincronizarDocumentos() {
-  const { documentos, repo } = useDados();
-  const arquivos = useMemo(() => documentos.flatMap((d) => d.arquivos.map((a) => ({ caminho: a.caminho, tamanho: a.tamanho }))), [documentos]);
+  const { documentos, cofrinho_movimentos, repo } = useDados();
+  // Arquivos dos documentos e os comprovantes do cofrinho
+  const arquivos = useMemo(
+    () => [
+      ...documentos.flatMap((d) => d.arquivos.map((a) => ({ caminho: a.caminho, tamanho: a.tamanho }))),
+      ...cofrinho_movimentos.flatMap((m) => (m.comprovante ? [{ caminho: m.comprovante.caminho, tamanho: m.comprovante.tamanho }] : [])),
+    ],
+    [documentos, cofrinho_movimentos],
+  );
   // Só refaz quando a lista de arquivos muda de verdade
   const assinatura = useMemo(() => arquivos.map((a) => a.caminho).sort().join('|'), [arquivos]);
 

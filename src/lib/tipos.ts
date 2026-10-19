@@ -110,11 +110,12 @@ export interface Membro {
   lembrete_remedio: boolean;
   lembrete_vacina: boolean;
   lembrete_documento: boolean;
+  lembrete_cofrinho: boolean;
   token_calendario: string | null;
 }
 
 /** O que cada membro pode mudar em si mesmo */
-export type PreferenciasMembro = Pick<Membro, 'nome' | 'lembrete_mamada' | 'lembrete_mamada_min' | 'lembrete_agenda' | 'lembrete_remedio' | 'lembrete_vacina' | 'lembrete_documento'>;
+export type PreferenciasMembro = Pick<Membro, 'nome' | 'lembrete_mamada' | 'lembrete_mamada_min' | 'lembrete_agenda' | 'lembrete_remedio' | 'lembrete_vacina' | 'lembrete_documento' | 'lembrete_cofrinho'>;
 
 export interface Compromisso {
   id: string;
@@ -239,6 +240,58 @@ export interface Documento extends Item {
   fixado?: boolean | null;
 }
 
+// ---------- Cofrinho ----------
+
+export type TipoContaCofrinho = 'poupanca' | 'conta' | 'cdb' | 'tesouro' | 'fundo' | 'previdencia' | 'acoes' | 'cofre' | 'outro';
+
+export interface ContaCofrinho extends Item {
+  bebe_id: string;
+  nome: string;
+  tipo: TipoContaCofrinho;
+  instituicao: string | null;
+  agencia: string | null;
+  numero: string | null;
+  titular: string | null;
+  chave_pix: string | null;
+  cidade: string | null;
+  rendimento: string | null;
+  ativa: boolean;
+  observacao: string | null;
+}
+
+export type OcasiaoCofrinho = 'mensal' | 'aniversario' | 'mesversario' | 'natal' | 'presente' | 'batizado' | 'outro';
+
+export interface MovimentoCofrinho extends Item {
+  conta_id: string;
+  /** deposito e retirada mudam o saldo; saldo = valor do extrato naquela data */
+  tipo: 'deposito' | 'retirada' | 'saldo';
+  /** AAAA-MM-DD */
+  data: string;
+  valor_centavos: number;
+  de: string | null;
+  ocasiao: OcasiaoCofrinho | null;
+  recado: string | null;
+  observacao: string | null;
+  comprovante: ArquivoDocumento | null;
+}
+
+export interface MetaCofrinho extends Item {
+  bebe_id: string;
+  nome: string;
+  emoji: string | null;
+  valor_centavos: number;
+  idade_anos: number | null;
+}
+
+export interface PlanoCofrinho extends Item {
+  bebe_id: string;
+  aporte_mensal_centavos: number;
+  dia_aporte: number | null;
+  /** Rendimento acima da inflação esperado (% ao ano) */
+  taxa_real: number;
+  idade_alvo: number;
+}
+
 /** Listas guardadas em tabelas próprias (mesma fila e mesmo tempo real dos registros) */
 export interface Colecoes {
   medidas: Medida;
@@ -248,8 +301,12 @@ export interface Colecoes {
   marcos: Marco;
   tarefas: Tarefa;
   documentos: Documento;
+  cofrinho_contas: ContaCofrinho;
+  cofrinho_movimentos: MovimentoCofrinho;
+  cofrinho_metas: MetaCofrinho;
+  cofrinho_planos: PlanoCofrinho;
 }
 
 export type NomeColecao = keyof Colecoes;
 
-export const COLECOES: NomeColecao[] = ['medidas', 'vacinas', 'remedios', 'leite', 'marcos', 'tarefas', 'documentos'];
+export const COLECOES: NomeColecao[] = ['medidas', 'vacinas', 'remedios', 'leite', 'marcos', 'tarefas', 'documentos', 'cofrinho_contas', 'cofrinho_movimentos', 'cofrinho_metas', 'cofrinho_planos'];

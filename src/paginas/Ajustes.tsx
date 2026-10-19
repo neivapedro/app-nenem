@@ -27,6 +27,7 @@ function preferencias(m: Membro): PreferenciasMembro {
     lembrete_remedio: m.lembrete_remedio,
     lembrete_vacina: m.lembrete_vacina,
     lembrete_documento: m.lembrete_documento,
+    lembrete_cofrinho: m.lembrete_cofrinho,
   };
 }
 
@@ -265,6 +266,15 @@ function CartaoAvisos() {
               Avisar quando um documento for vencer
               <small className="texto-2" style={{ display: 'block' }}>
                 30 dias antes, 7 dias antes e no dia (passaporte, carteirinha, receita...).
+              </small>
+            </span>
+          </label>
+          <label className="marcar">
+            <input type="checkbox" checked={membro.lembrete_cofrinho} onChange={(e) => mudar({ lembrete_cofrinho: e.target.checked })} />
+            <span>
+              Lembrar do dia do cofrinho
+              <small className="texto-2" style={{ display: 'block' }}>
+                No dia do aporte mensal escolhido no Cofrinho, se o depósito do mês ainda não foi registrado.
               </small>
             </span>
           </label>

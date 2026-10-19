@@ -340,3 +340,84 @@ export async function montarCarteiraVacinacao(m: CarteiraVacinacaoPdf): Promise<
   pdf.setCreator('App Heitor');
   return pdf.save();
 }
+
+// ---------- Extrato do cofrinho ----------
+
+export interface ExtratoCofrinhoPdf {
+  titulo: string;
+  geradoEm: string;
+  resumo: [string, string][];
+  contas: [string, string, string][];
+  quem: [string, string, string][];
+  movimentos: [string, string, string, string, string][];
+  recados: [string, string, string][];
+}
+
+export async function montarExtratoCofrinho(e: ExtratoCofrinhoPdf): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  const n = await pdf.embedFont(StandardFonts.Helvetica);
+  const b = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const limpo = limpador(n);
+  const largura = A4[0] - MARGEM * 2;
+  const estado = { p: pdf.addPage(A4), y: A4[1] - MARGEM - 14 };
+  const titulo = (t: string) => {
+    if (estado.y < MARGEM + 70) {
+      estado.p = pdf.addPage(A4);
+      estado.y = A4[1] - MARGEM - 10;
+    }
+    estado.y -= 8;
+    estado.p.drawText(limpo(t), { x: MARGEM, y: estado.y, size: 12, font: b, color: ESCURO });
+    estado.y -= 18;
+  };
+  estado.p.drawText(limpo(e.titulo), { x: MARGEM, y: estado.y, size: 20, font: b, color: ESCURO });
+  estado.y -= 18;
+  estado.p.drawText(limpo(`Extrato gerado em ${e.geradoEm}`), { x: MARGEM, y: estado.y, size: 9, font: n, color: CINZA });
+  estado.y -= 26;
+  for (const [k, v] of e.resumo) {
+    estado.p.drawText(limpo(k), { x: MARGEM, y: estado.y, size: 10, font: n, color: CINZA });
+    estado.p.drawText(limpo(v), { x: MARGEM + 170, y: estado.y, size: 11, font: b, color: ESCURO });
+    estado.y -= 16;
+  }
+  if (e.contas.length) {
+    titulo('Contas');
+    tabela(pdf, estado, { n, b }, [{ titulo: 'Conta', largura: largura * 0.4 }, { titulo: 'Tipo', largura: largura * 0.38 }, { titulo: 'Saldo', largura: largura * 0.22 }], e.contas, limpo);
+  }
+  if (e.quem.length) {
+    titulo('Quem contribuiu');
+    tabela(pdf, estado, { n, b }, [{ titulo: 'Quem', largura: largura * 0.5 }, { titulo: 'Depósitos', largura: largura * 0.25 }, { titulo: 'Total', largura: largura * 0.25 }], e.quem, limpo);
+  }
+  titulo('Lançamentos');
+  tabela(
+    pdf,
+    estado,
+    { n, b },
+    [
+      { titulo: 'Data', largura: largura * 0.14 },
+      { titulo: 'Tipo', largura: largura * 0.18 },
+      { titulo: 'Conta', largura: largura * 0.24 },
+      { titulo: 'Quem', largura: largura * 0.24 },
+      { titulo: 'Valor', largura: largura * 0.2 },
+    ],
+    e.movimentos,
+    limpo,
+  );
+  if (e.recados.length) {
+    titulo('Mural de recados');
+    for (const [data, de, recado] of e.recados) {
+      const linhas = quebrar(limpo(`"${recado}"`), n, 10, largura);
+      if (estado.y - linhas.length * 13 - 14 < MARGEM) {
+        estado.p = pdf.addPage(A4);
+        estado.y = A4[1] - MARGEM - 10;
+      }
+      for (const l of linhas) {
+        estado.p.drawText(l, { x: MARGEM, y: estado.y, size: 10, font: n, color: ESCURO });
+        estado.y -= 13;
+      }
+      estado.p.drawText(limpo(`${de || 'Família'} · ${data}`), { x: MARGEM, y: estado.y, size: 8.5, font: n, color: CINZA });
+      estado.y -= 18;
+    }
+  }
+  pdf.setTitle(e.titulo);
+  pdf.setCreator('App Heitor');
+  return pdf.save();
+}

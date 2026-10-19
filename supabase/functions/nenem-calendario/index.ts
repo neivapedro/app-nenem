@@ -4,7 +4,7 @@
 // assina o próprio endereço, e os dois veem a mesma agenda da família.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { eventosDocumentos, eventosTarefas, eventosVacinas, montarIcs, type CompromissoIcs, type DocumentoIcs, type EventoDia } from '../_shared/ics.ts';
+import { eventosCofrinho, eventosDocumentos, eventosTarefas, eventosVacinas, montarIcs, type CompromissoIcs, type DocumentoIcs, type EventoDia } from '../_shared/ics.ts';
 import { dataNoFuso, somarDias } from '../_shared/tempo.ts';
 
 const SITE = 'https://neivapedro.github.io/app-nenem/';
@@ -36,12 +36,15 @@ Deno.serve(async (req) => {
 
   // Vacinas e prazos dos primeiros dias (tabelas da Fase 2; vazias se ainda não existirem)
   const hoje = dataNoFuso(agora, fuso);
-  const [{ data: bebesCompletos }, { data: vac }, { data: tar }, { data: docs }] = await Promise.all([
+  const inicioMes = `${hoje.slice(0, 7)}-01`;
+  const [{ data: bebesCompletos }, { data: vac }, { data: tar }, { data: docs }, { data: planos }, { data: depMes }] = await Promise.all([
     db.from('nenem_bebes').select('*').eq('familia_id', membro.familia_id).order('criado_em'),
     db.from('nenem_vacinas').select('bebe_id, dose_id, status, data').eq('familia_id', membro.familia_id),
     db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', membro.familia_id),
     // Validade dos documentos (tabela nova: vazia se ainda não existir)
     db.from('nenem_documentos').select('id, titulo, validade').eq('familia_id', membro.familia_id).not('validade', 'is', null),
+    db.from('nenem_cofrinho_planos').select('dia_aporte, aporte_mensal_centavos').eq('familia_id', membro.familia_id),
+    db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', membro.familia_id).eq('tipo', 'deposito').gte('data', inicioMes).limit(1),
   ]);
   const eventos: EventoDia[] = [];
   let nascimentoFamilia: string | null = null;
@@ -53,6 +56,16 @@ Deno.serve(async (req) => {
   }
   eventos.push(...eventosTarefas(membro.familia_id, nascimentoFamilia, tar ?? []));
   eventos.push(...eventosDocumentos((docs ?? []) as DocumentoIcs[]));
+  eventos.push(
+    ...eventosCofrinho(
+      membro.familia_id,
+      String(bebesCompletos?.[0]?.nome ?? '').trim().split(' ')[0],
+      planos?.[0]?.dia_aporte ?? null,
+      Number(planos?.[0]?.aporte_mensal_centavos ?? 0),
+      (depMes ?? []).length > 0,
+      hoje,
+    ),
+  );
 
   const ics = montarIcs({
     compromissos,

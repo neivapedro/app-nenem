@@ -242,6 +242,25 @@ export function eventosDocumentos(documentos: DocumentoIcs[]): EventoDia[] {
   return eventos;
 }
 
+/** Dia do cofrinho nos próximos 12 meses (o mês atual só se ainda não depositaram e o dia não passou) */
+export function eventosCofrinho(familiaId: string, nomeBebe: string, diaAporte: number | null, aporteCentavos: number, depositouNoMes: boolean, hoje: string): EventoDia[] {
+  if (!diaAporte) return [];
+  const eventos: EventoDia[] = [];
+  const valor = aporteCentavos > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(aporteCentavos / 100).replace(/\u00a0/g, ' ') : null;
+  for (let i = 0; i < 12; i++) {
+    const dia = `${somarMeses(`${hoje.slice(0, 7)}-01`, i).slice(0, 7)}-${String(diaAporte).padStart(2, '0')}`;
+    if (i === 0 && (depositouNoMes || dia < hoje)) continue;
+    eventos.push({
+      uid: `cofrinho-${familiaId}-${dia.slice(0, 7)}`,
+      inicio: dia,
+      titulo: `🐷 Dia do cofrinho${nomeBebe ? ` do ${nomeBebe}` : ''}`,
+      descricao: valor ? `Depósito planejado: ${valor}. Depois de depositar, registre no app (aba Cofrinho).` : 'Depois de depositar, registre no app (aba Cofrinho).',
+      aviso: 60,
+    });
+  }
+  return eventos;
+}
+
 export interface EntradaIcs {
   compromissos: CompromissoIcs[];
   bebes: BebeIcs[];

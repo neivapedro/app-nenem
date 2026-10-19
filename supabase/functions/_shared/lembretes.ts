@@ -15,6 +15,7 @@ export interface MembroAviso {
   lembrete_remedio?: boolean;
   lembrete_vacina?: boolean;
   lembrete_documento?: boolean;
+  lembrete_cofrinho?: boolean;
 }
 
 export interface Alimentacao {
@@ -263,4 +264,32 @@ export function avisosDocumentos(m: MembroAviso, documentos: DocumentoAviso[], a
     });
   }
   return avisos;
+}
+
+export interface CofrinhoAviso {
+  familiaId: string;
+  nomeBebe: string;
+  diaAporte: number | null;
+  aporteCentavos: number;
+  /** Já tem depósito registrado neste mês */
+  depositouNoMes: boolean;
+}
+
+const brl = (centavos: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(centavos / 100).replace(/\u00a0/g, ' ');
+
+/** Dia do cofrinho: às 9h do dia do aporte (até as 21h), se o depósito do mês ainda não foi registrado. */
+export function avisoCofrinho(m: MembroAviso, c: CofrinhoAviso, agora: Date, site: string): Aviso | null {
+  if (m.lembrete_cofrinho === false || !c.diaAporte || c.depositouNoMes) return null;
+  const fuso = m.fuso_horario;
+  const hoje = dataNoFuso(agora, fuso);
+  if (Number(hoje.slice(8, 10)) !== c.diaAporte) return null;
+  const desde9 = minutosDesde(agora, fuso, '09:00');
+  if (desde9 < 0 || desde9 > 12 * 60) return null;
+  return {
+    chave: `cofrinho:${c.familiaId}:${hoje.slice(0, 7)}:${m.user_id}`,
+    titulo: `🐷 Dia do cofrinho ${c.nomeBebe ? `do ${c.nomeBebe}` : ''}`.trim(),
+    corpo: c.aporteCentavos > 0 ? `Depósito do mês: ${brl(c.aporteCentavos)}. Toque para registrar.` : 'Toque para registrar o depósito do mês.',
+    tag: 'cofrinho',
+    url: `${site}cofrinho`,
+  };
 }
