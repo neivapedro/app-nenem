@@ -68,6 +68,9 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--fundo); color: var(--texto); }
 body { min-height: 100dvh; overscroll-behavior-y: none; }
+/* Segurar o dedo em um link, botão ou imagem não abre a prévia do Safari: no app, fica no app */
+a, button, img, svg, [role='tab'], [role='radio'], label { -webkit-touch-callout: none; }
+a, button, [role='tab'], [role='radio'] { -webkit-user-select: none; user-select: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { touch-action: manipulation; }
 h1, h2, h3 { margin: 0; line-height: 1.2; }
