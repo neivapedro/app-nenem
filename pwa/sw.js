@@ -7,7 +7,7 @@ const BASE = new URL(self.registration.scope).pathname;
 
 // Arquivos da versão (vite.config.ts injeta a lista na publicação)
 const ARQUIVOS = ['__ARQUIVOS__'];
-const FIXOS = ['manifest.webmanifest', 'icone-192.png'];
+const FIXOS = ['manifest.webmanifest', 'icone-192.png', 'marca.jpg'];
 
 self.addEventListener('install', (e) => {
   // Guarda a versão inteira antes de assumir: se algo falhar, a versão anterior continua valendo
