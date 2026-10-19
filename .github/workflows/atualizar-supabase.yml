@@ -88,7 +88,8 @@ jobs:
         run: |
           supabase functions deploy nenem-lembretes --project-ref "$PROJETO" --no-verify-jwt
           supabase functions deploy nenem-calendario --project-ref "$PROJETO" --no-verify-jwt
-          supabase functions deploy nenem-atalho --project-ref "$PROJETO" --no-verify-jwt
+          # Atalhos da Siri saíram do app: remove a função antiga (se ainda existir)
+          supabase functions delete nenem-atalho --project-ref "$PROJETO" || true
 
       - name: Endereço do app no login (Redirect URLs)
         if: steps.token.outputs.ok == 'true'

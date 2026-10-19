@@ -1,4 +1,4 @@
--- App Heitor · Fase 2: saúde, desenvolvimento, leite materno, primeiros dias e atalhos da Siri.
+-- App Heitor · Fase 2: saúde, desenvolvimento, leite materno e primeiros dias.
 -- Mesmo modelo da Fase 1: tudo é da família (Row Level Security pela família da conta).
 -- Idempotente: pode rodar mais de uma vez sem problema.
 
@@ -14,15 +14,11 @@ alter table public.nenem_bebes add column if not exists calendario_vacinal text 
 alter table public.nenem_bebes drop constraint if exists nenem_bebes_calendario_vacinal_check;
 alter table public.nenem_bebes add constraint nenem_bebes_calendario_vacinal_check check (calendario_vacinal in ('pni', 'sbp'));
 
--- ---------- Membros: avisos novos e token dos atalhos da Siri ----------
+-- ---------- Membros: avisos novos ----------
 alter table public.nenem_membros add column if not exists lembrete_remedio boolean not null default true;
 alter table public.nenem_membros add column if not exists lembrete_vacina boolean not null default true;
--- Endereço secreto dos atalhos (registrar pela Siri sem abrir o app); diferente do calendário
-alter table public.nenem_membros add column if not exists token_atalho text unique
-  default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
-update public.nenem_membros
-  set token_atalho = replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')
-  where token_atalho is null;
+-- Os atalhos da Siri saíram do app: apaga o endereço secreto deles
+alter table public.nenem_membros drop column if exists token_atalho;
 
 -- ---------- Crescimento ----------
 create table if not exists public.nenem_medidas (
@@ -174,3 +170,19 @@ exception
   when insufficient_privilege or undefined_table or undefined_function or invalid_schema_name then
     raise warning 'Fotos: não foi possível configurar o armazenamento (%). O resto do app funciona.', sqlerrm;
 end $$;
+
+-- ---------- Convite por link ----------
+-- Quem abre o link do convite vê quem convidou e o nome do bebê (só com código
+-- válido e ainda não usado; não mostra mais nada da família).
+create or replace function public.nenem_info_convite(p_codigo text) returns table (convidou text, bebe text)
+language sql stable security definer set search_path = public as $$
+  select coalesce(nullif(split_part(trim(m.nome), ' ', 1), ''), 'Alguém') as convidou,
+         coalesce((select nullif(trim(b.nome), '') from nenem_bebes b where b.familia_id = v.familia_id order by b.criado_em limit 1), 'o bebê') as bebe
+  from nenem_convites v
+  left join nenem_membros m on m.familia_id = v.familia_id and m.user_id = v.criado_por
+  where v.codigo = upper(regexp_replace(coalesce(p_codigo, ''), '[^A-Za-z0-9]', '', 'g'))
+    and v.usado_por is null
+    and v.expira_em > now()
+$$;
+revoke all on function public.nenem_info_convite(text) from public;
+grant execute on function public.nenem_info_convite(text) to anon, authenticated;

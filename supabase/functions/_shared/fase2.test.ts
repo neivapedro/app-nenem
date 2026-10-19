@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { eventosTarefas, eventosVacinas, montarIcs } from './ics.ts';
 import { avisosRemedio, avisosTarefas, avisosVacina, type MembroAviso } from './lembretes.ts';
-import { fecharTrecho, ladoAberto, minutos } from './atalhos.ts';
 
 const SITE = 'https://neivapedro.github.io/app-nenem/';
 const m: MembroAviso = { user_id: 'u1', fuso_horario: 'America/Sao_Paulo', lembrete_mamada: false, lembrete_mamada_min: 180, lembrete_agenda: true, lembrete_remedio: true, lembrete_vacina: true };
@@ -58,15 +57,5 @@ describe('avisos da fase 2', () => {
     const a = avisosTarefas(m, 'f1', '2026-11-15', [], t('2026-11-18T08:10'), SITE);
     expect(a.find((x) => x.tag === 'tarefa-pezinho')?.corpo).toBe('Até 20/11.');
     expect(avisosTarefas(m, 'f1', '2026-11-15', [{ id: 'x', item_id: 'pezinho', titulo: null, data: null, feito_em: 'x' }], t('2026-11-18T08:10'), SITE).some((x) => x.tag === 'tarefa-pezinho')).toBe(false);
-  });
-});
-
-describe('atalhos da Siri', () => {
-  it('fecha o trecho aberto e fala os minutos', () => {
-    const segs = [{ lado: 'E' as const, inicio: '2026-11-20T03:00:00.000Z', fim: null }];
-    expect(ladoAberto(segs)).toBe('E');
-    expect(fecharTrecho(segs, '2026-11-20T03:12:00.000Z')[0].fim).toBe('2026-11-20T03:12:00.000Z');
-    expect(minutos(12 * 60_000)).toBe('12 minutos');
-    expect(minutos(75 * 60_000)).toBe('1 hora e 15 minutos');
   });
 });

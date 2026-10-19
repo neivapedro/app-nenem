@@ -1,13 +1,15 @@
 import { ehErroDeRede } from '../lib/erros';
 import { useState, type FormEvent } from 'react';
 import { useDados } from '../dados/contexto';
+import { FaixaConvite, useConvite } from '../componentes/convite';
 import { Campo, Marca } from '../componentes/ui';
 
 type Modo = 'entrar' | 'cadastrar' | 'recuperar';
 
 export function Entrar() {
   const { repo } = useDados();
-  const [modo, setModo] = useState<Modo>('entrar');
+  const { convite } = useConvite();
+  const [modo, setModo] = useState<Modo>(() => (localStorage.getItem('app-nenem:convite') ? 'cadastrar' : 'entrar'));
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [msg, setMsg] = useState<{ tipo: 'erro' | 'info'; texto: string } | null>(null);
@@ -43,6 +45,7 @@ export function Entrar() {
           <h1>O dia a dia do bebê, juntos</h1>
           <p className="mudo">Mamadas, fraldas, sono e agenda, compartilhados entre os pais em tempo real.</p>
         </div>
+        {convite && <FaixaConvite convite={convite} texto="Crie sua conta (ou entre, se já tiver) para aceitar o convite." />}
         {repo.modo === 'local' && (
           <div className="alerta info">
             Modo demonstração: a nuvem ainda não foi configurada, então os dados ficam só neste navegador.

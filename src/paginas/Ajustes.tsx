@@ -4,6 +4,7 @@ import { CartaoCalendario } from '../componentes/calendario';
 import { Campo, Icone } from '../componentes/ui';
 import { SITE_URL } from '../config';
 import { useAgora, useDados } from '../dados/contexto';
+import { linkConvite } from '../lib/convite';
 import { chaveDia, dataBr, horaCurta, idadeBebe } from '../lib/datas';
 import { ehErroDeRede, traduzirErro } from '../lib/erros';
 import {
@@ -84,7 +85,7 @@ function CartaoBebe() {
 }
 
 function CartaoFamilia() {
-  const { membros, usuario, repo } = useDados();
+  const { membros, usuario, repo, bebe } = useDados();
   const [convite, setConvite] = useState<Convite | null>(null);
   const [gerando, setGerando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -101,8 +102,9 @@ function CartaoFamilia() {
     }
   }
 
+  const nomeBebe = bebe?.nome.trim();
   const texto = convite
-    ? `Entre no app do bebê: abra ${SITE_URL} no Safari do iPhone, crie sua conta (ou entre) e escolha "Tenho um código de convite". Código: ${convite.codigo}`
+    ? `Te convidei para o app ${nomeBebe ? `do ${nomeBebe}` : 'do nosso bebê'} 👶 Abra este link no Safari do iPhone e crie sua conta: ${linkConvite(SITE_URL, convite.codigo)}\n(Se o app pedir, o código é ${convite.codigo}.)`
     : '';
 
   return (
@@ -132,7 +134,7 @@ function CartaoFamilia() {
             {convite.codigo}
           </div>
           <p className="mudo" style={{ textAlign: 'center' }}>
-            Vale até {new Date(convite.expira_em).toLocaleDateString('pt-BR')} e só pode ser usado uma vez.
+            Vale até {new Date(convite.expira_em).toLocaleDateString('pt-BR')} e só pode ser usado uma vez. A mensagem leva o link com o código: é só ela tocar.
           </p>
           <button
             className="botao primario"

@@ -57,7 +57,6 @@ function paraMembro(d: any): Membro {
     lembrete_remedio: d.lembrete_remedio !== false,
     lembrete_vacina: d.lembrete_vacina !== false,
     token_calendario: d.token_calendario ?? null,
-    token_atalho: d.token_atalho ?? null,
   };
 }
 
@@ -258,6 +257,13 @@ export class RepositorioSupabase implements Repositorio {
     erro(await this.sb.rpc('nenem_entrar_familia', { p_codigo: codigo, p_nome: nome, p_fuso: fusoDoAparelho() }));
   }
 
+  async infoConvite(codigo: string) {
+    const { data, error } = await this.sb.rpc('nenem_info_convite', { p_codigo: codigo });
+    if (error) return null;
+    const linha = Array.isArray(data) ? data[0] : data;
+    return linha?.convidou ? { convidou: String(linha.convidou), bebe: String(linha.bebe) } : null;
+  }
+
   async salvarPreferencias(p: PreferenciasMembro) {
     const uid = await this.uid();
     erro(await this.sb.from('nenem_membros').update({ ...p, fuso_horario: fusoDoAparelho() }).eq('user_id', uid));
@@ -266,12 +272,6 @@ export class RepositorioSupabase implements Repositorio {
   async novoTokenCalendario(): Promise<string> {
     const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
     erro(await this.sb.from('nenem_membros').update({ token_calendario: token }).eq('user_id', await this.uid()));
-    return token;
-  }
-
-  async novoTokenAtalho(): Promise<string> {
-    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
-    erro(await this.sb.from('nenem_membros').update({ token_atalho: token }).eq('user_id', await this.uid()));
     return token;
   }
 

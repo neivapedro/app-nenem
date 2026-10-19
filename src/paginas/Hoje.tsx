@@ -9,11 +9,46 @@ import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, textoDuracao } from '../lib/datas';
+import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
 import { emEstoque, proximaDose, situacaoPote } from '../lib/saude';
 import { descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 
 type Folhas = TipoRegistro | null;
+
+/** No Safari (ainda não instalado): como colocar na Tela de Início */
+function DicaInstalar() {
+  const [fechada, setFechada] = useState(() => {
+    try {
+      return localStorage.getItem('app-nenem:dica-instalar') === '1';
+    } catch {
+      return false;
+    }
+  });
+  if (fechada || !ehIOS() || instaladoComoApp()) return null;
+  return (
+    <div className="alerta info" style={{ alignItems: 'center' }}>
+      <span className="cresce">
+        Para usar como app: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>. Depois abra pelo ícone e entre de novo com o mesmo e-mail e senha.
+      </span>
+      <button
+        className="icone-botao"
+        aria-label="Fechar dica"
+        style={{ width: 32, height: 32 }}
+        onClick={() => {
+          setFechada(true);
+          try {
+            localStorage.setItem('app-nenem:dica-instalar', '1');
+          } catch {
+            /* nada */
+          }
+        }}
+      >
+        <Icone nome="fechar" />
+      </button>
+    </div>
+  );
+}
 
 /** Lembretes do dia: vacina, remédio, leite e primeiros dias (só o que pede ação) */
 function Pendencias() {
@@ -142,6 +177,7 @@ export function Hoje() {
 
   return (
     <div className="pilha">
+      <DicaInstalar />
       {!bebe?.nascimento && <AntesDoParto />}
 
       {andamento.mamada && <CartaoMamadaAtiva r={andamento.mamada} />}
