@@ -124,7 +124,6 @@ export class RepositorioLocal implements Repositorio {
       lembrete_remedio: true,
       lembrete_vacina: true,
       token_calendario: crypto.randomUUID().replace(/-/g, ''),
-      token_atalho: crypto.randomUUID().replace(/-/g, ''),
     };
   }
 
@@ -172,15 +171,6 @@ export class RepositorioLocal implements Repositorio {
     const uid = this.exigir(b);
     const token = crypto.randomUUID().replace(/-/g, '');
     b.membros = b.membros.map((m) => (m.user_id === uid ? { ...m, token_calendario: token } : m));
-    gravar(b);
-    return token;
-  }
-
-  async novoTokenAtalho() {
-    const b = ler();
-    const uid = this.exigir(b);
-    const token = crypto.randomUUID().replace(/-/g, '');
-    b.membros = b.membros.map((m) => (m.user_id === uid ? { ...m, token_atalho: token } : m));
     gravar(b);
     return token;
   }

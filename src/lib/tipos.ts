@@ -110,7 +110,6 @@ export interface Membro {
   lembrete_remedio: boolean;
   lembrete_vacina: boolean;
   token_calendario: string | null;
-  token_atalho: string | null;
 }
 
 /** O que cada membro pode mudar em si mesmo */

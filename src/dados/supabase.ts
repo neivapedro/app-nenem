@@ -57,7 +57,6 @@ function paraMembro(d: any): Membro {
     lembrete_remedio: d.lembrete_remedio !== false,
     lembrete_vacina: d.lembrete_vacina !== false,
     token_calendario: d.token_calendario ?? null,
-    token_atalho: d.token_atalho ?? null,
   };
 }
 
@@ -266,12 +265,6 @@ export class RepositorioSupabase implements Repositorio {
   async novoTokenCalendario(): Promise<string> {
     const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
     erro(await this.sb.from('nenem_membros').update({ token_calendario: token }).eq('user_id', await this.uid()));
-    return token;
-  }
-
-  async novoTokenAtalho(): Promise<string> {
-    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
-    erro(await this.sb.from('nenem_membros').update({ token_atalho: token }).eq('user_id', await this.uid()));
     return token;
   }
 

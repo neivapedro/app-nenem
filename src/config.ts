@@ -9,6 +9,4 @@ export const SUPABASE_KEY: string = import.meta.env.VITE_SUPABASE_ANON_KEY ?? 's
 export const VAPID_PUBLICA: string = import.meta.env.VITE_VAPID_PUBLIC_KEY ?? 'BP0ONir-WP30mDUG7_gsYN_EAw0J-p_WSyBVZ4l51bBukAqn-_rGmlvoke_ruLmNX350OsXPn7l4cuEhpB1K2Qk';
 /** Endereço do calendário assinado; o token individual vai no final */
 export const CALENDARIO_URL = `${SUPABASE_URL}/functions/v1/nenem-calendario?t=`;
-/** Endereço dos atalhos da Siri; o token individual vai no final */
-export const ATALHO_URL = `${SUPABASE_URL}/functions/v1/nenem-atalho?t=`;
 export const SITE_URL = 'https://neivapedro.github.io/app-nenem/';

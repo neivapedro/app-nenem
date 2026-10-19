@@ -40,8 +40,6 @@ export interface Repositorio {
   salvarPreferencias(p: PreferenciasMembro): Promise<void>;
   /** Troca o endereço secreto do calendário (o antigo para de funcionar) */
   novoTokenCalendario(): Promise<string>;
-  /** Troca o endereço secreto dos atalhos da Siri (os atalhos antigos param de funcionar) */
-  novoTokenAtalho(): Promise<string>;
 
   salvarBebe(b: Bebe): Promise<void>;
 

@@ -1,4 +1,4 @@
--- App Heitor · Fase 2: saúde, desenvolvimento, leite materno, primeiros dias e atalhos da Siri.
+-- App Heitor · Fase 2: saúde, desenvolvimento, leite materno e primeiros dias.
 -- Mesmo modelo da Fase 1: tudo é da família (Row Level Security pela família da conta).
 -- Idempotente: pode rodar mais de uma vez sem problema.
 
@@ -14,15 +14,9 @@ alter table public.nenem_bebes add column if not exists calendario_vacinal text 
 alter table public.nenem_bebes drop constraint if exists nenem_bebes_calendario_vacinal_check;
 alter table public.nenem_bebes add constraint nenem_bebes_calendario_vacinal_check check (calendario_vacinal in ('pni', 'sbp'));
 
--- ---------- Membros: avisos novos e token dos atalhos da Siri ----------
+-- ---------- Membros: avisos novos ----------
 alter table public.nenem_membros add column if not exists lembrete_remedio boolean not null default true;
 alter table public.nenem_membros add column if not exists lembrete_vacina boolean not null default true;
--- Endereço secreto dos atalhos (registrar pela Siri sem abrir o app); diferente do calendário
-alter table public.nenem_membros add column if not exists token_atalho text unique
-  default replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
-update public.nenem_membros
-  set token_atalho = replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '')
-  where token_atalho is null;
 
 -- ---------- Crescimento ----------
 create table if not exists public.nenem_medidas (

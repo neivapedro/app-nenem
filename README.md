@@ -74,7 +74,6 @@ Os avisos usam os segredos que o app-dieta já configurou no projeto: as chaves 
 | **Mais → Leite materno** | Extrações e estoque com validade (12 h na geladeira, 15 dias no freezer, MS). |
 | **Mais → Introdução alimentar** | Refeições, aceitação, reações e alimentos já oferecidos. |
 | **Modo noite** | Ícone da lua no Hoje: tela preta, letras âmbar e botões grandes. |
-| **Mais → Atalhos da Siri** | "E aí Siri, fralda xixi": endereços secretos por pessoa (função `nenem-atalho`). |
 | **Mais → Exportar dados** | Planilha CSV e cópia completa em JSON. |
 
 O conteúdo de saúde vem do Ministério da Saúde, da SBP e da OMS (fontes na própria tela) e é apoio: a palavra final é do pediatra.
