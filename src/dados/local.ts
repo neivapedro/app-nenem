@@ -1,4 +1,4 @@
-import type { Bebe, Compromisso, Convite, Membro, NovaFamilia, PreferenciasMembro, Registro } from '../lib/tipos';
+import type { Bebe, Colecoes, Compromisso, Convite, Membro, NomeColecao, NovaFamilia, PreferenciasMembro, Registro } from '../lib/tipos';
 import type { Familia, InscricaoPush, Repositorio, Usuario } from './repositorio';
 
 // Modo demonstração (sem Supabase): tudo fica no navegador. Serve para testar
@@ -12,6 +12,7 @@ interface Banco {
   bebe: Bebe | null;
   registros: Registro[];
   compromissos: Compromisso[];
+  colecoes?: Partial<Record<NomeColecao, { id: string }[]>>;
 }
 
 const CHAVE = 'app-nenem:local';
@@ -120,7 +121,10 @@ export class RepositorioLocal implements Repositorio {
       lembrete_mamada: false,
       lembrete_mamada_min: 180,
       lembrete_agenda: true,
+      lembrete_remedio: true,
+      lembrete_vacina: true,
       token_calendario: crypto.randomUUID().replace(/-/g, ''),
+      token_atalho: crypto.randomUUID().replace(/-/g, ''),
     };
   }
 
@@ -139,6 +143,7 @@ export class RepositorioLocal implements Repositorio {
       peso_nascer_g: null,
       altura_nascer_cm: null,
       pc_nascer_cm: null,
+      calendario_vacinal: 'pni',
     };
     gravar(b);
   }
@@ -169,6 +174,50 @@ export class RepositorioLocal implements Repositorio {
     b.membros = b.membros.map((m) => (m.user_id === uid ? { ...m, token_calendario: token } : m));
     gravar(b);
     return token;
+  }
+
+  async novoTokenAtalho() {
+    const b = ler();
+    const uid = this.exigir(b);
+    const token = crypto.randomUUID().replace(/-/g, '');
+    b.membros = b.membros.map((m) => (m.user_id === uid ? { ...m, token_atalho: token } : m));
+    gravar(b);
+    return token;
+  }
+
+  async listarColecao<K extends NomeColecao>(nome: K): Promise<Colecoes[K][]> {
+    await espera();
+    return (ler().colecoes?.[nome] ?? []) as unknown as Colecoes[K][];
+  }
+
+  async salvarColecao<K extends NomeColecao>(nome: K, item: Colecoes[K]) {
+    const b = ler();
+    const lista = (b.colecoes?.[nome] ?? []).filter((x) => x.id !== item.id);
+    b.colecoes = { ...b.colecoes, [nome]: [...lista, item] };
+    gravar(b);
+  }
+
+  async excluirColecao(nome: NomeColecao, id: string) {
+    const b = ler();
+    b.colecoes = { ...b.colecoes, [nome]: (b.colecoes?.[nome] ?? []).filter((x) => x.id !== id) };
+    gravar(b);
+  }
+
+  // Fotos só na memória desta aba (modo demonstração)
+  private fotos = new Map<string, string>();
+
+  async enviarFoto(arquivo: Blob) {
+    const caminho = `local/${crypto.randomUUID()}.jpg`;
+    this.fotos.set(caminho, URL.createObjectURL(arquivo));
+    return caminho;
+  }
+
+  async urlFoto(caminho: string) {
+    return this.fotos.get(caminho) ?? null;
+  }
+
+  async excluirFoto(caminho: string) {
+    this.fotos.delete(caminho);
   }
 
   async salvarBebe(bebe: Bebe) {

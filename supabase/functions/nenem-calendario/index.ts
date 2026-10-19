@@ -4,7 +4,7 @@
 // assina o próprio endereço, e os dois veem a mesma agenda da família.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { montarIcs, type CompromissoIcs } from '../_shared/ics.ts';
+import { eventosTarefas, eventosVacinas, montarIcs, type CompromissoIcs, type EventoDia } from '../_shared/ics.ts';
 import { dataNoFuso, somarDias } from '../_shared/tempo.ts';
 
 const SITE = 'https://neivapedro.github.io/app-nenem/';
@@ -34,9 +34,27 @@ Deno.serve(async (req) => {
   ]);
   const compromissos = (comp ?? []).map((c) => ({ ...c, hora: c.hora ? String(c.hora).slice(0, 5) : null })) as CompromissoIcs[];
 
+  // Vacinas e prazos dos primeiros dias (tabelas da Fase 2; vazias se ainda não existirem)
+  const hoje = dataNoFuso(agora, fuso);
+  const [{ data: bebesCompletos }, { data: vac }, { data: tar }] = await Promise.all([
+    db.from('nenem_bebes').select('*').eq('familia_id', membro.familia_id).order('criado_em'),
+    db.from('nenem_vacinas').select('bebe_id, dose_id, status, data').eq('familia_id', membro.familia_id),
+    db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', membro.familia_id),
+  ]);
+  const eventos: EventoDia[] = [];
+  let nascimentoFamilia: string | null = null;
+  for (const b of bebesCompletos ?? []) {
+    if (!b.nascimento) continue;
+    const nasc = dataNoFuso(new Date(b.nascimento), fuso);
+    nascimentoFamilia ??= nasc;
+    eventos.push(...eventosVacinas(b.id, nasc, b.calendario_vacinal === 'sbp' ? 'sbp' : 'pni', (vac ?? []).filter((v) => v.bebe_id === b.id), hoje));
+  }
+  eventos.push(...eventosTarefas(membro.familia_id, nascimentoFamilia, tar ?? []));
+
   const ics = montarIcs({
     compromissos,
     bebes: bebes ?? [],
+    eventos,
     fuso,
     agora,
     site: SITE,

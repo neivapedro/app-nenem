@@ -15,11 +15,11 @@
   --aviso: #ffd60a;
   --info: #a1a1a6;
   /* Uma cor por tipo de registro */
-  --c-mamada: #f49ac0;
-  --c-mamadeira: #f6c66e;
-  --c-fralda: #7ec8f5;
-  --c-sono: #ad9ff5;
-  --c-agenda: #8fd6b4;
+  --c-mamada: #d65a8f;
+  --c-mamadeira: #bd8219;
+  --c-fralda: #3a8fd6;
+  --c-sono: #9670e0;
+  --c-agenda: #35a070;
   --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
   --raio: 16px;
   --nav-altura: 64px;
@@ -47,9 +47,9 @@
     --aviso: #a35200;
     --info: #6e6e73;
     --c-mamada: #c23c72;
-    --c-mamadeira: #9c6200;
-    --c-fralda: #1d73ad;
-    --c-sono: #6650d0;
+    --c-mamadeira: #a35f00;
+    --c-fralda: #1a73b5;
+    --c-sono: #8a3fc7;
     --c-agenda: #1f8a5c;
     --sombra: 0 1px 3px rgb(0 0 0 / 0.07);
   }
@@ -85,7 +85,7 @@ a { color: var(--destaque); }
   background: var(--superficie); border-top: 1px solid var(--borda);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.nav-itens { display: grid; grid-template-columns: repeat(4, 1fr); width: 100%; max-width: 640px; }
+.nav-itens { display: grid; grid-template-columns: repeat(5, 1fr); width: 100%; max-width: 640px; }
 .nav a {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   height: var(--nav-altura); text-decoration: none; color: var(--texto-3); font-size: 0.72rem; font-weight: 500;
@@ -195,6 +195,10 @@ a { color: var(--destaque); }
 .t-fralda { --cor: var(--c-fralda); }
 .t-sono { --cor: var(--c-sono); }
 .t-agenda { --cor: var(--c-agenda); }
+/* Tipos menos frequentes reaproveitam as cores validadas (o ícone e o nome identificam) */
+.t-remedio, .t-temperatura, .t-saude { --cor: var(--c-agenda); }
+.t-extracao { --cor: var(--c-mamada); }
+.t-refeicao { --cor: var(--c-mamadeira); }
 
 /* Ações rápidas do Hoje */
 .acoes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -211,7 +215,7 @@ a { color: var(--destaque); }
 
 /* Cronômetro em andamento */
 .cronometro { border-color: color-mix(in srgb, var(--cor) 55%, var(--borda)); background: color-mix(in srgb, var(--cor) 7%, var(--superficie)); }
-.cronometro .grande { color: var(--cor); }
+.cronometro .grande { color: var(--texto); }
 .lados { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .lado {
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px; border-radius: 14px;
@@ -279,3 +283,85 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .codigo { font-size: 2rem; font-weight: 800; letter-spacing: 0.2em; font-variant-numeric: tabular-nums; text-align: center; padding: 8px 0; }
 .oculto-visual { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (max-width: 360px) { .topo h1 { font-size: 1.25rem; } .acao { min-height: 96px; padding: 12px; } }
+
+/* Gráficos (fase 2): grade e eixos recessivos, dados em destaque */
+.grafico-cresc svg, .grafico-barras svg { width: 100%; height: auto; display: block; overflow: visible; }
+.grade-linha { stroke: var(--borda); stroke-width: 1; }
+.eixo-texto { fill: var(--texto-3); font-size: 10px; font-variant-numeric: tabular-nums; }
+.faixa-oms { fill: var(--texto-3); opacity: 0.08; }
+.curva-oms { fill: none; stroke: var(--texto-3); stroke-width: 1; opacity: 0.55; }
+.curva-oms.mediana { stroke-width: 1.5; opacity: 0.9; }
+.linha-bebe { fill: none; stroke: var(--c-fralda); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ponto-bebe { fill: var(--c-fralda); stroke: var(--superficie); stroke-width: 2; }
+.dica-grafico {
+  position: absolute; transform: translate(-50%, -100%); pointer-events: none; z-index: 2;
+  display: flex; flex-direction: column; gap: 1px; white-space: nowrap;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: 10px; padding: 6px 10px;
+  font-size: 0.78rem; color: var(--texto-2); box-shadow: 0 4px 14px rgb(0 0 0 / 0.25);
+}
+.dica-grafico strong { color: var(--texto); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.barra-dia { fill: var(--cor, var(--c-fralda)); }
+.barra-dia.ativa { opacity: 0.75; }
+.etiqueta.bom { background: color-mix(in srgb, var(--bom) 16%, transparent); color: var(--bom); }
+.etiqueta.ruim { background: color-mix(in srgb, var(--ruim) 16%, transparent); color: var(--ruim); }
+.etiqueta.aviso { background: color-mix(in srgb, var(--aviso) 18%, transparent); color: var(--aviso); }
+.etiqueta svg { width: 13px; height: 13px; }
+.fonte { font-size: 0.75rem; color: var(--texto-3); }
+.fonte a { color: var(--texto-2); }
+.grupo-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.tabela-simples { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.tabela-simples th, .tabela-simples td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--borda); white-space: nowrap; }
+.tabela-simples th:first-child, .tabela-simples td:first-child { text-align: left; }
+.tabela-simples th { color: var(--texto-2); font-weight: 600; font-size: 0.75rem; }
+.tabela-simples tr.clicavel { cursor: pointer; }
+.chips-rolagem { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.chips-rolagem::-webkit-scrollbar { display: none; }
+.mais-registros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.mais-registros button {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border-radius: 14px;
+  border: 1px solid var(--borda); background: var(--superficie); cursor: pointer; font-size: 0.75rem; font-weight: 600; min-width: 0;
+}
+.mais-registros .selo { width: 34px; height: 34px; }
+.mais-registros .selo svg { width: 18px; height: 18px; }
+.foto-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.foto-slot {
+  position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; border: 1px dashed var(--borda);
+  background: var(--superficie-2); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px;
+  cursor: pointer; color: var(--texto-3); font-size: 0.75rem; padding: 0;
+}
+.foto-slot.cheio { border-style: solid; }
+.foto-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.foto-slot .legenda {
+  position: absolute; left: 4px; bottom: 4px; padding: 1px 7px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; background: rgb(0 0 0 / 0.6); color: #fff;
+}
+.foto-grande { width: 100%; max-height: 60dvh; object-fit: contain; border-radius: 12px; background: var(--superficie-2); display: block; }
+.menu-lista { display: flex; flex-direction: column; }
+.menu-lista a, .menu-lista button {
+  display: flex; align-items: center; gap: 12px; padding: 12px 0; border: 0; border-top: 1px solid var(--borda); background: none;
+  text-decoration: none; color: var(--texto); text-align: left; cursor: pointer; width: 100%;
+}
+.menu-lista > :first-child { border-top: 0; }
+.menu-lista .seta { margin-left: auto; color: var(--texto-3); }
+
+/* Modo noite: tela escura, botões enormes, pouco brilho */
+.noite {
+  position: fixed; inset: 0; z-index: 60; background: #000; color: #b9a99a; display: flex; flex-direction: column;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+}
+.noite { overflow-y: auto; }
+.noite .noite-grade { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(84px, 1fr); gap: 10px; }
+.noite button {
+  border: 1px solid #2a221c; background: #0d0a08; color: #c9b8a6; border-radius: 22px; font-size: 1.25rem; font-weight: 650;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; min-height: 84px;
+}
+.noite .noite-info { min-height: 3em; display: flex; flex-direction: column; justify-content: center; }
+.noite .noite-feito { color: #d9c4ae; }
+.noite button.noite-desfazer { display: inline; min-height: 0; border: 0; background: none; font-size: 0.95rem; text-decoration: underline; padding: 4px; color: #d9c4ae; }
+.noite button small { font-size: 0.85rem; font-weight: 500; color: #8a7a6a; }
+.noite button.ativo { border-color: #6b4a3a; background: #1a110c; }
+.noite .noite-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.noite .noite-topo button { min-height: 44px; font-size: 0.95rem; padding: 0 16px; border-radius: 12px; }
+.noite .noite-info { text-align: center; font-size: 0.95rem; color: #8a7a6a; margin-bottom: 12px; font-variant-numeric: tabular-nums; }
+.noite .noite-relogio { font-size: 2.6rem; font-weight: 700; color: #c9b8a6; font-variant-numeric: tabular-nums; }
+.noite .noite-aviso { position: absolute; left: 16px; right: 16px; bottom: calc(24px + env(safe-area-inset-bottom)); text-align: center; background: #1a110c; border: 1px solid #3a2a20; border-radius: 14px; padding: 12px; font-size: 1rem; }
+.foto-mini { width: 100%; height: 100%; object-fit: cover; display: block; }

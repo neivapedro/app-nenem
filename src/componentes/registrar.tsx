@@ -22,6 +22,7 @@ import {
   validarRegistro,
 } from '../lib/registros';
 import type { ConteudoMamadeira, CorFezes, Lado, Registro, RegistroDe } from '../lib/tipos';
+import { FormExtracao, FormRefeicao, FormRemedio, FormTemperatura } from './registrar-mais';
 import { Campo, Escolhas, Folha, Icone } from './ui';
 
 // ---------- Peças comuns ----------
@@ -501,7 +502,20 @@ export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void
     </div>
   );
 
-  const titulos = { mamada: 'Editar mamada', mamadeira: 'Editar mamadeira', fralda: 'Editar fralda', sono: 'Editar sono' } as const;
+  const titulos = {
+    mamada: 'Editar mamada',
+    mamadeira: 'Editar mamadeira',
+    fralda: 'Editar fralda',
+    sono: 'Editar sono',
+    remedio: 'Editar remédio',
+    temperatura: 'Editar temperatura',
+    extracao: 'Editar extração',
+    refeicao: 'Editar refeição',
+  } as const;
+  const atualizar = (texto: string) => (novo: Registro) => {
+    salvar(novo, texto, r);
+    aoFechar();
+  };
 
   return (
     <Folha titulo={titulos[r.tipo]} aoFechar={aoFechar}>
@@ -518,6 +532,10 @@ export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void
       {r.tipo === 'mamada' && <EditarMamada r={r} aoSalvar={(novo) => (salvar(novo, 'Mamada atualizada', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
       {r.tipo === 'fralda' && <EditarFralda r={r} aoSalvar={(novo) => (salvar(novo, 'Fralda atualizada', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
       {r.tipo === 'sono' && <EditarSono r={r} aoSalvar={(novo) => (salvar(novo, 'Sono atualizado', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
+      {r.tipo === 'remedio' && <FormRemedio inicial={r} aoSalvar={atualizar('Remédio atualizado')} rodape={rodape} />}
+      {r.tipo === 'temperatura' && <FormTemperatura inicial={r} aoSalvar={atualizar('Temperatura atualizada')} rodape={rodape} />}
+      {r.tipo === 'extracao' && <FormExtracao inicial={r} aoSalvar={atualizar('Extração atualizada')} rodape={rodape} />}
+      {r.tipo === 'refeicao' && <FormRefeicao inicial={r} aoSalvar={atualizar('Refeição atualizada')} rodape={rodape} />}
     </Folha>
   );
 }

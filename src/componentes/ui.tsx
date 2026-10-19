@@ -54,6 +54,42 @@ const caminhos: Record<string, ReactNode> = {
     </>
   ),
   alerta: <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />,
+  remedio: (
+    <>
+      <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z" />
+      <path d="m8.5 8.5 7 7" />
+    </>
+  ),
+  temperatura: <path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0zM12 9v7" />,
+  extracao: (
+    <>
+      <path d="M8 3h8l-1 5H9z" />
+      <path d="M9 8v11a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V8M9 13h6" />
+    </>
+  ),
+  refeicao: (
+    <>
+      <path d="M4 11h16a8 8 0 0 1-16 0z" />
+      <path d="M12 7c0-2 1-3 3-4M9 7c0-1 .5-2 1.5-2.5" />
+    </>
+  ),
+  saude: <path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7zM8 11h3l1.5-2 2 4 1.5-2h1" />,
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  grafico: <path d="M3 3v18h18M8 17v-5M13 17V8M18 17v-8" />,
+  lua: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  estrela: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" />,
+  check: <path d="M20 6 9 17l-5-5" />,
+  lista: <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />,
+  baixar: <path d="M12 3v13M7 11l5 5 5-5M5 21h14" />,
+  camera: (
+    <>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </>
+  ),
+  regua: <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0zM14.5 12.5l2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2" />,
+  vacina: <path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6" />,
+  siri: <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3" />,
 };
 
 export function Icone({ nome }: { nome: string }) {
@@ -65,10 +101,10 @@ export function Icone({ nome }: { nome: string }) {
 }
 
 /** Ícone do tipo de registro num quadrado com a cor do tipo */
-export function Selo({ tipo }: { tipo: TipoRegistro | 'agenda' }) {
+export function Selo({ tipo, icone }: { tipo: TipoRegistro | 'agenda' | 'saude'; icone?: string }) {
   return (
     <span className={`selo t-${tipo}`}>
-      <Icone nome={tipo} />
+      <Icone nome={icone ?? tipo} />
     </span>
   );
 }

@@ -1,15 +1,91 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
+import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
 import { FolhaBebe } from '../componentes/bebe';
+import { FolhaRegistroMais } from '../componentes/registrar-mais';
 import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
-import { dataBr, haQuanto, semanasGestacao, textoDuracao } from '../lib/datas';
+import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, textoDuracao } from '../lib/datas';
+import { emEstoque, proximaDose, situacaoPote } from '../lib/saude';
 import { descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 
 type Folhas = TipoRegistro | null;
+
+/** Lembretes do dia: vacina, remédio, leite e primeiros dias (só o que pede ação) */
+function Pendencias() {
+  const { bebe, vacinas, remedios, registros, leite, tarefas, hoje } = useDados();
+  const agora = useAgora(60_000);
+  const itens: { chave: string; para: string; titulo: string; detalhe: string; urgente?: boolean }[] = [];
+
+  const nasc = bebe?.nascimento ? chaveDia(bebe.nascimento) : null;
+  if (bebe && nasc) {
+    const todas = calendarioDoBebe(nasc, bebe.calendario_vacinal, vacinas, hoje);
+    const soAtrasadas = todas.filter((d) => d.situacao === 'atrasada');
+    const pend = soAtrasadas.length ? soAtrasadas : todas.filter((d) => d.situacao === 'agora' || (d.situacao === 'proxima' && diasEntre(hoje, d.prevista) <= 7));
+    if (pend.length) {
+      const atrasadas = pend.filter((d) => d.situacao === 'atrasada').length;
+      itens.push({
+        chave: 'vacinas',
+        para: '/saude?aba=vacinas',
+        titulo: atrasadas ? `${atrasadas} ${atrasadas === 1 ? 'vacina atrasada' : 'vacinas atrasadas'}` : pend[0].situacao === 'agora' ? 'Vacina para tomar' : 'Vacina chegando',
+        detalhe: pend.map((d) => d.dose.vacina.split(' (')[0]).slice(0, 3).join(', ') + (pend[0].situacao === 'proxima' ? ` · a partir de ${dataBr(pend[0].prevista).slice(0, 5)}` : ''),
+        urgente: atrasadas > 0,
+      });
+    }
+  }
+  for (const m of remedios.filter((x) => x.ativo && x.intervalo_h)) {
+    const p = proximaDose(m, registros);
+    if (!p) continue;
+    const falta = new Date(p).getTime() - agora.getTime();
+    if (falta <= 60 * 60_000) {
+      itens.push({ chave: `rem-${m.id}`, para: '/saude?aba=remedios', titulo: `${m.nome}${m.dose ? ` (${m.dose})` : ''}`, detalhe: falta < 0 ? `dose passou há ${textoDuracao(-falta)}` : `próxima dose às ${horaCurta(p)}`, urgente: falta < 0 });
+    }
+  }
+  const vencendo = emEstoque(leite).filter((x) => situacaoPote(x, agora) !== 'ok');
+  if (vencendo.length) {
+    const vencidos = vencendo.filter((x) => situacaoPote(x, agora) === 'vencido').length;
+    itens.push({ chave: 'leite', para: '/mais/leite', titulo: vencidos ? `${vencidos} ${vencidos === 1 ? 'pote de leite venceu' : 'potes de leite venceram'}` : 'Leite vencendo logo', detalhe: `${vencendo.reduce((s, x) => s + x.ml, 0)} ml no estoque para usar ou descartar` });
+  }
+  if (nasc && diasEntre(nasc, hoje) <= 45) {
+    const feitas = new Set(tarefas.filter((t) => t.item_id && t.feito_em).map((t) => t.item_id));
+    const proximas = TAREFAS_PADRAO.filter((t) => !feitas.has(t.id) && t.prazo_dias !== undefined)
+      .map((t) => ({ t, prazo: prazoTarefa(t, nasc)! }))
+      .filter((x) => diasEntre(hoje, x.prazo) <= 3)
+      .sort((a, b) => a.prazo.localeCompare(b.prazo));
+    if (proximas.length) {
+      itens.push({
+        chave: 'primeiros',
+        para: '/mais/primeiros-dias',
+        titulo: `Primeiros dias: ${proximas.length} ${proximas.length === 1 ? 'pendência' : 'pendências'}`,
+        detalhe: proximas.slice(0, 3).map((x) => x.t.titulo).join(', '),
+        urgente: proximas.some((x) => x.prazo < hoje),
+      });
+    }
+  }
+  if (!itens.length) return null;
+  return (
+    <section className="cartao" aria-label="Pendências">
+      <div className="lista">
+        {itens.map((i) => (
+          <Link key={i.chave} to={i.para} className="item" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <span className={`selo ${i.urgente ? '' : 't-agenda'}`} style={i.urgente ? { color: 'var(--ruim)', background: 'color-mix(in srgb, var(--ruim) 14%, transparent)' } : undefined}>
+              <Icone nome={i.chave === 'vacinas' ? 'vacina' : i.chave === 'leite' ? 'extracao' : i.chave === 'primeiros' ? 'lista' : 'remedio'} />
+            </span>
+            <div className="cresce">
+              <div className="titulo">{i.titulo}</div>
+              <div className="detalhe">{i.detalhe}</div>
+            </div>
+            <Icone nome="seta" />
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function AntesDoParto() {
   const { bebe, hoje } = useDados();
@@ -41,6 +117,8 @@ export function Hoje() {
   const { bebe, registros, compromissos, hoje, gravar, mostrarAviso, nomeDe } = useDados();
   const agora = useAgora(30_000);
   const [folha, setFolha] = useState<Folhas>(null);
+  const [mais, setMais] = useState<'remedio' | 'temperatura' | 'extracao' | 'refeicao' | null>(null);
+  const comeIntroducao = bebe?.nascimento ? diasEntre(chaveDia(bebe.nascimento), hoje) >= 165 : false;
   const [editando, setEditando] = useState<Registro | null>(null);
   const andamento = emAndamento(registros);
   const resumo = resumoDia(registros, hoje, agora);
@@ -93,6 +171,23 @@ export function Hoje() {
           </span>
         </button>
       </section>
+
+      <section className="mais-registros" aria-label="Outros registros">
+        {(['remedio', 'temperatura', 'extracao', ...(comeIntroducao ? (['refeicao'] as const) : [])] as const).map((t) => (
+          <button key={t} className={`t-${t}`} onClick={() => setMais(t)}>
+            <Selo tipo={t} />
+            {t === 'remedio' ? 'Remédio' : t === 'temperatura' ? 'Febre' : t === 'extracao' ? 'Extração' : 'Refeição'}
+          </button>
+        ))}
+        {!comeIntroducao && (
+          <Link to="/mais/primeiros-dias" className="t-agenda" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 4px', borderRadius: 14, border: '1px solid var(--borda)', background: 'var(--superficie)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
+            <Selo tipo="agenda" icone="lista" />
+            Checklist
+          </Link>
+        )}
+      </section>
+
+      <Pendencias />
 
       <section className="cartao" aria-label="Resumo de hoje">
         <div className="cartao-cab">
@@ -169,6 +264,7 @@ export function Hoje() {
       {folha === 'fralda' && <FolhaFralda aoFechar={() => setFolha(null)} />}
       {folha === 'sono' && <FolhaSono aoFechar={() => setFolha(null)} />}
       {editando && <FolhaEditar r={editando} aoFechar={() => setEditando(null)} />}
+      {mais && <FolhaRegistroMais tipo={mais} aoFechar={() => setMais(null)} />}
     </div>
   );
 }

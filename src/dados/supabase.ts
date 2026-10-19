@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ehErroDeRede } from '../lib/erros';
-import type { Bebe, Compromisso, Convite, Membro, NovaFamilia, PreferenciasMembro, Registro } from '../lib/tipos';
+import type { Bebe, Colecoes, Compromisso, Convite, Membro, NomeColecao, NovaFamilia, PreferenciasMembro, Registro } from '../lib/tipos';
 import type { Familia, InscricaoPush, Repositorio, Usuario } from './repositorio';
 
 // O isolamento entre famílias é garantido no banco (Row Level Security, ver
@@ -53,7 +53,11 @@ function paraMembro(d: any): Membro {
     lembrete_mamada: d.lembrete_mamada === true,
     lembrete_mamada_min: Number(d.lembrete_mamada_min ?? 180),
     lembrete_agenda: d.lembrete_agenda !== false,
+    // Colunas da Fase 2 (ausentes no banco antigo = padrão)
+    lembrete_remedio: d.lembrete_remedio !== false,
+    lembrete_vacina: d.lembrete_vacina !== false,
     token_calendario: d.token_calendario ?? null,
+    token_atalho: d.token_atalho ?? null,
   };
 }
 
@@ -68,6 +72,7 @@ function paraBebe(d: any): Bebe {
     peso_nascer_g: num(d.peso_nascer_g),
     altura_nascer_cm: num(d.altura_nascer_cm),
     pc_nascer_cm: num(d.pc_nascer_cm),
+    calendario_vacinal: d.calendario_vacinal === 'sbp' ? 'sbp' : 'pni',
   };
 }
 
@@ -85,6 +90,24 @@ function paraRegistro(d: any): Registro {
     observacao: d.observacao ?? null,
     criado_por: d.criado_por ?? null,
   } as Registro;
+}
+
+/** Tabela de cada coleção e os campos numéricos (o PostgREST devolve numeric como texto) */
+const TABELAS: Record<NomeColecao, { tabela: string; numeros: string[]; ordem: string }> = {
+  medidas: { tabela: 'nenem_medidas', numeros: ['peso_g', 'comprimento_cm', 'pc_cm'], ordem: 'data' },
+  vacinas: { tabela: 'nenem_vacinas', numeros: [], ordem: 'data' },
+  remedios: { tabela: 'nenem_remedios', numeros: ['intervalo_h'], ordem: 'criado_em' },
+  leite: { tabela: 'nenem_leite', numeros: ['ml'], ordem: 'extraido_em' },
+  marcos: { tabela: 'nenem_marcos', numeros: [], ordem: 'data' },
+  tarefas: { tabela: 'nenem_tarefas', numeros: [], ordem: 'criado_em' },
+};
+
+/** Só os campos do app (sem criado_em/atualizado_em) e números como número */
+function paraItem<K extends NomeColecao>(nome: K, d: any): Colecoes[K] {
+  const { criado_em: _c, atualizado_em: _a, ...resto } = d;
+  for (const k of TABELAS[nome].numeros) resto[k] = num(resto[k]);
+  if (nome === 'leite') resto.extraido_em = new Date(resto.extraido_em).toISOString();
+  return resto as Colecoes[K];
 }
 
 function paraCompromisso(d: any): Compromisso {
@@ -246,6 +269,54 @@ export class RepositorioSupabase implements Repositorio {
     return token;
   }
 
+  async novoTokenAtalho(): Promise<string> {
+    const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, '');
+    erro(await this.sb.from('nenem_membros').update({ token_atalho: token }).eq('user_id', await this.uid()));
+    return token;
+  }
+
+  async listarColecao<K extends NomeColecao>(nome: K): Promise<Colecoes[K][]> {
+    const { tabela, ordem } = TABELAS[nome];
+    const r = await this.sb.from(tabela).select('*').order(ordem);
+    // Tabela da Fase 2 que ainda não existe no banco: lista vazia (o resto do app segue)
+    if (r.error && /does not exist|Could not find|schema cache/i.test(r.error.message)) return [];
+    return (erro(r) ?? []).map((d) => paraItem(nome, d));
+  }
+
+  async salvarColecao<K extends NomeColecao>(nome: K, item: Colecoes[K]) {
+    erro(await this.sb.from(TABELAS[nome].tabela).upsert({ ...item } as Record<string, unknown>));
+  }
+
+  async excluirColecao(nome: NomeColecao, id: string) {
+    erro(await this.sb.from(TABELAS[nome].tabela).delete().eq('id', id));
+  }
+
+  private urls = new Map<string, { url: string; ate: number }>();
+
+  async enviarFoto(arquivo: Blob): Promise<string> {
+    const eu = erro(await this.sb.from('nenem_membros').select('familia_id').eq('user_id', await this.uid()).single());
+    const familia = (eu as { familia_id: string } | null)?.familia_id;
+    if (!familia) throw new Error('Família não encontrada.');
+    const caminho = `${familia}/${crypto.randomUUID()}.jpg`;
+    const { error } = await this.sb.storage.from('nenem-fotos').upload(caminho, arquivo, { contentType: arquivo.type || 'image/jpeg', upsert: false });
+    if (error) throw new ErroServidor(error.message, (error as { statusCode?: number }).statusCode);
+    return caminho;
+  }
+
+  async urlFoto(caminho: string): Promise<string | null> {
+    const guardada = this.urls.get(caminho);
+    if (guardada && guardada.ate > Date.now()) return guardada.url;
+    const { data, error } = await this.sb.storage.from('nenem-fotos').createSignedUrl(caminho, 60 * 60);
+    if (error || !data) return null;
+    this.urls.set(caminho, { url: data.signedUrl, ate: Date.now() + 50 * 60_000 });
+    return data.signedUrl;
+  }
+
+  async excluirFoto(caminho: string) {
+    await this.sb.storage.from('nenem-fotos').remove([caminho]);
+    this.urls.delete(caminho);
+  }
+
   async salvarBebe(b: Bebe) {
     erro(await this.sb.from('nenem_bebes').upsert(b));
   }
@@ -297,7 +368,7 @@ export class RepositorioSupabase implements Repositorio {
     // Sem filtro por família: o banco já só entrega as linhas que a conta pode ver
     // (e exclusões chegam só com o id, então não daria para filtrar)
     const canal = this.sb.channel(`nenem-${crypto.randomUUID()}`);
-    for (const tabela of ['nenem_registros', 'nenem_compromissos', 'nenem_bebes', 'nenem_membros']) {
+    for (const tabela of ['nenem_registros', 'nenem_compromissos', 'nenem_bebes', 'nenem_membros', ...Object.values(TABELAS).map((t) => t.tabela)]) {
       canal.on('postgres_changes', { event: '*', schema: 'public', table: tabela }, () => cb());
     }
     canal.subscribe((estado) => {

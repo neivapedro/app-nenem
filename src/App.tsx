@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Protecao } from './componentes/Protecao';
 import { Icone, Marca } from './componentes/ui';
 import { useAgora, useDados } from './dados/contexto';
 import { idadeBebe, semanasGestacao } from './lib/datas';
 import { Agenda } from './paginas/Agenda';
-import { Ajustes } from './paginas/Ajustes';
 import { Configurar } from './paginas/Configurar';
+import { SECOES_MAIS, TelaMais } from './paginas/Mais';
+import { Noite } from './paginas/Noite';
+import { Saude } from './paginas/Saude';
 import { Entrar, NovaSenha } from './paginas/Entrar';
 import { Historico } from './paginas/Historico';
 import { Hoje } from './paginas/Hoje';
@@ -14,8 +16,9 @@ import { Hoje } from './paginas/Hoje';
 const ABAS = [
   { para: '/', rotulo: 'Hoje', icone: 'hoje' },
   { para: '/historico', rotulo: 'Histórico', icone: 'historico' },
+  { para: '/saude', rotulo: 'Saúde', icone: 'saude' },
   { para: '/agenda', rotulo: 'Agenda', icone: 'agenda' },
-  { para: '/ajustes', rotulo: 'Ajustes', icone: 'ajustes' },
+  { para: '/mais', rotulo: 'Mais', icone: 'menu' },
 ];
 
 function AvisoNovaVersao() {
@@ -104,6 +107,7 @@ function Cabecalho() {
   const { pathname } = useLocation();
   const agora = useAgora(60_000);
   const aba = ABAS.find((a) => a.para === pathname);
+  const secao = pathname.startsWith('/mais/') ? SECOES_MAIS.find((s) => pathname === `/mais/${s.id}`) : null;
   const nome = bebe?.nome.trim() || 'Bebê';
   let sub = '';
   if (bebe?.nascimento) sub = idadeBebe(bebe.nascimento, agora);
@@ -114,12 +118,25 @@ function Cabecalho() {
   return (
     <header className="topo">
       <div className="topo-marca">
-        <Marca classe="marca-mini" />
+        {secao ? (
+          <Link to="/mais" className="icone-botao" aria-label="Voltar">
+            <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
+              <Icone nome="seta" />
+            </span>
+          </Link>
+        ) : (
+          <Marca classe="marca-mini" />
+        )}
         <div style={{ minWidth: 0 }}>
-          <h1>{pathname === '/' ? nome : aba?.rotulo}</h1>
+          <h1>{pathname === '/' ? nome : (secao?.titulo ?? aba?.rotulo)}</h1>
           {pathname === '/' && sub && <div className="sub">{sub}</div>}
         </div>
       </div>
+      {pathname === '/' && (
+        <Link to="/noite" className="icone-botao" aria-label="Modo noite">
+          <Icone nome="lua" />
+        </Link>
+      )}
     </header>
   );
 }
@@ -140,8 +157,11 @@ function Estrutura() {
             <Routes>
               <Route path="/" element={<Hoje />} />
               <Route path="/historico" element={<Historico />} />
+              <Route path="/saude" element={<Saude />} />
               <Route path="/agenda" element={<Agenda />} />
-              <Route path="/ajustes" element={<Ajustes />} />
+              <Route path="/mais" element={<TelaMais />} />
+              <Route path="/mais/:secao" element={<TelaMais />} />
+              <Route path="/ajustes" element={<Navigate to="/mais/ajustes" replace />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Protecao>
@@ -151,7 +171,7 @@ function Estrutura() {
       <nav className="nav" aria-label="Navegação principal">
         <div className="nav-itens">
           {ABAS.map((a) => (
-            <NavLink key={a.para} to={a.para} end className={({ isActive }) => (isActive ? 'ativo' : '')}>
+            <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} className={({ isActive }) => (isActive ? 'ativo' : '')}>
               <Icone nome={a.icone} />
               {a.rotulo}
             </NavLink>
@@ -206,7 +226,10 @@ export function App() {
   }
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-      <Estrutura />
+      <Routes>
+        <Route path="/noite" element={<Noite />} />
+        <Route path="*" element={<Estrutura />} />
+      </Routes>
     </BrowserRouter>
   );
 }

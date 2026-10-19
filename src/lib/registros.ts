@@ -6,6 +6,10 @@ export const NOMES_TIPO: Record<TipoRegistro, string> = {
   mamadeira: 'Mamadeira',
   fralda: 'Fralda',
   sono: 'Sono',
+  remedio: 'Remédio',
+  temperatura: 'Temperatura',
+  extracao: 'Extração de leite',
+  refeicao: 'Refeição',
 };
 
 export const NOME_LADO: Record<Lado, string> = { E: 'Esquerdo', D: 'Direito' };
@@ -240,6 +244,21 @@ export function descrever(r: Registro, agora: Date): { titulo: string; detalhe: 
       detalhe: `${horaCurta(r.inicio)}${r.dados.coco && cor ? ` · ${cor.rotulo.toLowerCase()}` : ''}`,
     };
   }
+  if (r.tipo === 'remedio') {
+    return { titulo: `Remédio · ${r.dados.nome}`, detalhe: `${horaCurta(r.inicio)}${r.dados.dose ? ` · ${r.dados.dose}` : ''}` };
+  }
+  if (r.tipo === 'temperatura') {
+    return { titulo: `Temperatura · ${r.dados.graus.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} °C`, detalhe: horaCurta(r.inicio) };
+  }
+  if (r.tipo === 'extracao') {
+    const total = (r.dados.ml_e || 0) + (r.dados.ml_d || 0);
+    const lados = [r.dados.ml_e ? `E ${r.dados.ml_e} ml` : '', r.dados.ml_d ? `D ${r.dados.ml_d} ml` : ''].filter(Boolean).join(' · ');
+    return { titulo: `Extração · ${total} ml`, detalhe: `${horaCurta(r.inicio)}${lados ? ` · ${lados}` : ''}` };
+  }
+  if (r.tipo === 'refeicao') {
+    const aceitou = { bem: 'aceitou bem', pouco: 'comeu pouco', recusou: 'recusou' }[r.dados.aceitacao];
+    return { titulo: `Refeição · ${r.dados.alimentos.join(', ') || 'sem alimentos'}`, detalhe: `${horaCurta(r.inicio)} · ${aceitou}${r.dados.reacao ? ' · teve reação' : ''}` };
+  }
   const dur = (r.fim ? ms(r.fim) : agora.getTime()) - ms(r.inicio);
   return {
     titulo: `Sono · ${textoDuracao(dur)}`,
@@ -255,5 +274,9 @@ export function validarRegistro(r: Registro, agora: Date): string | null {
   if (r.tipo === 'mamadeira' && !(r.dados.ml > 0 && r.dados.ml <= 500)) return 'Informe a quantidade (até 500 ml).';
   if (r.tipo === 'mamada' && r.fim && duracaoPorLado(r, agora).total <= 0) return 'Informe os minutos em pelo menos um peito.';
   if (r.tipo === 'fralda' && !r.dados.xixi && !r.dados.coco) return 'Marque xixi, cocô ou os dois.';
+  if (r.tipo === 'remedio' && !r.dados.nome.trim()) return 'Informe o remédio.';
+  if (r.tipo === 'temperatura' && !(r.dados.graus >= 30 && r.dados.graus <= 44)) return 'Temperatura entre 30 e 44 °C (ex.: 36,8).';
+  if (r.tipo === 'extracao' && !((r.dados.ml_e || 0) + (r.dados.ml_d || 0) > 0)) return 'Informe os ml de pelo menos um peito.';
+  if (r.tipo === 'refeicao' && !r.dados.alimentos.length) return 'Informe pelo menos um alimento.';
   return null;
 }

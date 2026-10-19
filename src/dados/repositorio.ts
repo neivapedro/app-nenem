@@ -1,4 +1,4 @@
-import type { Bebe, Compromisso, Convite, Membro, NovaFamilia, PreferenciasMembro, Registro } from '../lib/tipos';
+import type { Bebe, Colecoes, Compromisso, Convite, Membro, NomeColecao, NovaFamilia, PreferenciasMembro, Registro } from '../lib/tipos';
 
 export interface Usuario {
   id: string;
@@ -40,6 +40,8 @@ export interface Repositorio {
   salvarPreferencias(p: PreferenciasMembro): Promise<void>;
   /** Troca o endereço secreto do calendário (o antigo para de funcionar) */
   novoTokenCalendario(): Promise<string>;
+  /** Troca o endereço secreto dos atalhos da Siri (os atalhos antigos param de funcionar) */
+  novoTokenAtalho(): Promise<string>;
 
   salvarBebe(b: Bebe): Promise<void>;
 
@@ -51,6 +53,17 @@ export interface Repositorio {
   listarCompromissos(): Promise<Compromisso[]>;
   salvarCompromisso(c: Compromisso): Promise<void>;
   excluirCompromisso(id: string): Promise<void>;
+
+  /** Medidas, vacinas, remédios, estoque de leite, marcos e primeiros dias */
+  listarColecao<K extends NomeColecao>(nome: K): Promise<Colecoes[K][]>;
+  salvarColecao<K extends NomeColecao>(nome: K, item: Colecoes[K]): Promise<void>;
+  excluirColecao(nome: NomeColecao, id: string): Promise<void>;
+
+  /** Guarda uma foto (já reduzida) da família e devolve o caminho */
+  enviarFoto(arquivo: Blob): Promise<string>;
+  /** Endereço temporário para mostrar a foto */
+  urlFoto(caminho: string): Promise<string | null>;
+  excluirFoto(caminho: string): Promise<void>;
 
   salvarInscricaoPush(i: InscricaoPush): Promise<void>;
   removerInscricaoPush(endpoint: string): Promise<void>;

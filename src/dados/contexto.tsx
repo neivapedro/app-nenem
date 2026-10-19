@@ -3,8 +3,8 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config';
 import { hojeLocal, inicioDoDia, somarDiasLocal } from '../lib/datas';
 import { ehErroDeRede, ehSessaoExpirada, traduzirErro } from '../lib/erros';
 import { esquecerAparelho, sincronizarInscricao } from '../lib/notificacoes';
-import type { Bebe, Compromisso, Membro, Registro } from '../lib/tipos';
-import { apagarDadosLocais, aplicarFila, enfileirar, executarOperacao, gravarCache, gravarFila, lerCache, lerFila, type ItemFila, type Operacao } from './fila';
+import { COLECOES, type Bebe, type Compromisso, type Membro, type Registro } from '../lib/tipos';
+import { apagarDadosLocais, aplicarFila, enfileirar, executarOperacao, gravarCache, gravarFila, lerCache, lerFila, LISTAS_VAZIAS, type ItemFila, type ListasColecoes, type Operacao } from './fila';
 import { RepositorioLocal } from './local';
 import type { Repositorio, Usuario } from './repositorio';
 import { RepositorioSupabase } from './supabase';
@@ -14,7 +14,7 @@ export const repositorio: Repositorio = SUPABASE_URL && SUPABASE_KEY ? new Repos
 /** Quantos dias de registros o app carrega ao abrir (o Histórico pode pedir mais) */
 const DIAS_INICIAIS = 45;
 
-interface Dados {
+interface Dados extends ListasColecoes {
   membro: Membro | null;
   membros: Membro[];
   bebe: Bebe | null;
@@ -22,7 +22,7 @@ interface Dados {
   compromissos: Compromisso[];
 }
 
-const VAZIO: Dados = { membro: null, membros: [], bebe: null, registros: [], compromissos: [] };
+const VAZIO: Dados = { ...LISTAS_VAZIAS, membro: null, membros: [], bebe: null, registros: [], compromissos: [] };
 
 export interface AvisoRapido {
   texto: string;
@@ -140,8 +140,13 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
         base = VAZIO;
       } else {
         const desde = inicioDoDia(somarDiasLocal(hojeLocal(), -diasRef.current)).toISOString();
-        const [registros, compromissos] = await Promise.all([repositorio.listarRegistros(desde), repositorio.listarCompromissos()]);
-        base = { membro: familia.membro, membros: familia.membros, bebe: familia.bebe, registros, compromissos };
+        const [registros, compromissos, ...listas] = await Promise.all([
+          repositorio.listarRegistros(desde),
+          repositorio.listarCompromissos(),
+          ...COLECOES.map((c) => repositorio.listarColecao(c)),
+        ]);
+        const colecoes = Object.fromEntries(COLECOES.map((c, i) => [c, listas[i]])) as unknown as ListasColecoes;
+        base = { ...colecoes, membro: familia.membro, membros: familia.membros, bebe: familia.bebe, registros, compromissos };
         if (repositorio.modo === 'nuvem') gravarCache(u.id, base);
       }
       setFalhouCarregar(false);
