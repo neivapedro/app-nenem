@@ -225,5 +225,6 @@ export function Escolhas<T extends string | number | boolean | null>({
 
 /** Logotipo do app (o mesmo desenho do ícone da Tela de Início) */
 export function Marca({ classe }: { classe: string }) {
-  return <img className={classe} src={`${import.meta.env.BASE_URL}icone-192.png`} alt="" />;
+  // 384 px: nítida até no tamanho grande da tela de entrada em iPhones de tela 3x
+  return <img className={classe} src={`${import.meta.env.BASE_URL}marca.jpg`} alt="" decoding="async" />;
 }
