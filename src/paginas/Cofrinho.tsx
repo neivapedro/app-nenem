@@ -1,5 +1,6 @@
 import qrcode from 'qrcode-generator';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { BarrasDiarias } from '../componentes/barras';
 import { BarrasHorizontais, GraficoLinhas, type SerieLinha } from '../componentes/cofrinho-graficos';
 import { arquivoPdf, compartilhar, prepararEEnviar } from '../componentes/doc-arquivos';
@@ -8,6 +9,7 @@ import { Campo, Escolhas, Folha, Icone } from '../componentes/ui';
 import { useDados } from '../dados/contexto';
 import {
   aporteNecessario,
+  atualizacoesSaldo,
   CENARIOS,
   chaveFormatada,
   depositosPorMes,
@@ -27,9 +29,10 @@ import {
   reais,
   resumo,
   TIPOS_CONTA,
+  ultimaAtualizacao,
   type TipoChavePix,
 } from '../lib/cofrinho';
-import { chaveDia, dataBr, hojeLocal } from '../lib/datas';
+import { chaveDia, dataBr, diasEntre, hojeLocal } from '../lib/datas';
 import { nomeArquivo } from '../lib/documentos';
 import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
@@ -136,7 +139,7 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
         {c.tipo !== 'cofre' && (
           <>
             <Campo rotulo="Banco ou corretora">
-              <input value={c.instituicao ?? ''} maxLength={80} onChange={(e) => setC({ ...c, instituicao: e.target.value })} placeholder="Ex.: Caixa, Nubank, Tesouro Direto" />
+              <input value={c.instituicao ?? ''} maxLength={80} onChange={(e) => setC({ ...c, instituicao: e.target.value })} placeholder={c.tipo === 'caixinha' ? 'Ex.: Nubank' : 'Ex.: Caixa, Nubank, Tesouro Direto'} />
             </Campo>
             <div className="grade">
               <Campo rotulo="Agência">
@@ -149,6 +152,9 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
             <Campo rotulo="Titular">
               <input value={c.titular ?? ''} maxLength={120} onChange={(e) => setC({ ...c, titular: e.target.value })} placeholder="Ex.: Heitor (pais como responsáveis)" autoCapitalize="words" />
             </Campo>
+            {c.tipo === 'caixinha' && (
+              <p className="dica-cofrinho">💡 A caixinha fica dentro de uma conta (a sua, no Nubank). Use a chave Pix dessa conta: o presente da família cai nela e você guarda na caixinha. Para o saldo, é só abrir o app, ver o valor da caixinha e tocar em “Atualizar saldo” aqui.</p>
+            )}
             <Campo rotulo="Chave Pix (para a família depositar)" grupo dica="Com ela o app monta um QR Code para avós, tios e padrinhos.">
               <Escolhas
                 opcoes={(['cpf', 'telefone', 'email', 'aleatoria'] as TipoChavePix[]).map((t) => ({ valor: t, rotulo: t === 'aleatoria' ? 'Aleatória' : NOME_CHAVE[t] }))}
@@ -172,7 +178,7 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
                 <input value={c.cidade ?? ''} maxLength={60} onChange={(e) => setC({ ...c, cidade: e.target.value })} placeholder="Ex.: Jundiaí" autoCapitalize="words" />
               </Campo>
               <Campo rotulo="Rende quanto">
-                <input value={c.rendimento ?? ''} maxLength={120} onChange={(e) => setC({ ...c, rendimento: e.target.value })} placeholder="Ex.: 100% do CDI" />
+                <input value={c.rendimento ?? ''} maxLength={120} onChange={(e) => setC({ ...c, rendimento: e.target.value })} placeholder={c.tipo === 'caixinha' ? 'Ex.: 100% do CDI' : 'Ex.: 6,17% a.a. + TR'} />
               </Campo>
             </div>
           </>
@@ -721,6 +727,131 @@ function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCof
   );
 }
 
+/** Atualizar o saldo: um campo por conta, já com o saldo atual; salva só o que mudou (ou foi confirmado) */
+function FolhaAtualizarSaldo({ contas, movs, aoFechar }: { contas: ContaCofrinho[]; movs: MovimentoCofrinho[]; aoFechar: () => void }) {
+  const { gravar, mostrarAviso, membro, usuario, hoje, nomeDe } = useDados();
+  const atuais = useMemo(() => new Map(contas.map((c) => [c.id, resumo([c], movs, hoje).saldo])), [contas, movs, hoje]);
+  const [valores, setValores] = useState<Record<string, string>>(() => Object.fromEntries(contas.map((c) => [c.id, paraTexto(atuais.get(c.id))])));
+  const [tocados, setTocados] = useState<Set<string>>(new Set());
+  const [msg, setMsg] = useState<string | null>(null);
+
+  function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    if (!membro) return;
+    const novos: MovimentoCofrinho[] = [];
+    let rendeu = 0;
+    for (const c of contas) {
+      if (!tocados.has(c.id)) continue;
+      const v = lerReais(valores[c.id] ?? '');
+      if (v === null) return setMsg(`Valor inválido em ${c.nome}.`);
+      rendeu += v - (atuais.get(c.id) ?? 0);
+      // Já anotaram hoje nesta conta: troca a anotação de hoje em vez de criar outra
+      const hojeJa = movs.find((m) => m.conta_id === c.id && m.tipo === 'saldo' && m.data === hoje);
+      novos.push({
+        id: hojeJa?.id ?? crypto.randomUUID(),
+        familia_id: membro.familia_id,
+        criado_por: usuario?.id ?? null,
+        conta_id: c.id,
+        tipo: 'saldo',
+        data: hoje,
+        valor_centavos: v,
+        de: null,
+        ocasiao: null,
+        recado: null,
+        observacao: null,
+        comprovante: null,
+      });
+    }
+    if (!novos.length) return setMsg('Digite o saldo que aparece no app do banco (ou toque em "Está igual").');
+    gravar(...novos.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })));
+    mostrarAviso({ texto: rendeu > 0 ? `Saldo atualizado · rendeu ${reais(rendeu, { sinal: true })} 📈` : 'Saldo atualizado' });
+    aoFechar();
+  }
+
+  return (
+    <Folha titulo="Atualizar saldo" aoFechar={aoFechar}>
+      <form className="pilha" onSubmit={salvar}>
+        <p className="texto-2">Abra o app do banco, veja quanto tem {contas.length > 1 ? 'em cada conta' : 'na conta'} e anote aqui. O app calcula quanto rendeu.</p>
+        {contas.map((c) => {
+          const ultima = movs.filter((m) => m.conta_id === c.id && m.tipo === 'saldo').sort((a, b) => b.data.localeCompare(a.data))[0];
+          const lido = lerReais(valores[c.id] ?? '');
+          const dif = lido !== null && tocados.has(c.id) ? lido - (atuais.get(c.id) ?? 0) : 0;
+          return (
+            <div key={c.id} className="pilha-p">
+              <Campo
+                rotulo={`${c.nome}${c.instituicao ? ` · ${c.instituicao}` : ''}`}
+                dica={
+                  <>
+                    {ultima ? `Última anotação: ${reais(ultima.valor_centavos)} em ${dataBr(ultima.data)}${ultima.criado_por ? ` · ${nomeDe(ultima.criado_por)}` : ''}` : 'Primeira anotação desta conta'}
+                    {dif !== 0 && <strong className={dif > 0 ? 'positivo' : 'negativo'}> · {reais(dif, { sinal: true })} desde o que o app tinha</strong>}
+                  </>
+                }
+              >
+                <input
+                  value={valores[c.id] ?? ''}
+                  inputMode="decimal"
+                  className="campo-reais"
+                  autoComplete="off"
+                  onFocus={(e) => e.currentTarget.select()}
+                  onChange={(e) => {
+                    setValores({ ...valores, [c.id]: e.target.value });
+                    setTocados(new Set(tocados).add(c.id));
+                  }}
+                />
+              </Campo>
+              {!tocados.has(c.id) && (
+                <button type="button" className="botao pequeno texto" style={{ alignSelf: 'flex-start' }} onClick={() => setTocados(new Set(tocados).add(c.id))}>
+                  Está igual: confirmar {reais(atuais.get(c.id) ?? 0)}
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {msg && (
+          <div className="alerta erro" role="alert">
+            {msg}
+          </div>
+        )}
+        <button className="botao primario">Salvar</button>
+        <p className="mudo">Depósitos novos continuam no botão “Depósito” (quem mandou, recado). Aqui é só o valor que o banco mostra.</p>
+      </form>
+    </Folha>
+  );
+}
+
+function ListaAtualizacoes({ contas, movs, oculto, limite }: { contas: ContaCofrinho[]; movs: MovimentoCofrinho[]; oculto: boolean; limite?: number }) {
+  const { nomeDe } = useDados();
+  const lista = contas
+    .flatMap((c) => atualizacoesSaldo(movs.filter((m) => m.conta_id === c.id)).map((a) => ({ ...a, conta: c })))
+    .sort((a, b) => b.mov.data.localeCompare(a.mov.data));
+  return (
+    <div className="doc-lista">
+      {(limite ? lista.slice(0, limite) : lista).map(({ mov, rendeu, colocado, primeira, conta }) => (
+        <div key={mov.id} className="doc-linha" style={{ cursor: 'default' }}>
+          <span className="mov-icone" aria-hidden="true">
+            {rendeu > 0 ? '📈' : rendeu < 0 ? '📉' : '🧾'}
+          </span>
+          <span className="cresce">
+            <span className="doc-titulo">{oculto ? 'R$ •••' : reais(mov.valor_centavos)}</span>
+            <span className="texto-2">
+              {dataBr(mov.data)}
+              {contas.length > 1 && ` · ${conta.nome}`}
+              {mov.criado_por && ` · ${nomeDe(mov.criado_por)}`}
+              {!oculto && colocado !== 0 && ` · ${colocado > 0 ? '+' : '−'}${reais(Math.abs(colocado))} depositado`}
+            </span>
+          </span>
+          <span style={{ textAlign: 'right' }}>
+            <strong className={`mov-valor ${rendeu > 0 ? 'deposito' : rendeu < 0 ? 'retirada' : ''}`}>{oculto ? '•••' : reais(rendeu, { sinal: true })}</strong>
+            <span className="mudo" style={{ display: 'block', fontSize: '0.72rem' }}>
+              {primeira ? 'rendeu até aqui' : 'rendeu no período'}
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ---------- Tela ----------
 
 type Aberta =
@@ -730,6 +861,7 @@ type Aberta =
   | { modo: 'plano' }
   | { modo: 'meta'; meta: MetaCofrinho; novo: boolean }
   | { modo: 'pix' }
+  | { modo: 'atualizar' }
   | null;
 
 export function Cofrinho() {
@@ -739,6 +871,15 @@ export function Cofrinho() {
   const [oculto, alternarOculto] = useOculto();
   const [verTodos, setVerTodos] = useState(false);
   const [preparando, setPreparando] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+
+  // Aviso "atualize o saldo" abre direto a folha
+  useEffect(() => {
+    if (params.get('atualizar') && cofrinho_contas.length) {
+      setAberta({ modo: 'atualizar' });
+      setParams({}, { replace: true });
+    }
+  }, [params, setParams, cofrinho_contas.length]);
 
   const contas = useMemo(() => cofrinho_contas.filter((c) => !bebe || c.bebe_id === bebe.id), [cofrinho_contas, bebe]);
   const idsContas = useMemo(() => new Set(contas.map((c) => c.id)), [contas]);
@@ -820,12 +961,12 @@ export function Cofrinho() {
         familia_id: membro.familia_id,
         bebe_id: bebe.id,
         criado_por: usuario?.id ?? null,
-        nome: contas.length ? '' : 'Poupança do Heitor'.replace('Heitor', bebe.nome?.split(' ')[0] || 'bebê'),
-        tipo: 'poupanca',
-        instituicao: null,
+        nome: contas.length ? '' : `Caixinha do ${bebe.nome?.split(' ')[0] || 'bebê'}`,
+        tipo: 'caixinha',
+        instituicao: contas.length ? null : 'Nubank',
         agencia: null,
         numero: null,
-        titular: bebe.nome || null,
+        titular: membro.nome || null,
         chave_pix: null,
         cidade: null,
         rendimento: null,
@@ -939,14 +1080,35 @@ export function Cofrinho() {
           {quem.length > 1 && <span className="etiqueta">{quem.length} pessoas contribuíram</span>}
         </div>
         {!r.depositos && <p className="mudo">Registre o primeiro depósito para o cofrinho ganhar vida.</p>}
+        {(() => {
+          const u = ultimaAtualizacao(movs);
+          if (!u) return r.depositos ? (
+            <button type="button" className="aviso-saldo" onClick={() => setAberta({ modo: 'atualizar' })}>
+              Ainda sem saldo do banco: abra o app, veja o valor e toque aqui para anotar. Assim aparece quanto rendeu.
+            </button>
+          ) : null;
+          const dias = diasEntre(u.data, hoje);
+          const quando = dias <= 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias} dias`;
+          const por = u.criado_por ? dados.nomeDe(u.criado_por) : null;
+          return dias >= 30 ? (
+            <button type="button" className="aviso-saldo" onClick={() => setAberta({ modo: 'atualizar' })}>
+              Saldo do banco anotado {quando}{por ? ` por ${por}` : ''}. Toque para atualizar.
+            </button>
+          ) : (
+            <span className="mudo">
+              Saldo do banco anotado {quando}
+              {por ? ` · ${por}` : ''}
+            </span>
+          );
+        })()}
       </section>
 
       <div className="doc-botoes">
         <button className="botao primario" onClick={() => novoMovimento('deposito')} disabled={!contasAtivas.length}>
           <Icone nome="mais" /> Depósito
         </button>
-        <button className="botao" onClick={() => novoMovimento('saldo')} disabled={!contasAtivas.length}>
-          <Icone nome="girar" /> Saldo
+        <button className="botao" onClick={() => setAberta({ modo: 'atualizar' })} disabled={!contasAtivas.length}>
+          <Icone nome="girar" /> Atualizar saldo
         </button>
         <button className="botao" onClick={() => setAberta({ modo: 'pix' })}>
           <Icone nome="qr" /> Convidar
@@ -1096,6 +1258,20 @@ export function Cofrinho() {
         </section>
       )}
 
+      {/* Rendimento: cada vez que anotaram o saldo */}
+      {movs.some((m) => m.tipo === 'saldo') && (
+        <section className="cartao pilha-p" aria-label="Rendimento">
+          <div className="cartao-cab">
+            <h2>Quanto rendeu</h2>
+            <button type="button" className="icone-botao" aria-label="Atualizar saldo" onClick={() => setAberta({ modo: 'atualizar' })}>
+              <Icone nome="girar" />
+            </button>
+          </div>
+          <p className="mudo">Cada vez que vocês anotam o saldo do banco, o app separa o que foi depositado do que rendeu.</p>
+          <ListaAtualizacoes contas={contas} movs={movs} oculto={oculto} limite={verTodos ? undefined : 6} />
+        </section>
+      )}
+
       {/* Depósitos por mês */}
       {r.depositos > 0 && (
         <section className="cartao pilha-p" aria-label="Depósitos por mês">
@@ -1197,6 +1373,7 @@ export function Cofrinho() {
       {aberta?.modo === 'plano' && <FolhaPlano inicial={plano} aoFechar={() => setAberta(null)} />}
       {aberta?.modo === 'meta' && <FolhaMeta inicial={aberta.meta} novo={aberta.novo} aoFechar={() => setAberta(null)} />}
       {aberta?.modo === 'pix' && <FolhaPix contas={contasAtivas} aoFechar={() => setAberta(null)} />}
+      {aberta?.modo === 'atualizar' && <FolhaAtualizarSaldo contas={contasAtivas} movs={movs} aoFechar={() => setAberta(null)} />}
     </div>
   );
 }

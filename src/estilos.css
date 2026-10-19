@@ -541,3 +541,6 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .barras-h-cab strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .barras-h-trilho { height: 10px; border-radius: 4px; background: var(--superficie-2); overflow: hidden; margin: 4px 0 2px; }
 .barras-h-trilho span { display: block; height: 100%; background: var(--c-rendimento); border-radius: 0 4px 4px 0; }
+.aviso-saldo { border: 1px dashed color-mix(in srgb, var(--aviso) 60%, transparent); background: color-mix(in srgb, var(--aviso) 10%, transparent); color: var(--texto); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 0.82rem; text-align: left; cursor: pointer; }
+.campo .positivo, .positivo { color: var(--bom); }
+.campo .negativo, .negativo { color: var(--ruim); }

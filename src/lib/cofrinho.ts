@@ -4,6 +4,7 @@ import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import type { ContaCofrinho, MovimentoCofrinho, OcasiaoCofrinho, TipoContaCofrinho } from './tipos';
 
 export const TIPOS_CONTA: { id: TipoContaCofrinho; nome: string }[] = [
+  { id: 'caixinha', nome: 'Caixinha' },
   { id: 'poupanca', nome: 'Poupança' },
   { id: 'conta', nome: 'Conta' },
   { id: 'cdb', nome: 'CDB / RDB' },
@@ -324,4 +325,45 @@ export function chaveFormatada(chave: string | null): string {
   if (l.tipo === 'cnpj') return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   if (l.tipo === 'telefone') return d.slice(2).replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) $2-$3');
   return l.chave;
+}
+
+// ---------- Atualizações do saldo (abrir o app do banco e anotar) ----------
+
+export interface AtualizacaoSaldo {
+  mov: MovimentoCofrinho;
+  /** Quanto rendeu desde a atualização anterior (já descontados depósitos e retiradas do período) */
+  rendeu: number;
+  /** Depósitos − retiradas entre a atualização anterior e esta */
+  colocado: number;
+  /** Primeira atualização da conta (o "rendeu" conta desde o início) */
+  primeira: boolean;
+}
+
+/** Cada saldo anotado de uma conta, do mais recente para o mais antigo, com quanto rendeu no período */
+export function atualizacoesSaldo(movs: MovimentoCofrinho[]): AtualizacaoSaldo[] {
+  const lista = [...movs].sort((a, b) => a.data.localeCompare(b.data) || ordemTipo[a.tipo] - ordemTipo[b.tipo]);
+  const saida: AtualizacaoSaldo[] = [];
+  let saldo = 0;
+  let colocado = 0;
+  let primeira = true;
+  for (const m of lista) {
+    if (m.tipo === 'deposito') {
+      saldo += m.valor_centavos;
+      colocado += m.valor_centavos;
+    } else if (m.tipo === 'retirada') {
+      saldo -= m.valor_centavos;
+      colocado -= m.valor_centavos;
+    } else {
+      saida.push({ mov: m, rendeu: m.valor_centavos - saldo, colocado, primeira });
+      saldo = m.valor_centavos;
+      colocado = 0;
+      primeira = false;
+    }
+  }
+  return saida.reverse();
+}
+
+/** A atualização de saldo mais recente entre as contas (null = nunca anotaram) */
+export function ultimaAtualizacao(movs: MovimentoCofrinho[]): MovimentoCofrinho | null {
+  return movs.filter((m) => m.tipo === 'saldo').sort((a, b) => b.data.localeCompare(a.data))[0] ?? null;
 }

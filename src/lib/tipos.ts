@@ -242,7 +242,7 @@ export interface Documento extends Item {
 
 // ---------- Cofrinho ----------
 
-export type TipoContaCofrinho = 'poupanca' | 'conta' | 'cdb' | 'tesouro' | 'fundo' | 'previdencia' | 'acoes' | 'cofre' | 'outro';
+export type TipoContaCofrinho = 'caixinha' | 'poupanca' | 'conta' | 'cdb' | 'tesouro' | 'fundo' | 'previdencia' | 'acoes' | 'cofre' | 'outro';
 
 export interface ContaCofrinho extends Item {
   bebe_id: string;

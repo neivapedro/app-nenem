@@ -149,7 +149,7 @@ describe('Pix', () => {
 });
 
 import { eventosCofrinho } from '../../supabase/functions/_shared/ics.ts';
-import { avisoCofrinho, type MembroAviso } from '../../supabase/functions/_shared/lembretes.ts';
+import { avisoCofrinho, avisoSaldoCofrinho, type MembroAviso } from '../../supabase/functions/_shared/lembretes.ts';
 import { PDFDocument } from 'pdf-lib';
 import { montarExtratoCofrinho } from './pdf-documentos';
 
@@ -165,6 +165,14 @@ describe('lembrete, calendário e extrato do cofrinho', () => {
     expect(avisoCofrinho(m, c, new Date('2027-02-11T09:30:00-03:00'), 'https://x/')).toBeNull();
     expect(avisoCofrinho(m, { ...c, depositouNoMes: true }, new Date('2027-02-10T09:30:00-03:00'), 'https://x/')).toBeNull();
     expect(avisoCofrinho({ ...m, lembrete_cofrinho: false }, c, new Date('2027-02-10T09:30:00-03:00'), 'https://x/')).toBeNull();
+  });
+  it('dia 1: lembra de anotar o saldo se faz mais de 20 dias', () => {
+    const dia1 = new Date('2027-03-01T09:10:00-03:00');
+    const a = avisoSaldoCofrinho(m, { ...c, temConta: true, ultimoSaldo: '2027-02-01' }, dia1, 'https://x/');
+    expect(a?.url).toBe('https://x/cofrinho?atualizar=1');
+    expect(avisoSaldoCofrinho(m, { ...c, temConta: true, ultimoSaldo: '2027-02-20' }, dia1, 'https://x/')).toBeNull();
+    expect(avisoSaldoCofrinho(m, { ...c, temConta: false }, dia1, 'https://x/')).toBeNull();
+    expect(avisoSaldoCofrinho(m, { ...c, temConta: true, ultimoSaldo: null }, new Date('2027-03-02T09:10:00-03:00'), 'https://x/')).toBeNull();
   });
   it('eventos dos próximos 12 meses', () => {
     const ev = eventosCofrinho('f', 'Heitor', 10, 20000, false, '2027-02-15');
@@ -184,5 +192,26 @@ describe('lembrete, calendário e extrato do cofrinho', () => {
       recados: [['25/12/2026', 'Vovó', 'Para o seu futuro, com amor 💛']],
     });
     expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThanOrEqual(2);
+  });
+});
+
+import { atualizacoesSaldo, ultimaAtualizacao } from './cofrinho';
+
+describe('atualizar o saldo pela caixinha', () => {
+  it('cada saldo anotado mostra quanto rendeu no período, sem contar os depósitos', () => {
+    const ms = [
+      mov('c', 'deposito', '2027-01-10', 200),
+      mov('c', 'saldo', '2027-01-31', 201.5),
+      mov('c', 'deposito', '2027-02-10', 200),
+      mov('c', 'retirada', '2027-02-15', 50),
+      mov('c', 'saldo', '2027-02-28', 355),
+    ];
+    const a = atualizacoesSaldo(ms);
+    expect(a.map((x) => [x.mov.data, x.rendeu, x.colocado, x.primeira])).toEqual([
+      ['2027-02-28', 355_00 - (201_50 + 150_00), 150_00, false],
+      ['2027-01-31', 150, 200_00, true],
+    ]);
+    expect(ultimaAtualizacao(ms)?.data).toBe('2027-02-28');
+    expect(ultimaAtualizacao([mov('c', 'deposito', '2027-01-10', 1)])).toBeNull();
   });
 });

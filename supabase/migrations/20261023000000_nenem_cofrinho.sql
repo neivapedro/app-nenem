@@ -10,7 +10,7 @@ create table if not exists public.nenem_cofrinho_contas (
   bebe_id uuid not null,
   nome text not null check (length(nome) between 1 and 80),
   tipo text not null default 'poupanca'
-    check (tipo in ('poupanca', 'conta', 'cdb', 'tesouro', 'fundo', 'previdencia', 'acoes', 'cofre', 'outro')),
+    check (tipo in ('caixinha', 'poupanca', 'conta', 'cdb', 'tesouro', 'fundo', 'previdencia', 'acoes', 'cofre', 'outro')),
   instituicao text check (length(instituicao) <= 80),
   agencia text check (length(agencia) <= 20),
   numero text check (length(numero) <= 40),

@@ -6,7 +6,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
-import { avisoCofrinho, avisoMamada, avisosAgenda, avisosDocumentos, avisosRemedio, avisosTarefas, avisosVacina, type Alimentacao, type Aviso, type CofrinhoAviso, type DocumentoAviso, type MembroAviso, type RemedioAviso } from '../_shared/lembretes.ts';
+import { avisoCofrinho, avisoMamada, avisoSaldoCofrinho, avisosAgenda, avisosDocumentos, avisosRemedio, avisosTarefas, avisosVacina, type Alimentacao, type Aviso, type CofrinhoAviso, type DocumentoAviso, type MembroAviso, type RemedioAviso } from '../_shared/lembretes.ts';
 import type { AplicacaoVacina, Calendario } from '../_shared/vacinas.ts';
 import type { CompromissoIcs } from '../_shared/ics.ts';
 import { dataNoFuso, somarDias } from '../_shared/tempo.ts';
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     const bebe = b0 ? { id: b0.id as string, nome: String(b0.nome ?? ''), nascimento: dataNoFuso(new Date(b0.nascimento), fuso), calendario: (b0.calendario_vacinal === 'sbp' ? 'sbp' : 'pni') as Calendario } : null;
     // Tabelas da Fase 2: se ainda não existirem, seguem vazias
     const inicioMes = `${dataNoFuso(agora, fuso).slice(0, 7)}-01`;
-    const [{ data: vac }, { data: rem }, { data: tar }, { data: doses }, { data: docs }, { data: planos }, { data: depMes }] = await Promise.all([
+    const [{ data: vac }, { data: rem }, { data: tar }, { data: doses }, { data: docs }, { data: planos }, { data: depMes }, { data: contasCof }, { data: ultSaldo }] = await Promise.all([
       db.from('nenem_vacinas').select('dose_id, status, data').eq('familia_id', fid),
       db.from('nenem_remedios').select('id, nome, dose, intervalo_h').eq('familia_id', fid).eq('ativo', true),
       db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', fid),
@@ -85,6 +85,8 @@ Deno.serve(async (req) => {
       // Cofrinho (tabelas novas: vazias se ainda não existirem)
       db.from('nenem_cofrinho_planos').select('bebe_id, dia_aporte, aporte_mensal_centavos').eq('familia_id', fid),
       db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', fid).eq('tipo', 'deposito').gte('data', inicioMes).limit(1),
+      db.from('nenem_cofrinho_contas').select('id').eq('familia_id', fid).eq('ativa', true).limit(1),
+      db.from('nenem_cofrinho_movimentos').select('data').eq('familia_id', fid).eq('tipo', 'saldo').order('data', { ascending: false }).limit(1),
     ]);
     const ultimaPorRemedio = new Map<string, { id: string; inicio: string }>();
     for (const d of doses ?? []) {
@@ -121,6 +123,8 @@ Deno.serve(async (req) => {
         diaAporte: planos?.[0]?.dia_aporte ?? null,
         aporteCentavos: Number(planos?.[0]?.aporte_mensal_centavos ?? 0),
         depositouNoMes: (depMes ?? []).length > 0,
+        temConta: (contasCof ?? []).length > 0,
+        ultimoSaldo: (ultSaldo?.[0]?.data as string | undefined) ?? null,
       },
     };
     familias.set(fid, d);
@@ -142,6 +146,8 @@ Deno.serve(async (req) => {
     avisos.push(...avisosDocumentos(mf, f.documentos, agora, SITE));
     const cofrinho = avisoCofrinho(mf, f.cofrinho, agora, SITE);
     if (cofrinho) avisos.push(cofrinho);
+    const saldoCof = avisoSaldoCofrinho(mf, f.cofrinho, agora, SITE);
+    if (saldoCof) avisos.push(saldoCof);
     if (!avisos.length) continue;
 
     const lista = porUsuario.get(m.user_id) ?? [];

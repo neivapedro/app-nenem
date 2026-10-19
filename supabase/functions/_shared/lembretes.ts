@@ -273,6 +273,10 @@ export interface CofrinhoAviso {
   aporteCentavos: number;
   /** Já tem depósito registrado neste mês */
   depositouNoMes: boolean;
+  /** Tem conta no cofrinho */
+  temConta?: boolean;
+  /** Data da última vez que anotaram o saldo do banco (null = nunca) */
+  ultimoSaldo?: string | null;
 }
 
 const brl = (centavos: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(centavos / 100).replace(/\u00a0/g, ' ');
@@ -291,5 +295,23 @@ export function avisoCofrinho(m: MembroAviso, c: CofrinhoAviso, agora: Date, sit
     corpo: c.aporteCentavos > 0 ? `Depósito do mês: ${brl(c.aporteCentavos)}. Toque para registrar.` : 'Toque para registrar o depósito do mês.',
     tag: 'cofrinho',
     url: `${site}cofrinho`,
+  };
+}
+
+/** Dia 1 de cada mês, às 9h: lembra de anotar o saldo do banco se a última anotação tem mais de 20 dias. */
+export function avisoSaldoCofrinho(m: MembroAviso, c: CofrinhoAviso, agora: Date, site: string): Aviso | null {
+  if (m.lembrete_cofrinho === false || !c.temConta) return null;
+  const fuso = m.fuso_horario;
+  const hoje = dataNoFuso(agora, fuso);
+  if (hoje.slice(8, 10) !== '01') return null;
+  const desde9 = minutosDesde(agora, fuso, '09:00');
+  if (desde9 < 0 || desde9 > 12 * 60) return null;
+  if (c.ultimoSaldo && diferencaDias(c.ultimoSaldo, hoje) < 20) return null;
+  return {
+    chave: `cofrinho-saldo:${c.familiaId}:${hoje.slice(0, 7)}:${m.user_id}`,
+    titulo: '🐷 Quanto rendeu o cofrinho?',
+    corpo: 'Abra o app do banco, veja o saldo e anote no app. Leva 10 segundos.',
+    tag: 'cofrinho-saldo',
+    url: `${site}cofrinho?atualizar=1`,
   };
 }
