@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
+import { FaixaConvite, useConvite } from '../componentes/convite';
 import { Campo, Escolhas, Marca } from '../componentes/ui';
 import { useDados } from '../dados/contexto';
 import { agoraIso, deCampoDataHora, paraCampoDataHora } from '../lib/datas';
+import { conviteGuardado, limparConvite } from '../lib/convite';
 import { traduzirErro } from '../lib/erros';
 import type { Bebe } from '../lib/tipos';
 
@@ -10,14 +12,15 @@ type Caminho = 'novo' | 'convite';
 /** Primeiro acesso: cria a família do bebê ou entra na do outro responsável pelo código. */
 export function Configurar() {
   const { repo, recarregar, usuario, sair } = useDados();
-  const [caminho, setCaminho] = useState<Caminho>('novo');
+  const { convite, invalido } = useConvite();
+  const [caminho, setCaminho] = useState<Caminho>(() => (conviteGuardado() ? 'convite' : 'novo'));
   const [nome, setNome] = useState('');
   const [bebeNome, setBebeNome] = useState('');
   const [sexo, setSexo] = useState<Bebe['sexo']>(null);
   const [nasceu, setNasceu] = useState(false);
   const [prevista, setPrevista] = useState('');
   const [quando, setQuando] = useState(() => paraCampoDataHora(agoraIso()));
-  const [codigo, setCodigo] = useState('');
+  const [codigo, setCodigo] = useState(() => conviteGuardado() ?? '');
   const [msg, setMsg] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -33,6 +36,7 @@ export function Configurar() {
       if (caminho === 'novo')
         await repo.criarFamilia({ nome: nome.trim(), bebe_nome: bebeNome.trim(), sexo, data_prevista: !nasceu && prevista ? prevista : null, nascimento: nasc });
       else await repo.entrarFamilia(codigo.trim(), nome.trim());
+      limparConvite();
       await recarregar();
     } catch (e) {
       setMsg(traduzirErro(e));
@@ -49,6 +53,11 @@ export function Configurar() {
           <h1>Vamos começar</h1>
           <p className="mudo">{usuario?.email}</p>
         </div>
+        {convite && caminho === 'convite' && <FaixaConvite convite={convite} texto="Digite seu nome e toque em Entrar na família." />}
+        {invalido && caminho === 'convite' && <div className="alerta">Este convite venceu ou já foi usado. Peça um novo para quem convidou.</div>}
+        {convite && caminho === 'novo' && (
+          <div className="alerta">Você abriu um convite. "Começar do zero" cria outra família, separada. Para ver o mesmo bebê, use "Tenho um código".</div>
+        )}
         <div className="abas">
           <button type="button" className={caminho === 'novo' ? 'ativo' : ''} onClick={() => setCaminho('novo')}>
             Começar do zero

@@ -2,9 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { ProvedorDados } from './dados/contexto';
+import { capturarConviteDaUrl } from './lib/convite';
 import { registrarServiceWorker, vigiarVersaoNova } from './lib/notificacoes';
 import './estilos.css';
 
+capturarConviteDaUrl();
 registrarServiceWorker();
 vigiarVersaoNova();
 

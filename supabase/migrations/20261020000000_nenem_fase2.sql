@@ -168,3 +168,19 @@ exception
   when insufficient_privilege or undefined_table or undefined_function or invalid_schema_name then
     raise warning 'Fotos: não foi possível configurar o armazenamento (%). O resto do app funciona.', sqlerrm;
 end $$;
+
+-- ---------- Convite por link ----------
+-- Quem abre o link do convite vê quem convidou e o nome do bebê (só com código
+-- válido e ainda não usado; não mostra mais nada da família).
+create or replace function public.nenem_info_convite(p_codigo text) returns table (convidou text, bebe text)
+language sql stable security definer set search_path = public as $$
+  select coalesce(nullif(split_part(trim(m.nome), ' ', 1), ''), 'Alguém') as convidou,
+         coalesce((select nullif(trim(b.nome), '') from nenem_bebes b where b.familia_id = v.familia_id order by b.criado_em limit 1), 'o bebê') as bebe
+  from nenem_convites v
+  left join nenem_membros m on m.familia_id = v.familia_id and m.user_id = v.criado_por
+  where v.codigo = upper(regexp_replace(coalesce(p_codigo, ''), '[^A-Za-z0-9]', '', 'g'))
+    and v.usado_por is null
+    and v.expira_em > now()
+$$;
+revoke all on function public.nenem_info_convite(text) from public;
+grant execute on function public.nenem_info_convite(text) to anon, authenticated;

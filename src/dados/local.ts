@@ -159,6 +159,11 @@ export class RepositorioLocal implements Repositorio {
     gravar(b);
   }
 
+  async infoConvite() {
+    const b = ler();
+    return b.familiaId ? { convidou: b.membros[0]?.nome.split(' ')[0] || 'Alguém', bebe: b.bebe?.nome || 'o bebê' } : null;
+  }
+
   async salvarPreferencias(p: PreferenciasMembro) {
     const b = ler();
     const uid = this.exigir(b);

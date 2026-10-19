@@ -37,6 +37,8 @@ export interface Repositorio {
   criarFamilia(f: NovaFamilia): Promise<void>;
   criarConvite(): Promise<Convite>;
   entrarFamilia(codigo: string, nome: string): Promise<void>;
+  /** Quem convidou e o nome do bebê (null = código inválido, vencido ou já usado) */
+  infoConvite(codigo: string): Promise<{ convidou: string; bebe: string } | null>;
   salvarPreferencias(p: PreferenciasMembro): Promise<void>;
   /** Troca o endereço secreto do calendário (o antigo para de funcionar) */
   novoTokenCalendario(): Promise<string>;
