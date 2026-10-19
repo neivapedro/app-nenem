@@ -75,7 +75,7 @@ Os avisos usam os segredos que o app-dieta já configurou no projeto: as chaves 
 | **Mais → Introdução alimentar** | Refeições, aceitação, reações e alimentos já oferecidos. |
 | **Modo noite** | Ícone da lua no Hoje: tela preta, letras âmbar e botões grandes. |
 | **Mais → Exportar dados** | Planilha CSV e cópia completa em JSON. |
-| **Mais → Documentos** | Certidão, CPF, cartão do SUS, exames, receitas: foto, galeria ou PDF; números para copiar; tudo num PDF só para enviar ou imprimir (arquivos no armazenamento privado `nenem-documentos`). |
+| **Aba Documentos** | Certidão, CPF, cartão do SUS, exames, receitas: foto, galeria ou PDF; números para copiar; tudo num PDF só para enviar ou imprimir (arquivos no armazenamento privado `nenem-documentos`). |
 | **Gráficos → Meses** | Média por dia de cada mês de vida, de mesversário a mesversário. |
 
 O conteúdo de saúde vem do Ministério da Saúde, da SBP e da OMS (fontes na própria tela) e é apoio: a palavra final é do pediatra.
