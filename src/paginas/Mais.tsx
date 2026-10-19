@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { SecaoDesenvolvimento } from '../componentes/desenvolvimento';
+import { SecaoDocumentos } from '../componentes/documentos';
 import { SecaoAlimentacao, SecaoLeite } from '../componentes/leite-alimentacao';
 import { SecaoPrimeirosDias } from '../componentes/primeiros-dias';
 import { Icone, Selo } from '../componentes/ui';
@@ -11,6 +12,7 @@ import { Ajustes } from './Ajustes';
 import { Resumo } from './Resumo';
 
 export const SECOES_MAIS: { id: string; titulo: string; detalhe: string; icone: string; tipo: Parameters<typeof Selo>[0]['tipo'] }[] = [
+  { id: 'documentos', titulo: 'Documentos', detalhe: 'Certidão, CPF, cartão do SUS, exames e receitas', icone: 'documento', tipo: 'fralda' },
   { id: 'primeiros-dias', titulo: 'Primeiros dias', detalhe: 'Testes do bebê, consultas e documentos', icone: 'lista', tipo: 'agenda' },
   { id: 'resumo', titulo: 'Gráficos e relatório', detalhe: 'Padrões da semana e PDF para o pediatra', icone: 'grafico', tipo: 'fralda' },
   { id: 'desenvolvimento', titulo: 'Desenvolvimento', detalhe: 'Marcos, primeiras vezes e foto do mês', icone: 'estrela', tipo: 'mamadeira' },
@@ -82,7 +84,7 @@ function Exportar() {
   }
 
   function copia() {
-    const { bebe, membros, compromissos, medidas, vacinas, remedios, leite, marcos, tarefas } = dados;
+    const { bebe, membros, compromissos, medidas, vacinas, remedios, leite, marcos, tarefas, documentos } = dados;
     const json = {
       app: 'Heitor',
       exportado_em: new Date().toISOString(),
@@ -96,6 +98,7 @@ function Exportar() {
       leite,
       marcos,
       tarefas,
+      documentos,
     };
     baixar(`heitor-copia-${hoje}.json`, JSON.stringify(json, null, 2), 'application/json');
   }
@@ -129,7 +132,7 @@ function Exportar() {
         <button className="botao" onClick={copia}>
           <Icone nome="baixar" /> Baixar cópia completa
         </button>
-        <p className="mudo">As fotos ficam no servidor e não entram no arquivo.</p>
+        <p className="mudo">As fotos e os arquivos dos documentos ficam no servidor e não entram neste arquivo (para eles, use Documentos → Exportar PDF).</p>
       </section>
     </div>
   );
@@ -138,6 +141,7 @@ function Exportar() {
 export function TelaMais() {
   const { secao } = useParams();
   if (!secao) return <Menu />;
+  if (secao === 'documentos') return <SecaoDocumentos />;
   if (secao === 'primeiros-dias') return <SecaoPrimeirosDias />;
   if (secao === 'resumo') return <Resumo />;
   if (secao === 'desenvolvimento') return <SecaoDesenvolvimento />;

@@ -65,6 +65,14 @@ export interface Repositorio {
   urlFoto(caminho: string): Promise<string | null>;
   excluirFoto(caminho: string): Promise<void>;
 
+  /** Guarda um arquivo de documento (foto em JPEG ou PDF) da família e devolve o caminho */
+  enviarArquivo(arquivo: Blob, extensao: 'jpg' | 'pdf'): Promise<string>;
+  /** Endereço temporário para abrir o arquivo */
+  urlArquivo(caminho: string): Promise<string | null>;
+  /** O arquivo em si (para montar o PDF e compartilhar) */
+  baixarArquivo(caminho: string): Promise<Blob>;
+  excluirArquivos(caminhos: string[]): Promise<void>;
+
   salvarInscricaoPush(i: InscricaoPush): Promise<void>;
   removerInscricaoPush(endpoint: string): Promise<void>;
 

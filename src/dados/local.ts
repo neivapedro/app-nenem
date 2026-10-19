@@ -215,6 +215,30 @@ export class RepositorioLocal implements Repositorio {
     this.fotos.delete(caminho);
   }
 
+  // Arquivos de documentos também só na memória desta aba
+  private arquivos = new Map<string, { blob: Blob; url: string }>();
+
+  async enviarArquivo(arquivo: Blob, extensao: 'jpg' | 'pdf') {
+    await espera();
+    const caminho = `local/${crypto.randomUUID()}.${extensao}`;
+    this.arquivos.set(caminho, { blob: arquivo, url: URL.createObjectURL(arquivo) });
+    return caminho;
+  }
+
+  async urlArquivo(caminho: string) {
+    return this.arquivos.get(caminho)?.url ?? null;
+  }
+
+  async baixarArquivo(caminho: string) {
+    const a = this.arquivos.get(caminho);
+    if (!a) throw new Error('Arquivo não encontrado (no modo demonstração os arquivos somem ao recarregar).');
+    return a.blob;
+  }
+
+  async excluirArquivos(caminhos: string[]) {
+    for (const c of caminhos) this.arquivos.delete(c);
+  }
+
   async salvarBebe(bebe: Bebe) {
     await espera();
     const b = ler();

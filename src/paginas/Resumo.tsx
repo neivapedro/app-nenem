@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { BarrasDiarias } from '../componentes/barras';
+import { GraficosMeses } from '../componentes/meses';
 import { Icone } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { escoreZ, textoPercentil, type Indicador } from '../lib/crescimento';
@@ -19,6 +20,7 @@ export function Resumo() {
   const { registros, hoje, bebe, medidas, vacinas, carregadoDesde } = dados;
   const agora = useAgora(60_000);
   const [n, setN] = useState<(typeof PERIODOS)[number]>(7);
+  const [porMes, setPorMes] = useState(false);
   const [gerando, setGerando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
@@ -131,11 +133,27 @@ export function Resumo() {
     <div className="pilha">
       <div className="abas" role="tablist" aria-label="Período">
         {PERIODOS.map((p) => (
-          <button key={p} role="tab" aria-selected={n === p} className={n === p ? 'ativo' : ''} onClick={() => setN(p)}>
+          <button
+            key={p}
+            role="tab"
+            aria-selected={!porMes && n === p}
+            className={!porMes && n === p ? 'ativo' : ''}
+            onClick={() => {
+              setN(p);
+              setPorMes(false);
+            }}
+          >
             {p} dias
           </button>
         ))}
+        <button role="tab" aria-selected={porMes} className={porMes ? 'ativo' : ''} onClick={() => setPorMes(true)}>
+          Meses
+        </button>
       </div>
+      {porMes ? (
+        <GraficosMeses />
+      ) : (
+        <>
       {incompleto && <p className="mudo">O app carregou registros a partir de {dataBr(carregadoDesde)}; dias anteriores aparecem vazios.</p>}
 
       <section className="cartao" aria-label="Médias">
@@ -231,6 +249,8 @@ export function Resumo() {
       <p className="mudo" style={{ textAlign: 'center' }}>
         Período: {dataBr(dias[0].dia)} a {dataBr(somarDiasLocal(hoje, 0))}
       </p>
+        </>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // Séries por dia para os gráficos de padrão e o relatório do pediatra.
-import { somarDiasLocal } from './datas';
+import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
+import { inicioDoDia, somarDiasLocal } from './datas';
 import { duracaoPorLado, ordenarRecentes, resumoDia, type ResumoDia } from './registros';
 import type { Registro } from './tipos';
 
@@ -43,4 +44,65 @@ export function duracaoMediaMamada(registros: Registro[], desde: Date, ate: Date
 
 export function media(valores: number[]): number {
   return valores.length ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
+}
+
+export interface MesResumo {
+  /** 1 = primeiro mês de vida */
+  mes: number;
+  /** Primeiro dia do mês de vida (dia do mesversário) */
+  inicio: string;
+  /** Último dia do mês de vida */
+  fim: string;
+  /** Dias completos que entraram na média (hoje não conta) */
+  dias: number;
+  alimentacoes: number;
+  fraldas: number;
+  sonoMs: number;
+  ml: number;
+  /** O mês ainda não terminou */
+  emAndamento: boolean;
+}
+
+/**
+ * Médias por dia de cada mês de vida (1º mês = do nascimento até a véspera do
+ * 1º mesversário). Só dias completos: hoje fica de fora.
+ */
+export function mesesDeVida(registros: Registro[], nascimento: string, hoje: string, agora: Date): MesResumo[] {
+  const meses: MesResumo[] = [];
+  for (let m = 1; ; m++) {
+    const inicio = somarMeses(nascimento, m - 1);
+    if (inicio >= hoje) break;
+    const fim = somarDiasLocal(somarMeses(nascimento, m), -1);
+    const ultimo = fim < hoje ? fim : somarDiasLocal(hoje, -1);
+    // Só os registros perto do mês (o sono pode começar na véspera)
+    const de = inicioDoDia(somarDiasLocal(inicio, -1)).getTime();
+    const ate = inicioDoDia(somarDiasLocal(ultimo, 1)).getTime();
+    const doMes = registros.filter((r) => {
+      const t = new Date(r.inicio).getTime();
+      return t >= de && t < ate;
+    });
+    let dias = 0;
+    const soma = { alimentacoes: 0, fraldas: 0, sonoMs: 0, ml: 0 };
+    for (let dia = inicio; dia <= ultimo; dia = somarDiasLocal(dia, 1)) {
+      const r = resumoDia(doMes, dia, agora);
+      soma.alimentacoes += r.alimentacoes;
+      soma.fraldas += r.fraldas;
+      soma.sonoMs += r.sonoMs;
+      soma.ml += r.ml;
+      dias++;
+    }
+    if (!dias) break;
+    meses.push({
+      mes: m,
+      inicio,
+      fim,
+      dias,
+      alimentacoes: soma.alimentacoes / dias,
+      fraldas: soma.fraldas / dias,
+      sonoMs: soma.sonoMs / dias,
+      ml: soma.ml / dias,
+      emAndamento: fim >= hoje,
+    });
+  }
+  return meses;
 }

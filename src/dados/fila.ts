@@ -67,7 +67,7 @@ export interface DadosFila extends ListasColecoes {
   compromissos: Compromisso[];
 }
 
-export const LISTAS_VAZIAS: ListasColecoes = { medidas: [], vacinas: [], remedios: [], leite: [], marcos: [], tarefas: [] };
+export const LISTAS_VAZIAS: ListasColecoes = { medidas: [], vacinas: [], remedios: [], leite: [], marcos: [], tarefas: [], documentos: [] };
 
 const porInicio = (a: Registro, b: Registro) => new Date(b.inicio).getTime() - new Date(a.inicio).getTime();
 const porData = (a: Compromisso, b: Compromisso) => `${a.data}${a.hora ?? ''}`.localeCompare(`${b.data}${b.hora ?? ''}`);
