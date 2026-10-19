@@ -4,7 +4,8 @@
 // Fontes (out/2026):
 // - PNI/Ministério da Saúde: Calendário Técnico Nacional de Vacinação da Criança 2026
 //   gov.br/saude/pt-br/composicao/svsa/pni/calendario-tecnico/calendario-tecnico-nacional-de-vacinacao-crianca
-//   (+ NT 64/2026: 2º reforço de VIP aos 4 anos; NT 77/2025: MenACWY aos 12 meses; VPC20 no SUS em 2026)
+//   (+ NT 64/2026: 2º reforço de VIP aos 4 anos; NT 77/2025: MenACWY aos 12 meses;
+//    VPC20 no SUS desde jun/2026, em transição com a VPC10; nirsevimabe no SUS desde fev/2026, Portaria SCTIE/MS 14/2026)
 // - SBP: Calendário de Vacinação, atualização 2026-2027 (Documento Científico nº 56, 28/07/2026)
 //   sbp.com.br/calendario-de-vacinacao-da-sbp-atualizacao-2026-2027/
 // Itens com `confirmar: true` não puderam ser conferidos no documento original: o app pede para confirmar com o pediatra.
@@ -39,12 +40,12 @@ export const DOSES: Dose[] = [
   // Ao nascer
   { id: 'bcg', vacina: 'BCG', dose: 'Dose única', idade_meses: 0, idade_texto: 'Ao nascer', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Na maternidade ou o quanto antes.' },
   { id: 'hepb-nascer', vacina: 'Hepatite B', dose: 'Dose ao nascer', idade_meses: 0, idade_texto: 'Primeiras 12 a 24 horas', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Na maternidade. As doses seguintes vêm na penta (SUS) ou na hexa (particular) aos 2, 4 e 6 meses.' },
-  { id: 'vsr-nirsevimabe', vacina: 'Nirsevimabe (anticorpo contra o VSR)', dose: 'Dose única', idade_meses: 0, idade_texto: 'Ao nascer ou antes da temporada do VSR', rede: 'particular', calendarios: ['sbp'], confirmar: true, observacao: 'Não é vacina: é anticorpo contra o vírus da bronquiolite. No SUS, só para prematuros e crianças com comorbidades. O melhor momento depende da temporada na região.' },
+  { id: 'vsr-nirsevimabe', vacina: 'Nirsevimabe (anticorpo contra o VSR)', dose: 'Dose única', idade_meses: 0, idade_texto: 'Ao nascer ou antes da temporada do VSR', rede: 'particular', calendarios: ['sbp'], confirmar: true, observacao: 'Não é vacina: é anticorpo contra o vírus da bronquiolite (VSR), de preferência ainda na maternidade. No SUS (desde fevereiro de 2026), para prematuros (menos de 37 semanas) e crianças até 2 anos com algumas doenças. Se a mãe tomou a vacina do VSR na gestação pelo menos 14 dias antes do parto, em geral o bebê não precisa: confirme com o pediatra.' },
   // 2 meses
   { id: 'penta-1', vacina: 'Pentavalente (SUS) / Hexavalente (particular)', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Difteria, tétano, coqueluche, Hib e hepatite B. A hexa acelular inclui também a pólio inativada.' },
   { id: 'vip-1', vacina: 'Poliomielite inativada (VIP)', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Injetável. No particular pode vir dentro da hexa.' },
   { id: 'rota-1', vacina: 'Rotavírus', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Gotinha. No SUS, a 1ª dose só pode ser dada de 1 mês e 15 dias até 11 meses e 29 dias.' },
-  { id: 'pneumo-1', vacina: 'Pneumocócica conjugada', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'SUS: VPC20 (2026). Particular: VPC20 ou VPC15.' },
+  { id: 'pneumo-1', vacina: 'Pneumocócica conjugada', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'SUS: VPC20 (desde junho de 2026). Particular: VPC20 ou VPC15.' },
   // 3 meses
   { id: 'meningo-1', vacina: 'Meningocócica conjugada (C no SUS / ACWY no particular)', dose: '1ª dose', idade_meses: 3, idade_texto: '3 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'menb-1', vacina: 'Meningocócica B', dose: '1ª dose', idade_meses: 3, idade_texto: '3 meses', rede: 'particular', calendarios: ['sbp'] },
@@ -52,7 +53,7 @@ export const DOSES: Dose[] = [
   { id: 'penta-2', vacina: 'Pentavalente (SUS) / Hexavalente (particular)', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'vip-2', vacina: 'Poliomielite inativada (VIP)', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'rota-2', vacina: 'Rotavírus', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'rota-1', dias: 30 }, observacao: 'No SUS, até 23 meses e 29 dias. Com a vacina monovalente (SUS), o esquema termina aqui.' },
-  { id: 'pneumo-2', vacina: 'Pneumocócica conjugada', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP },
+  { id: 'pneumo-2', vacina: 'Pneumocócica conjugada', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'No SUS, enquanto durar o estoque antigo, esta dose ainda pode ser a VPC10. Depois, tudo com a VPC20.' },
   // 5 meses
   { id: 'meningo-2', vacina: 'Meningocócica conjugada (C no SUS / ACWY no particular)', dose: '2ª dose', idade_meses: 5, idade_texto: '5 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'menb-2', vacina: 'Meningocócica B', dose: '2ª dose', idade_meses: 5, idade_texto: '5 meses', rede: 'particular', calendarios: ['sbp'], apos: { id: 'menb-1', dias: 60 } },
@@ -70,7 +71,7 @@ export const DOSES: Dose[] = [
   { id: 'covid-3', vacina: 'COVID-19', dose: '3ª dose', idade_meses: 9, idade_texto: '9 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'covid-2', dias: 56 }, observacao: 'Só com a vacina da Pfizer. Com a da Moderna, o esquema termina na 2ª dose.' },
   { id: 'fa-1', vacina: 'Febre amarela', dose: '1ª dose', idade_meses: 9, idade_texto: '9 meses', rede: 'ambas', calendarios: PNI_SBP },
   // 12 meses
-  { id: 'pneumo-reforco', vacina: 'Pneumocócica conjugada', dose: 'Reforço', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP },
+  { id: 'pneumo-reforco', vacina: 'Pneumocócica conjugada', dose: 'Reforço', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'pneumo-2', dias: 60 }, observacao: 'No SUS, com a VPC20. Intervalo mínimo de 60 dias depois da 2ª dose.' },
   { id: 'meningo-reforco', vacina: 'Meningocócica ACWY', dose: 'Reforço', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'No SUS, substitui o reforço da meningo C desde julho de 2025.' },
   { id: 'menb-reforco', vacina: 'Meningocócica B', dose: 'Reforço', idade_meses: 12, idade_texto: '12 a 15 meses', rede: 'particular', calendarios: ['sbp'], confirmar: true, observacao: 'A SBP indica "no 2º ano de vida".' },
   { id: 'scr-1', vacina: 'Tríplice viral (sarampo, caxumba, rubéola)', dose: '1ª dose', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP },
