@@ -907,18 +907,22 @@ export function SecaoDocumentos() {
           <Icone nome="compartilhar" /> Exportar PDF
         </button>
       </div>
-      {comArquivo.length > 0 && (
-        <div className="pilha-p">
-          <button className="botao" disabled={zipando !== null} onClick={() => void baixarZip()} aria-label={zipando ?? 'Baixar todos os arquivos dos documentos em .zip'}>
-            <Icone nome="baixar" /> {zipando ?? `Baixar tudo em .zip (${comArquivo.reduce((n, d) => n + d.arquivos.length, 0)})`}
+      <div className="pilha-p">
+        <button
+          className="botao"
+          disabled={zipando !== null || !comArquivo.length}
+          onClick={() => void baixarZip()}
+          aria-label={zipando ?? 'Baixar todos os arquivos dos documentos em .zip'}
+        >
+          <Icone nome="baixar" /> {zipando ?? (comArquivo.length ? `Baixar tudo em .zip (${comArquivo.reduce((n, d) => n + d.arquivos.length, 0)})` : 'Baixar tudo em .zip')}
+        </button>
+        {!comArquivo.length && <p className="mudo" style={{ margin: 0 }}>Quando tiver documentos com foto ou PDF, este botão junta todos num .zip, cada um com o nome do documento.</p>}
+        {zipPronto && zipando === null && (
+          <button className="botao" onClick={() => void compartilhar([zipPronto], zipPronto.name)}>
+            <Icone nome="compartilhar" /> Compartilhar o .zip
           </button>
-          {zipPronto && zipando === null && (
-            <button className="botao" onClick={() => void compartilhar([zipPronto], zipPronto.name)}>
-              <Icone nome="compartilhar" /> Compartilhar o .zip
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {resultados ? (
         <section className="cartao">
