@@ -21,7 +21,9 @@ import {
   type Kit,
   type ModeloDocumento,
 } from '../lib/documentos';
+import { strToU8, zipSync, type Zippable } from 'fflate';
 import { traduzirErro } from '../lib/erros';
+import { listaDocumentos, planejarDocumentos } from '../lib/exportar';
 import { idFixo } from '../lib/ids';
 import type { ArquivoDocumento, CategoriaDocumento, Documento } from '../lib/tipos';
 import { arquivoPdf, compartilhar, ehImagem, enviarFotoPronta, nomeGuardado, obterArquivo, paraPdf, prepararEEnviar, useUrlArquivo } from './doc-arquivos';
@@ -757,6 +759,8 @@ export function SecaoDocumentos() {
   const [aberta, setAberta] = useState<Aberta>(null);
   const [busca, setBusca] = useState('');
   const [verOpcionais, setVerOpcionais] = useState(false);
+  const [zipando, setZipando] = useState<string | null>(null);
+  const [zipPronto, setZipPronto] = useState<File | null>(null);
   const vacina = usePreparo();
 
   const doBebe = useMemo(() => ordenar(documentos.filter((d) => !bebe || d.bebe_id === bebe.id)), [documentos, bebe]);
@@ -832,6 +836,45 @@ export function SecaoDocumentos() {
     }
   };
 
+  /** Todos os arquivos num .zip, cada um com o nome do documento no app, em pastas por categoria */
+  const comArquivo = doBebe.filter((d) => d.arquivos.length > 0);
+  const baixarZip = async () => {
+    const hojeTxt = hoje.split('-').reverse().join('-');
+    const raiz = `Documentos${bebe?.nome ? ` do ${bebe.nome}` : ''} ${hojeTxt}`;
+    const lista = planejarDocumentos(doBebe, raiz);
+    const arquivos: { destino: string; bytes: Uint8Array }[] = [];
+    const faltaram: string[] = [];
+    try {
+      for (let i = 0; i < lista.length; i++) {
+        setZipando(`Baixando ${i + 1} de ${lista.length}…`);
+        try {
+          const blob = await obterArquivo(dados.repo, lista[i].caminho);
+          arquivos.push({ destino: lista[i].destino, bytes: new Uint8Array(await blob.arrayBuffer()) });
+        } catch {
+          faltaram.push(lista[i].destino);
+        }
+      }
+      if (!arquivos.length) throw new Error('Não deu para baixar os arquivos. Confira a internet e tente de novo.');
+      setZipando('Montando o .zip…');
+      await new Promise((ok) => setTimeout(ok, 30));
+      const noZip = new Map(lista.filter((a) => !faltaram.includes(a.destino)).map((a) => [a.caminho, a.destino]));
+      const conteudo: Zippable = { [`${raiz}/Lista dos documentos.txt`]: [strToU8(listaDocumentos(doBebe, noZip, bebe?.nome)), { level: 6 }] };
+      // Fotos e PDFs já vêm comprimidos: entram como estão
+      for (const a of arquivos) conteudo[a.destino] = [a.bytes, { level: 0 }];
+      const zip = zipSync(conteudo);
+      const nome = `${nomeArquivo('Documentos', bebe?.nome, 'zip').replace(/\.zip$/, '')} ${hojeTxt}.zip`;
+      const arquivo = new File([zip as Uint8Array<ArrayBuffer>], nome, { type: 'application/zip' });
+      setZipPronto(arquivo);
+      setZipando(null);
+      if (faltaram.length) dados.setErro(`${qtd(faltaram.length, 'arquivo ficou', 'arquivos ficaram')} de fora (sem internet?): ${faltaram.map((f) => f.split('/').pop()).join(', ')}`);
+      await compartilhar([arquivo], nome);
+    } catch (e) {
+      dados.setErro(traduzirErro(e));
+    } finally {
+      setZipando(null);
+    }
+  };
+
   if (!bebe) return <div className="alerta">Cadastre o bebê em Ajustes para guardar os documentos.</div>;
 
   return (
@@ -865,6 +908,18 @@ export function SecaoDocumentos() {
           <Icone nome="compartilhar" /> Exportar PDF
         </button>
       </div>
+      {comArquivo.length > 0 && (
+        <div className="pilha-p">
+          <button className="botao" disabled={zipando !== null} onClick={() => void baixarZip()} aria-label={zipando ?? 'Baixar todos os arquivos dos documentos em .zip'}>
+            <Icone nome="baixar" /> {zipando ?? `Baixar tudo em .zip (${comArquivo.reduce((n, d) => n + d.arquivos.length, 0)})`}
+          </button>
+          {zipPronto && zipando === null && (
+            <button className="botao" onClick={() => void compartilhar([zipPronto], zipPronto.name)}>
+              <Icone nome="compartilhar" /> Compartilhar o .zip de novo
+            </button>
+          )}
+        </div>
+      )}
 
       {resultados ? (
         <section className="cartao">

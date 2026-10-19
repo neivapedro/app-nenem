@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { csvCofrinho, juntarRegistros, montarZip, planejarArquivos } from './exportar';
+import { csvCofrinho, juntarRegistros, listaDocumentos, montarZip, planejarArquivos, planejarDocumentos } from './exportar';
 import type { Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
 
 const arq = (caminho: string, tipo = 'application/pdf') => ({ caminho, nome: caminho, tipo, tamanho: 10 });
@@ -14,12 +14,12 @@ describe('exportar tudo', () => {
     ] as unknown as Documento[];
     const movs = [{ id: 'm', conta_id: 'c1', data: '2026-11-20', de: 'Vovó', comprovante: arq('e.jpg', 'image/jpeg') }] as unknown as MovimentoCofrinho[];
     const marcos = [{ id: 'k', tipo: 'mes', data: '2026-12-10', titulo: null, marco_id: null, foto: 'f.jpg' }] as unknown as Marco[];
-    const l = planejarArquivos({ nome: 'Heitor' } as never, docs, movs, [{ id: 'c1', nome: 'Caixinha' }] as never, marcos);
+    const l = planejarArquivos(docs, movs, [{ id: 'c1', nome: 'Caixinha' }] as never, marcos);
     expect(l.map((a) => a.destino).sort()).toEqual(
       [
-        'documentos/Identificação/RG - Heitor - 1.pdf',
-        'documentos/Identificação/RG - Heitor - 2.jpg',
-        'documentos/Identificação/RG - Heitor.pdf',
+        'documentos/Identificação/RG - 1.pdf',
+        'documentos/Identificação/RG - 2.jpg',
+        'documentos/Identificação/RG.pdf',
         'documentos/Família/CNH-Pedro.pdf',
         'cofrinho/comprovantes/2026-11-20 Caixinha Vovó.jpg',
         'fotos/2026-12-10 foto do mês.jpg',
@@ -27,6 +27,19 @@ describe('exportar tudo', () => {
     );
     expect(new Set(l.map((a) => a.destino)).size).toBe(l.length);
     expect(l.find((a) => a.caminho === 'f.jpg')?.balde).toBe('fotos');
+
+    // Só os documentos (aba Documentos): mesma regra de nomes, sem a pasta "documentos/"
+    const so = planejarDocumentos(docs, 'Documentos do Heitor');
+    expect(so.map((a) => a.destino)).toContain('Documentos do Heitor/Identificação/RG.pdf');
+    expect(so.every((a) => a.documento)).toBe(true);
+    const lista = listaDocumentos(
+      [{ ...docs[0], numero: '12.345.678-9', validade: '2030-01-02' } as Documento],
+      new Map(so.map((a) => [a.caminho, a.destino])),
+      'Heitor',
+    );
+    expect(lista).toContain('Número: 12.345.678-9');
+    expect(lista).toContain('Validade: 02/01/2030');
+    expect(lista).toContain('Identificação/RG - 1.pdf');
   });
 
   it('junta registros sem repetir e monta o .zip', () => {

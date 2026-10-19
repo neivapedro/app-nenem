@@ -7,7 +7,7 @@ import { SecaoPrimeirosDias } from '../componentes/primeiros-dias';
 import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { traduzirErro } from '../lib/erros';
-import { csvCofrinho, csvRegistros, juntarRegistros, montarZip, planejarArquivos } from '../lib/exportar';
+import { csvCofrinho, csvRegistros, juntarRegistros, listaDocumentos, montarZip, planejarArquivos } from '../lib/exportar';
 import { lerLocal } from '../lib/offline-docs';
 import { Ajustes } from './Ajustes';
 import { Resumo } from './Resumo';
@@ -98,7 +98,7 @@ function Exportar() {
       setEtapa('Buscando todos os registros…');
       const todos = await todosRegistros();
       const { bebe, membros, compromissos, medidas, vacinas, remedios, leite, marcos, tarefas, documentos, cofrinho_contas, cofrinho_movimentos, cofrinho_metas, cofrinho_planos } = dados;
-      const lista = planejarArquivos(bebe, documentos, cofrinho_movimentos, cofrinho_contas, marcos);
+      const lista = planejarArquivos(documentos, cofrinho_movimentos, cofrinho_contas, marcos);
       const arquivos: { destino: string; bytes: Uint8Array }[] = [];
       const faltaram: string[] = [];
       for (let i = 0; i < lista.length; i++) {
@@ -130,7 +130,7 @@ function Exportar() {
         '  Em "arquivos_no_zip" está onde ficou cada arquivo dentro desta pasta.',
         'registros.csv: mamadas, fraldas, sono e os outros registros, um por linha (abre no Excel, Numbers ou Google Planilhas).',
         'cofrinho.csv: depósitos, retiradas e saldos do cofrinho.',
-        'documentos/: os arquivos dos documentos, separados por categoria.',
+        'documentos/: os arquivos dos documentos, com o nome que têm no app, separados por categoria (e a lista com números e validades).',
         'cofrinho/comprovantes/: os comprovantes anexados no cofrinho.',
         'fotos/: as fotos do desenvolvimento.',
         '',
@@ -156,7 +156,9 @@ function Exportar() {
           cofrinho: { contas: cofrinho_contas, movimentos: cofrinho_movimentos, metas: cofrinho_metas, plano: cofrinho_planos },
           arquivos_no_zip: noZip,
         },
-        textos: { 'LEIA-ME.txt': leiame, 'registros.csv': csvRegistros(todos, agora, nomeDe), 'cofrinho.csv': csvCofrinho(cofrinho_contas, cofrinho_movimentos) },
+        textos: {
+          'LEIA-ME.txt': leiame,
+          'documentos/Lista dos documentos.txt': listaDocumentos(documentos, new Map(Object.entries(noZip)), bebe?.nome), 'registros.csv': csvRegistros(todos, agora, nomeDe), 'cofrinho.csv': csvCofrinho(cofrinho_contas, cofrinho_movimentos) },
         arquivos,
       });
       const arquivo = new File([zip as Uint8Array<ArrayBuffer>], `heitor-copia-completa-${hoje}.zip`, { type: 'application/zip' });

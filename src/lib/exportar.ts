@@ -1,10 +1,10 @@
 // Exportar tudo: um .zip com todos os dados desde o início (JSON e planilhas)
 // e os arquivos guardados (documentos, comprovantes do cofrinho e fotos).
 import { zipSync, strToU8, type Zippable } from 'fflate';
-import { NOME_CATEGORIA, nomeArquivo } from './documentos';
+import { NOME_CATEGORIA } from './documentos';
 import { chaveDia, horaCurta } from './datas';
 import { descrever, NOMES_TIPO } from './registros';
-import type { ArquivoDocumento, Bebe, ContaCofrinho, Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
+import type { ContaCofrinho, Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
 
 export const celula = (v: unknown) => {
   const s = v === null || v === undefined ? '' : String(v);
@@ -71,35 +71,80 @@ export interface ArquivoParaBaixar {
   /** Onde fica dentro do .zip */
   destino: string;
   balde: 'documentos' | 'fotos';
+  /** Título do documento no app */
+  documento?: string;
 }
 
-/** A lista de arquivos e onde cada um vai ficar no .zip (sem nomes repetidos) */
-export function planejarArquivos(
-  bebe: Bebe | null,
-  documentos: Documento[],
-  movimentos: MovimentoCofrinho[],
-  contas: ContaCofrinho[],
-  marcos: Marco[],
-): ArquivoParaBaixar[] {
+/** Nomes únicos dentro do .zip (sem diferenciar maiúsculas): "RG.jpg", "RG (2).jpg" */
+function nomesUnicos() {
   const usados = new Set<string>();
-  const unico = (pasta: string, nome: string, ext: string) => {
+  return (pasta: string, nome: string, ext: string) => {
     let n = 1;
     let p = `${pasta}/${nome}.${ext}`;
     while (usados.has(p.toLowerCase())) p = `${pasta}/${nome} (${++n}).${ext}`;
     usados.add(p.toLowerCase());
     return p;
   };
-  const lista: ArquivoParaBaixar[] = [];
-  const doc = (a: ArquivoDocumento, pasta: string, nome: string) =>
-    lista.push({ caminho: a.caminho, destino: unico(pasta, limpar(nome), extensao(a)), balde: 'documentos' });
+}
 
-  for (const d of [...documentos].sort((a, b) => a.titulo.localeCompare(b.titulo))) {
-    const pasta = `documentos/${limpar(NOME_CATEGORIA[d.categoria])}`;
-    const base = nomeArquivo(d.titulo, d.categoria === 'familia' ? null : bebe?.nome, 'x').replace(/\.x$/, '');
-    d.arquivos.forEach((a, i) => doc(a, pasta, d.arquivos.length > 1 ? `${base} - ${i + 1}` : base));
+/**
+ * Os arquivos dos documentos com o nome que o documento tem no app, numa pasta
+ * por categoria: "Identificação/Certidão de nascimento.jpg"; com mais de um
+ * arquivo, "Certidão de nascimento - 1.jpg", "Certidão de nascimento - 2.jpg".
+ */
+export function planejarDocumentos(documentos: Documento[], raiz = '', unico = nomesUnicos()): ArquivoParaBaixar[] {
+  const lista: ArquivoParaBaixar[] = [];
+  const ordem = [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
+  for (const d of ordem) {
+    const pasta = [raiz, limpar(NOME_CATEGORIA[d.categoria] ?? 'Outros')].filter(Boolean).join('/');
+    const base = limpar(d.titulo || 'Documento');
+    d.arquivos.forEach((a, i) =>
+      lista.push({
+        caminho: a.caminho,
+        destino: unico(pasta, d.arquivos.length > 1 ? `${base} - ${i + 1}` : base, extensao(a)),
+        balde: 'documentos',
+        documento: d.titulo,
+      }),
+    );
   }
+  return lista;
+}
+
+/** Lista dos documentos (com número, datas e anotações), para ir junto no .zip */
+export function listaDocumentos(documentos: Documento[], noZip: Map<string, string>, bebe: string | null | undefined): string {
+  const ordem = [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
+  const linhas = [`Documentos${bebe ? ` do ${bebe}` : ''} · ${ordem.length} ${ordem.length === 1 ? 'documento' : 'documentos'}`, ''];
+  let categoria = '';
+  for (const d of ordem) {
+    const nomeCat = NOME_CATEGORIA[d.categoria] ?? 'Outros';
+    if (nomeCat !== categoria) {
+      categoria = nomeCat;
+      linhas.push(`== ${categoria} ==`);
+    }
+    linhas.push(`• ${d.titulo}`);
+    if (d.numero) linhas.push(`  Número: ${d.numero}`);
+    if (d.data) linhas.push(`  Data: ${d.data.split('-').reverse().join('/')}`);
+    if (d.validade) linhas.push(`  Validade: ${d.validade.split('-').reverse().join('/')}`);
+    if (d.observacao) linhas.push(`  Anotação: ${d.observacao}`);
+    const arquivos = d.arquivos.map((a) => noZip.get(a.caminho)).filter(Boolean);
+    linhas.push(arquivos.length ? `  Arquivos: ${arquivos.map((a) => a!.split('/').slice(-2).join('/')).join(', ')}` : '  (sem arquivo)');
+    linhas.push('');
+  }
+  return linhas.join('\n');
+}
+
+/** A lista de arquivos e onde cada um vai ficar no .zip (sem nomes repetidos) */
+export function planejarArquivos(documentos: Documento[], movimentos: MovimentoCofrinho[], contas: ContaCofrinho[], marcos: Marco[]): ArquivoParaBaixar[] {
+  const unico = nomesUnicos();
+  const lista = planejarDocumentos(documentos, 'documentos', unico);
   const conta = new Map(contas.map((c) => [c.id, c.nome]));
-  for (const m of movimentos) if (m.comprovante) doc(m.comprovante, 'cofrinho/comprovantes', `${m.data} ${conta.get(m.conta_id) ?? ''} ${m.de ?? ''}`.trim());
+  for (const m of movimentos)
+    if (m.comprovante)
+      lista.push({
+        caminho: m.comprovante.caminho,
+        destino: unico('cofrinho/comprovantes', limpar(`${m.data} ${conta.get(m.conta_id) ?? ''} ${m.de ?? ''}`.trim()), extensao(m.comprovante)),
+        balde: 'documentos',
+      });
   for (const m of [...marcos].sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''))) {
     if (!m.foto) continue;
     lista.push({
