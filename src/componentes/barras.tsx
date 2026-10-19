@@ -27,7 +27,23 @@ const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
  * Colunas por dia (uma série só: o título diz o que é). Valor no topo da coluna
  * de hoje; toque numa coluna para ver o valor dela.
  */
-export function BarrasDiarias({ dados, formatar, tipo, rotulo }: { dados: BarraDia[]; formatar: (v: number) => string; tipo: string; rotulo: string }) {
+export function BarrasDiarias({
+  dados,
+  formatar,
+  tipo,
+  rotulo,
+  rotulos,
+  nomes,
+}: {
+  dados: BarraDia[];
+  formatar: (v: number) => string;
+  tipo: string;
+  rotulo: string;
+  /** Texto embaixo de cada coluna (no lugar do dia), ex.: "1º" para meses */
+  rotulos?: string[];
+  /** Nome de cada coluna para leitores de tela, ex.: "1º mês" */
+  nomes?: string[];
+}) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const max = Math.max(...dados.map((d) => d.valor), 0);
   const passo = passoBonito(max || 1);
@@ -64,7 +80,7 @@ export function BarrasDiarias({ dados, formatar, tipo, rotulo }: { dados: BarraD
               onFocus={() => setAtivo(i)}
               tabIndex={0}
               role="button"
-              aria-label={`${dia.toLocaleDateString('pt-BR')}: ${formatar(d.valor)}`}
+              aria-label={`${nomes?.[i] ?? dia.toLocaleDateString('pt-BR')}: ${formatar(d.valor)}`}
               style={{ cursor: 'pointer', outline: 'none' }}
             >
               <rect x={cx - banda / 2} y={T} width={banda} height={H - T - B} fill="transparent" />
@@ -81,7 +97,7 @@ export function BarrasDiarias({ dados, formatar, tipo, rotulo }: { dados: BarraD
               )}
               {mostrarDia(i) && (
                 <text x={cx} y={H - 6} textAnchor="middle" className="eixo-texto">
-                  {dados.length <= 7 ? DIAS[dia.getDay()] : dia.getDate()}
+                  {rotulos ? rotulos[i] : dados.length <= 7 ? DIAS[dia.getDay()] : dia.getDate()}
                 </text>
               )}
             </g>
