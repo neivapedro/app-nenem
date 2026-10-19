@@ -1,105 +1,284 @@
 import { useMemo, useState } from 'react';
-import { BarrasDiarias } from '../componentes/barras';
 import { GraficosMeses } from '../componentes/meses';
+import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Proporcao } from '../componentes/painel';
 import { RelatorioPediatra } from '../componentes/relatorio-pediatra';
 import { useAgora, useDados } from '../dados/contexto';
-import { dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
-import { intervaloMedioAlimentacao, media, ultimosDias } from '../lib/padroes';
+import { useRegistrosDesde } from '../dados/historico';
+import { chaveDia, dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
+import { diasPainel, inicioDosDados, ladosDoPeito, periodoCoberto, linhaDoTempo, mapaHorarios, mediasPeriodo, type MetricaMapa, variacao } from '../lib/painel';
+import { duracaoMediaMamada, intervaloMedioAlimentacao } from '../lib/padroes';
 
-const PERIODOS = [7, 14, 30] as const;
+const PERIODOS = [7, 14, 30, 90] as const;
+type Periodo = (typeof PERIODOS)[number] | 'meses';
 
-const horas = (ms: number) => `${(ms / 3_600_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h`;
+const um = (v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+const horas = (ms: number) => `${um(ms / 3_600_000)} h`;
+const horasCurto = (ms: number) => {
+  // Arredonda os minutos antes: 1h59m45s vira 2h00 (e não 1h60)
+  const min = Math.round(ms / 60_000);
+  return min >= 60 ? `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}` : `${min} min`;
+};
+
+/** Dias que cabem no mapa de horários (os mais recentes do período) */
+const DIAS_MAPA = 14;
 
 export function Resumo() {
-  const dados = useDados();
-  const { registros, hoje, carregadoDesde } = dados;
+  const { hoje, bebe } = useDados();
   const agora = useAgora(60_000);
-  const [n, setN] = useState<(typeof PERIODOS)[number]>(7);
-  const [porMes, setPorMes] = useState(false);
+  const [periodo, setPeriodo] = useState<Periodo>(7);
+  // O dia escolhido (pela data: não muda de dia sozinho à meia-noite)
+  const [selData, setSelData] = useState<string | null>(null);
+  const [metrica, setMetrica] = useState<MetricaMapa>('alimentacoes');
 
-  const dias = useMemo(() => ultimosDias(registros, hoje, n, agora), [registros, hoje, n, agora]);
-  const desde = inicioDoDia(dias[0].dia);
-  // Médias sem contar hoje (dia incompleto), quando há mais de um dia
-  const completos = dias.length > 1 ? dias.slice(0, -1) : dias;
-  const intervalo = intervaloMedioAlimentacao(registros, desde, agora);
+  const n = periodo === 'meses' ? 7 : periodo;
+  const de = somarDiasLocal(hoje, -(n - 1));
+  // Período anterior, do mesmo tamanho, para comparar
+  const deAnterior = somarDiasLocal(de, -n);
+  const ateAnterior = somarDiasLocal(de, -1);
+  const { registros, erro } = useRegistrosDesde(deAnterior);
+  const regs = useMemo(() => registros ?? [], [registros]);
+
+  const dias = useMemo(() => diasPainel(regs, de, hoje, agora), [regs, de, hoje, agora]);
+  const anteriores = useMemo(() => diasPainel(regs, deAnterior, ateAnterior, agora), [regs, deAnterior, ateAnterior, agora]);
+  // Dias antes do nascimento (ou do primeiro registro) não entram nas médias
+  const inicioDados = useMemo(() => inicioDosDados(bebe?.nascimento ? chaveDia(bebe.nascimento) : null, regs), [bebe?.nascimento, regs]);
+  const atual = mediasPeriodo(dias, hoje, inicioDados);
+  const antes = mediasPeriodo(anteriores, hoje, inicioDados);
+  const temAnterior = periodoCoberto(deAnterior, inicioDados) && anteriores.some((d) => d.alimentacoes || d.fraldas || d.sonoMs);
+  const delta = (a: number, b: number) => (temAnterior ? variacao(a, b) : null);
+
+  const inicio = inicioDoDia(de);
+  const intervalo = intervaloMedioAlimentacao(regs, inicio, agora);
+  const intervaloAntes = intervaloMedioAlimentacao(regs, inicioDoDia(deAnterior), inicio);
+  const mamadaMedia = duracaoMediaMamada(regs, inicio, agora, agora);
+  const lados = ladosDoPeito(regs, inicio, agora, agora);
   const temMamadeira = dias.some((d) => d.ml > 0);
-  const incompleto = carregadoDesde > dias[0].dia;
+  const nomes = dias.map((d) => d.dia);
+  const sel = selData && nomes.includes(selData) ? nomes.indexOf(selData) : null;
+  const setSel = (i: number | null) => setSelData(i === null ? null : (nomes[i] ?? null));
+  const selDia = sel !== null ? dias[sel] : null;
+
+  // Mapa: os últimos dias do período (o dia selecionado continua marcado)
+  const diasMapa = nomes.slice(-DIAS_MAPA);
+  const deslocamento = nomes.length - diasMapa.length;
+  const chaveMapa = diasMapa.join();
+  const mapa = useMemo(() => mapaHorarios(regs, chaveMapa.split(','), metrica, agora), [regs, chaveMapa, metrica, agora]);
+
+  // Linha do tempo: o dia selecionado ou as últimas 24 horas
+  const lt = useMemo(() => {
+    const ate = selDia ? inicioDoDia(somarDiasLocal(selDia.dia, 1)) : agora;
+    const deLt = selDia ? inicioDoDia(selDia.dia) : new Date(agora.getTime() - 24 * 3_600_000);
+    const total = ate.getTime() - deLt.getTime();
+    const marcas: { em: number; texto: string }[] = [];
+    const primeiraHora = new Date(deLt);
+    primeiraHora.setMinutes(0, 0, 0);
+    for (let t = primeiraHora.getTime() + 3_600_000; t < ate.getTime(); t += 3_600_000) {
+      const h = new Date(t).getHours();
+      if (h % 6 === 0) marcas.push({ em: (t - deLt.getTime()) / total, texto: `${h}h` });
+    }
+    return { ...linhaDoTempo(regs, deLt, ate, agora), marcas, agoraFracao: selDia ? undefined : 1 };
+  }, [regs, selDia, agora]);
+
+  const mudarPeriodo = (p: Periodo) => {
+    setPeriodo(p);
+    setSel(null);
+  };
+
+  if (periodo === 'meses')
+    return (
+      <div className="pilha">
+        <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
+        <GraficosMeses />
+        <RelatorioPediatra />
+      </div>
+    );
 
   return (
-    <div className="pilha">
-      <div className="abas" role="tablist" aria-label="Período">
-        {PERIODOS.map((p) => (
-          <button
-            key={p}
-            role="tab"
-            aria-selected={!porMes && n === p}
-            className={!porMes && n === p ? 'ativo' : ''}
-            onClick={() => {
-              setN(p);
-              setPorMes(false);
-            }}
-          >
-            {p} dias
-          </button>
-        ))}
-        <button role="tab" aria-selected={porMes} className={porMes ? 'ativo' : ''} onClick={() => setPorMes(true)}>
-          Meses
-        </button>
-      </div>
-      {porMes ? (
-        <GraficosMeses />
-      ) : (
-        <>
-      {incompleto && <p className="mudo">O app carregou registros a partir de {dataBr(carregadoDesde)}; dias anteriores aparecem vazios.</p>}
+    <div className="pilha painel">
+      <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
+      <p className="mudo painel-legenda-periodo">
+        {dataBr(de)} a {dataBr(hoje)} · {temAnterior ? `comparado com os ${n} dias anteriores` : 'ainda sem o período anterior para comparar'}
+        {inicioDados && inicioDados > de ? ` · médias desde ${dataBr(inicioDados)}` : ''}
+        {!inicioDados || inicioDados < hoje ? ' · médias sem contar hoje' : ''}
+      </p>
+      {erro && <div className="alerta erro">Não deu para buscar os registros mais antigos: {erro}</div>}
+      {!registros && <p className="mudo">Carregando os registros do período…</p>}
 
-      <section className="cartao" aria-label="Médias">
-        <h2>Médias por dia</h2>
-        <div className="grade">
-          <div className="bloco">
-            <div className="rotulo">Alimentações</div>
-            <div className="valor">{media(completos.map((d) => d.alimentacoes)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Intervalo entre elas</div>
-            <div className="valor">{intervalo ? textoDuracao(intervalo) : '—'}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Fraldas</div>
-            <div className="valor">{media(completos.map((d) => d.fraldas)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Sono</div>
-            <div className="valor">{horas(media(completos.map((d) => d.sonoMs)))}</div>
-          </div>
-        </div>
-        <p className="mudo" style={{ marginTop: 8 }}>
-          Sem contar hoje (o dia ainda não acabou). Servem para acompanhar o ritmo do bebê, não para comparar com outros.
-        </p>
+      {/* Indicadores */}
+      <section className="kpis" aria-label="Indicadores do período">
+        <Kpi rotulo="Alimentações/dia" valor={um(atual.alimentacoes)} delta={delta(atual.alimentacoes, antes.alimentacoes)} serie={dias.map((d) => d.alimentacoes)} cor="var(--c-mamada)" />
+        <Kpi rotulo="Intervalo médio" valor={intervalo ? horasCurto(intervalo) : '—'} delta={intervalo && intervaloAntes ? delta(intervalo, intervaloAntes) : null} cor="var(--c-mamada)" detalhe="entre alimentações" />
+        <Kpi rotulo="Sono/dia" valor={horas(atual.sonoMs)} delta={delta(atual.sonoMs, antes.sonoMs)} serie={dias.map((d) => d.sonoMs)} cor="var(--c-sono)" />
+        <Kpi
+          rotulo="Maior sono seguido"
+          valor={atual.maiorSonoMs ? horasCurto(atual.maiorSonoMs) : '—'}
+          delta={atual.maiorSonoMs && antes.maiorSonoMs ? delta(atual.maiorSonoMs, antes.maiorSonoMs) : null}
+          serie={dias.map((d) => d.maiorSonoMs)}
+          cor="var(--c-sono)"
+          detalhe="média do período"
+        />
+        <Kpi rotulo="Fraldas/dia" valor={um(atual.fraldas)} delta={delta(atual.fraldas, antes.fraldas)} serie={dias.map((d) => d.fraldas)} cor="var(--c-fralda)" />
+        {temMamadeira ? (
+          <Kpi rotulo="Mamadeira/dia" valor={`${Math.round(atual.ml)} ml`} delta={delta(atual.ml, antes.ml)} serie={dias.map((d) => d.ml)} cor="var(--c-mamadeira)" />
+        ) : (
+          <Kpi rotulo="Mamada no peito" valor={mamadaMedia ? horasCurto(mamadaMedia) : '—'} cor="var(--c-mamada)" detalhe="duração média" />
+        )}
       </section>
+      {temAnterior && <p className="mudo" style={{ marginTop: -6 }}>▲▼ = variação em relação aos {n} dias anteriores.</p>}
 
-      <section className="cartao" aria-label="Alimentações por dia">
-        <h2>Alimentações por dia</h2>
-        <BarrasDiarias tipo="mamada" rotulo="Alimentações por dia" dados={dias.map((d) => ({ dia: d.dia, valor: d.alimentacoes }))} formatar={(v) => String(v)} />
-      </section>
-      {temMamadeira && (
-        <section className="cartao" aria-label="Mamadeira por dia">
-          <h2>Mamadeira por dia (ml)</h2>
-          <BarrasDiarias tipo="mamadeira" rotulo="Mamadeira por dia em ml" dados={dias.map((d) => ({ dia: d.dia, valor: d.ml }))} formatar={(v) => `${v}`} />
+      {/* Detalhe do dia escolhido (filtra todos os gráficos) */}
+      {selDia && (
+        <section className="cartao pilha-p detalhe-dia" aria-label="Dia selecionado">
+          <div className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+            <h2 style={{ margin: 0 }}>{nomeDia(selDia.dia, hoje)}</h2>
+            <button className="botao pequeno" onClick={() => setSel(null)}>
+              Limpar filtro
+            </button>
+          </div>
+          <div className="grade-3">
+            <div className="bloco">
+              <div className="rotulo">Alimentações</div>
+              <div className="valor">{selDia.alimentacoes}</div>
+            </div>
+            <div className="bloco">
+              <div className="rotulo">Sono</div>
+              <div className="valor">{horas(selDia.sonoMs)}</div>
+            </div>
+            <div className="bloco">
+              <div className="rotulo">Fraldas</div>
+              <div className="valor">{selDia.fraldas}</div>
+            </div>
+          </div>
+          <p className="mudo">
+            {selDia.mamadas} no peito{selDia.peitoMs ? ` (${textoDuracao(selDia.peitoMs)})` : ''} · {selDia.mamadeiras} mamadeira{selDia.mamadeiras === 1 ? '' : 's'}
+            {selDia.ml ? ` (${selDia.ml} ml)` : ''} · noite {horas(selDia.sonoNoiteMs)} · dia {horas(selDia.sonoDiaMs)} · {selDia.coco} com cocô
+          </p>
         </section>
       )}
-      <section className="cartao" aria-label="Fraldas por dia">
-        <h2>Fraldas por dia</h2>
-        <BarrasDiarias tipo="fralda" rotulo="Fraldas por dia" dados={dias.map((d) => ({ dia: d.dia, valor: d.fraldas }))} formatar={(v) => String(v)} />
+
+      {/* Linha do tempo */}
+      <section className="cartao pilha-p" aria-label="Linha do tempo">
+        <h2>{selDia ? `Linha do tempo · ${nomeDia(selDia.dia, hoje)}` : 'Últimas 24 horas'}</h2>
+        <LinhaTempo {...lt} />
       </section>
-      <section className="cartao" aria-label="Sono por dia">
-        <h2>Sono por dia (horas)</h2>
-        <BarrasDiarias
-          tipo="sono"
-          rotulo="Sono por dia em horas"
-          dados={dias.map((d) => ({ dia: d.dia, valor: Math.round((d.sonoMs / 3_600_000) * 10) / 10 }))}
-          formatar={(v) => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}
+
+      {/* Alimentação */}
+      <section className="cartao pilha-p" aria-label="Alimentações por dia">
+        <div className="cartao-titulo">
+          <h2>Alimentações por dia</h2>
+          <span className="mudo">toque num dia para filtrar</span>
+        </div>
+        <ColunasEmpilhadas
+          key={n}
+          rotulo="Alimentações por dia, peito e mamadeira"
+          dias={nomes}
+          series={[
+            { id: 'peito', nome: 'Peito', cor: 'var(--c-mamada)', valores: dias.map((d) => d.mamadas) },
+            { id: 'mamadeira', nome: 'Mamadeira', cor: 'var(--c-mamadeira)', valores: dias.map((d) => d.mamadeiras) },
+          ]}
+          formatar={(v) => um(v)}
+          media={atual.alimentacoes}
+          selecionado={sel}
+          aoSelecionar={setSel}
+        />
+        {lados.E + lados.D > 0 && (
+          <>
+            <h3>Lado do peito no período</h3>
+            <Proporcao
+              partes={[
+                { nome: 'Esquerdo', valor: lados.E, cor: 'var(--c-mamada)' },
+                { nome: 'Direito', valor: lados.D, cor: 'var(--c-sono)' },
+              ]}
+              formatar={(v) => textoDuracao(v)}
+            />
+          </>
+        )}
+      </section>
+
+      {/* Mapa de horários */}
+      <section className="cartao pilha-p" aria-label="Mapa de horários">
+        <div className="cartao-titulo">
+          <h2>Mapa de horários</h2>
+          <span className="mudo">{diasMapa.length < nomes.length ? `últimos ${diasMapa.length} dias` : 'cada quadrinho é 1 hora'}</span>
+        </div>
+        <div className="chips" role="radiogroup" aria-label="O que mostrar">
+          {(
+            [
+              ['alimentacoes', 'Alimentações'],
+              ['sono', 'Sono'],
+              ['fraldas', 'Fraldas'],
+            ] as [MetricaMapa, string][]
+          ).map(([v, r]) => (
+            <button key={v} type="button" role="radio" aria-checked={metrica === v} className={`chip ${metrica === v ? 'ativo' : ''}`} onClick={() => setMetrica(v)}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <MapaCalor
+          key={`${n}-${metrica}`}
+          dias={diasMapa}
+          matriz={mapa}
+          cor={metrica === 'sono' ? 'var(--c-sono)' : metrica === 'fraldas' ? 'var(--c-fralda)' : 'var(--c-mamada)'}
+          unidade={(v) => (metrica === 'sono' ? `${Math.round(v)} min de sono` : `${v} ${metrica === 'fraldas' ? (v === 1 ? 'fralda' : 'fraldas') : v === 1 ? 'alimentação' : 'alimentações'}`)}
+          selecionado={sel !== null && sel >= deslocamento ? sel - deslocamento : null}
+          aoSelecionar={(i) => setSel(i === null ? null : i + deslocamento)}
         />
       </section>
+
+      {/* Sono */}
+      <section className="cartao pilha-p" aria-label="Sono por dia">
+        <div className="cartao-titulo">
+          <h2>Sono por dia</h2>
+          <span className="mudo">noite = 19h às 7h</span>
+        </div>
+        <ColunasEmpilhadas
+          key={n}
+          rotulo="Horas de sono por dia, noite e dia"
+          dias={nomes}
+          series={[
+            { id: 'noite', nome: 'Noite', cor: 'var(--c-sono)', valores: dias.map((d) => d.sonoNoiteMs / 3_600_000) },
+            { id: 'dia', nome: 'Sonecas de dia', cor: 'var(--c-mamadeira)', valores: dias.map((d) => d.sonoDiaMs / 3_600_000) },
+          ]}
+          formatar={(v) => `${um(v)} h`}
+          media={atual.sonoMs / 3_600_000}
+          selecionado={sel}
+          aoSelecionar={setSel}
+        />
+      </section>
+
+      {/* Fraldas */}
+      <section className="cartao pilha-p" aria-label="Fraldas por dia">
+        <h2>Fraldas por dia</h2>
+        <ColunasEmpilhadas
+          key={n}
+          rotulo="Fraldas por dia, só xixi e com cocô"
+          dias={nomes}
+          series={[
+            { id: 'xixi', nome: 'Só xixi', cor: 'var(--c-fralda)', valores: dias.map((d) => d.semCoco) },
+            { id: 'coco', nome: 'Com cocô', cor: 'var(--c-mamadeira)', valores: dias.map((d) => d.coco) },
+          ]}
+          formatar={(v) => um(v)}
+          media={atual.fraldas}
+          selecionado={sel}
+          aoSelecionar={setSel}
+        />
+      </section>
+
+      {temMamadeira && (
+        <section className="cartao pilha-p" aria-label="Mamadeira por dia">
+          <h2>Mamadeira por dia (ml)</h2>
+          <ColunasEmpilhadas
+          key={n}
+            rotulo="Mililitros de mamadeira por dia"
+            dias={nomes}
+            series={[{ id: 'ml', nome: 'Mamadeira', cor: 'var(--c-mamadeira)', valores: dias.map((d) => d.ml) }]}
+            formatar={(v) => `${Math.round(v)} ml`}
+            media={atual.ml}
+            selecionado={sel}
+            aoSelecionar={setSel}
+          />
+        </section>
+      )}
 
       <details className="ajuda cartao">
         <summary>Ver em tabela</summary>
@@ -111,6 +290,7 @@ export function Resumo() {
               <th>ml</th>
               <th>Fraldas</th>
               <th>Sono</th>
+              <th>Maior</th>
             </tr>
           </thead>
           <tbody>
@@ -123,18 +303,29 @@ export function Resumo() {
                   {d.fraldas} <span className="mudo">({d.xixi}/{d.coco})</span>
                 </td>
                 <td>{d.sonoMs ? horas(d.sonoMs) : '—'}</td>
+                <td>{d.maiorSonoMs ? horasCurto(d.maiorSonoMs) : '—'}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </details>
 
-      <p className="mudo" style={{ textAlign: 'center' }}>
-        Período: {dataBr(dias[0].dia)} a {dataBr(somarDiasLocal(hoje, 0))}
-      </p>
-        </>
-      )}
       <RelatorioPediatra />
+    </div>
+  );
+}
+
+function FiltroPeriodo({ periodo, aoMudar }: { periodo: Periodo; aoMudar: (p: Periodo) => void }) {
+  return (
+    <div className="abas filtro-painel" role="tablist" aria-label="Período">
+      {PERIODOS.map((p) => (
+        <button key={p} role="tab" aria-selected={periodo === p} className={periodo === p ? 'ativo' : ''} onClick={() => aoMudar(p)}>
+          {p} dias
+        </button>
+      ))}
+      <button role="tab" aria-selected={periodo === 'meses'} className={periodo === 'meses' ? 'ativo' : ''} onClick={() => aoMudar('meses')}>
+        Meses
+      </button>
     </div>
   );
 }

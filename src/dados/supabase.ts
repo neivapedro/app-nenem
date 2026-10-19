@@ -365,7 +365,7 @@ export class RepositorioSupabase implements Repositorio {
     // Paginado: o PostgREST devolve no máximo 1.000 linhas por pedido
     const todos: Registro[] = [];
     for (let de = 0; ; de += 1000) {
-      const d = erro(await this.sb.from('nenem_registros').select('*').gte('inicio', desde).order('inicio', { ascending: false }).range(de, de + 999));
+      const d = erro(await this.sb.from('nenem_registros').select('*').gte('inicio', desde).order('inicio', { ascending: false }).order('id').range(de, de + 999));
       todos.push(...(d ?? []).map(paraRegistro));
       if (!d || d.length < 1000) break;
     }

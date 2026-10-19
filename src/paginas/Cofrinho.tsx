@@ -1040,7 +1040,7 @@ export function Cofrinho() {
       <div className="pilha">
         <section className="cartao cofrinho-heroi pilha" style={{ textAlign: 'center', alignItems: 'center' }}>
           <span className="cofrinho-emoji" aria-hidden="true">
-            🐷
+            🐷💰
           </span>
           <h2>O cofrinho do {nomeBebe}</h2>
           <p className="texto-2">Registre a conta dele, os depósitos de todo mês e os presentes da família. O app mostra o saldo, quanto já rendeu, quem mais contribuiu e quanto ele vai ter aos 18 anos.</p>

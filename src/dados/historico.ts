@@ -27,7 +27,8 @@ export function useRegistrosDesde(desde: string | null): { registros: Registro[]
 
   const todos = useMemo(() => {
     if (!precisa) return registros;
-    if (!antigos) return null;
+    // Ainda não chegou a busca que cobre esta data: carregando (e não meio vazio)
+    if (!antigos || antigos.desde > desde!) return null;
     // Dias já carregados vêm do app (com as mudanças ao vivo); os anteriores, da busca
     return [...antigos.lista.filter((r) => chaveDia(r.inicio) < carregadoDesde), ...registros];
   }, [precisa, antigos, registros, carregadoDesde]);

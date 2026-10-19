@@ -22,6 +22,7 @@ import {
   type ModeloDocumento,
 } from '../lib/documentos';
 import { traduzirErro } from '../lib/erros';
+import { limpar, listaDocumentos, MontadorZip, planejarDocumentos } from '../lib/exportar';
 import { idFixo } from '../lib/ids';
 import type { ArquivoDocumento, CategoriaDocumento, Documento } from '../lib/tipos';
 import { arquivoPdf, compartilhar, ehImagem, enviarFotoPronta, nomeGuardado, obterArquivo, paraPdf, prepararEEnviar, useUrlArquivo } from './doc-arquivos';
@@ -757,6 +758,8 @@ export function SecaoDocumentos() {
   const [aberta, setAberta] = useState<Aberta>(null);
   const [busca, setBusca] = useState('');
   const [verOpcionais, setVerOpcionais] = useState(false);
+  const [zipando, setZipando] = useState<string | null>(null);
+  const [zipPronto, setZipPronto] = useState<File | null>(null);
   const vacina = usePreparo();
 
   const doBebe = useMemo(() => ordenar(documentos.filter((d) => !bebe || d.bebe_id === bebe.id)), [documentos, bebe]);
@@ -832,6 +835,45 @@ export function SecaoDocumentos() {
     }
   };
 
+  /** Todos os arquivos num .zip, cada um com o nome do documento no app, em pastas por categoria */
+  const comArquivo = doBebe.filter((d) => d.arquivos.length > 0);
+  const baixarZip = async () => {
+    setZipPronto(null);
+    const quando = hoje.split('-').reverse().join('-');
+    const nome = limpar(`Documentos${bebe?.nome ? ` do ${bebe.nome}` : ''} ${quando}`);
+    const lista = planejarDocumentos(doBebe, nome);
+    // Um arquivo por vez: entra no .zip e sai da memória
+    const zip = new MontadorZip();
+    const baixados: typeof lista = [];
+    const faltaram: string[] = [];
+    try {
+      for (let i = 0; i < lista.length; i++) {
+        setZipando(`Baixando ${i + 1} de ${lista.length}…`);
+        try {
+          const blob = await obterArquivo(dados.repo, lista[i].caminho);
+          zip.adicionar(lista[i].destino, new Uint8Array(await blob.arrayBuffer()));
+          baixados.push(lista[i]);
+        } catch {
+          faltaram.push(lista[i].destino);
+        }
+      }
+      if (!baixados.length) throw new Error('Não deu para baixar os arquivos. Confira a internet e tente de novo.');
+      setZipando('Montando o .zip…');
+      await new Promise((ok) => setTimeout(ok, 30));
+      zip.adicionarTexto(`${nome}/Lista dos documentos.txt`, listaDocumentos(doBebe, baixados, `Documentos${bebe?.nome ? ` do ${bebe.nome}` : ''}`));
+      const arquivo = new File([zip.terminar()], `${nome}.zip`, { type: 'application/zip' });
+      setZipPronto(arquivo);
+      setZipando(null);
+      const r = await compartilhar([arquivo], arquivo.name);
+      if (faltaram.length) dados.setErro(`${qtd(faltaram.length, 'arquivo ficou', 'arquivos ficaram')} de fora (sem internet?): ${faltaram.map((f) => f.split('/').pop()).join(', ')}`);
+      else if (r === 'bloqueado') dados.mostrarAviso({ texto: 'O .zip está pronto! Toque em “Compartilhar o .zip”' });
+    } catch (e) {
+      dados.setErro(traduzirErro(e));
+    } finally {
+      setZipando(null);
+    }
+  };
+
   if (!bebe) return <div className="alerta">Cadastre o bebê em Ajustes para guardar os documentos.</div>;
 
   return (
@@ -865,6 +907,18 @@ export function SecaoDocumentos() {
           <Icone nome="compartilhar" /> Exportar PDF
         </button>
       </div>
+      {comArquivo.length > 0 && (
+        <div className="pilha-p">
+          <button className="botao" disabled={zipando !== null} onClick={() => void baixarZip()} aria-label={zipando ?? 'Baixar todos os arquivos dos documentos em .zip'}>
+            <Icone nome="baixar" /> {zipando ?? `Baixar tudo em .zip (${comArquivo.reduce((n, d) => n + d.arquivos.length, 0)})`}
+          </button>
+          {zipPronto && zipando === null && (
+            <button className="botao" onClick={() => void compartilhar([zipPronto], zipPronto.name)}>
+              <Icone nome="compartilhar" /> Compartilhar o .zip
+            </button>
+          )}
+        </div>
+      )}
 
       {resultados ? (
         <section className="cartao">
