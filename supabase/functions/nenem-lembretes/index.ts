@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     const inicioMes = `${dataNoFuso(agora, fuso).slice(0, 7)}-01`;
     const consultas = await Promise.all([
       db.from('nenem_vacinas').select('dose_id, status, data').eq('familia_id', fid),
-      db.from('nenem_remedios').select('id, nome, dose, intervalo_h').eq('familia_id', fid).eq('ativo', true),
+      db.from('nenem_remedios').select('id, nome, dose, intervalo_h, termina_em').eq('familia_id', fid).eq('ativo', true),
       db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', fid),
       db
         .from('nenem_registros')
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
       const rid = (d.dados as { remedio_id?: string } | null)?.remedio_id;
       if (rid && !ultimaPorRemedio.has(rid)) ultimaPorRemedio.set(rid, { id: d.id, inicio: d.inicio });
     }
-    const remedios: RemedioAviso[] = (rem ?? []).map((x) => ({ id: x.id, nome: x.nome, dose: x.dose, intervalo_h: x.intervalo_h === null ? null : Number(x.intervalo_h), ultima: ultimaPorRemedio.get(x.id) ?? null }));
+    const remedios: RemedioAviso[] = (rem ?? []).map((x) => ({ id: x.id, nome: x.nome, dose: x.dose, intervalo_h: x.intervalo_h === null ? null : Number(x.intervalo_h), termina_em: x.termina_em ?? null, ultima: ultimaPorRemedio.get(x.id) ?? null }));
     let ultima: Alimentacao | null = null;
     let emAndamento = false;
     if (nasceu) {

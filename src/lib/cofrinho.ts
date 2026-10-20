@@ -68,6 +68,26 @@ export function lerReais(texto: string): number | null {
 
 // ---------- Saldo ----------
 
+/**
+ * Transferência entre contas: a retirada na origem e o depósito no destino têm o
+ * mesmo `transferencia_id`. Mudam o saldo (e o colocado) de cada conta, mas não
+ * são dinheiro novo: no total da família se anulam e não contam como depósito.
+ */
+export const ehTransferencia = (m: MovimentoCofrinho) => !!m.transferencia_id;
+/** Depósito de verdade (dinheiro que entrou no cofrinho), sem a ponta de uma transferência */
+export const ehDeposito = (m: MovimentoCofrinho) => m.tipo === 'deposito' && !m.transferencia_id;
+
+/** As duas pontas da transferência (origem = retirada, destino = depósito); null se faltar uma */
+export function pontasTransferencia(movs: MovimentoCofrinho[], transferenciaId: string): { origem: MovimentoCofrinho; destino: MovimentoCofrinho } | null {
+  const pontas = movs.filter((m) => m.transferencia_id === transferenciaId);
+  const origem = pontas.find((m) => m.tipo === 'retirada');
+  const destino = pontas.find((m) => m.tipo === 'deposito');
+  return origem && destino ? { origem, destino } : null;
+}
+
+/** A outra ponta da transferência (a mesma `transferencia_id`, outro lançamento) */
+export const outraPonta = (movs: MovimentoCofrinho[], m: MovimentoCofrinho) => (m.transferencia_id ? movs.find((x) => x.transferencia_id === m.transferencia_id && x.id !== m.id) : undefined);
+
 const ordemTipo = { deposito: 0, retirada: 0, saldo: 1 } as const;
 /** Ordem de cálculo: por data; no mesmo dia, depósitos e retiradas antes do saldo; empate pelo id (sempre o mesmo resultado) */
 const ordemCalculo = (a: MovimentoCofrinho, b: MovimentoCofrinho) => a.data.localeCompare(b.data) || ordemTipo[a.tipo] - ordemTipo[b.tipo] || a.id.localeCompare(b.id);
@@ -75,7 +95,8 @@ const ordemCalculo = (a: MovimentoCofrinho, b: MovimentoCofrinho) => a.data.loca
 /**
  * Saldo de uma conta até a data: depósitos somam, retiradas tiram e o saldo do
  * extrato substitui o que foi somado (já com os depósitos do mesmo dia).
- * `aportado` = depósitos − retiradas (o que a família colocou).
+ * `aportado` = depósitos − retiradas (o que a família colocou nesta conta; uma
+ * transferência que entra conta aqui, para o rendimento da conta ficar certo).
  */
 export function saldoConta(movs: MovimentoCofrinho[], ate?: string): { saldo: number; aportado: number; ultimoExtrato: string | null } {
   let saldo = 0;
@@ -121,10 +142,53 @@ export function resumo(contas: ContaCofrinho[], movs: MovimentoCofrinho[], ate?:
     saldo += r.saldo;
     aportado += r.aportado;
   }
+  // As duas pontas de uma transferência se anulam no colocado da família (o total não muda)
   const rendimento = saldo - aportado;
-  const depositos = movs.filter((m) => m.tipo === 'deposito' && (!ate || m.data <= ate)).length;
+  const depositos = movs.filter((m) => ehDeposito(m) && (!ate || m.data <= ate)).length;
   const primeiro = movs.reduce<string | null>((p, m) => (!p || m.data < p ? m.data : p), null);
   return { saldo, aportado, rendimento, rendimentoPct: aportado > 0 ? rendimento / aportado : null, depositos, porConta, primeiro };
+}
+
+/**
+ * Monta as duas pontas de uma transferência: uma retirada na conta de origem e um
+ * depósito na de destino, com o mesmo `transferencia_id` (sem quem mandou,
+ * ocasião nem recado). O comprovante fica na ponta da origem.
+ */
+export function montarTransferencia(t: {
+  transferenciaId: string;
+  idOrigem: string;
+  idDestino: string;
+  familiaId: string;
+  criadoPor: string | null;
+  contaOrigem: string;
+  contaDestino: string;
+  data: string;
+  valor: number;
+  observacao?: string | null;
+  comprovante?: MovimentoCofrinho['comprovante'];
+}): { origem: MovimentoCofrinho; destino: MovimentoCofrinho } {
+  const base = { familia_id: t.familiaId, criado_por: t.criadoPor, data: t.data, valor_centavos: t.valor, de: null, ocasiao: null, recado: null, observacao: t.observacao?.trim() || null, transferencia_id: t.transferenciaId };
+  return {
+    origem: { ...base, id: t.idOrigem, conta_id: t.contaOrigem, tipo: 'retirada', comprovante: t.comprovante ?? null },
+    destino: { ...base, id: t.idDestino, conta_id: t.contaDestino, tipo: 'deposito', comprovante: null },
+  };
+}
+
+/**
+ * Excluir uma conta: os lançamentos dela saem e os comprovantes também. Numa
+ * transferência com outra conta, a ponta que fica na outra conta vira lançamento
+ * comum (sem `transferencia_id`): o saldo dela não muda, e o dinheiro que veio da
+ * conta excluída passa a contar como colocado (ou o que foi para ela, como retirada).
+ */
+export function exclusaoDeConta(movs: MovimentoCofrinho[], conta: Pick<ContaCofrinho, 'id' | 'nome'>): { excluir: MovimentoCofrinho[]; soltar: MovimentoCofrinho[]; caminhos: string[] } {
+  const excluir = movs.filter((m) => m.conta_id === conta.id);
+  const ids = new Set(excluir.map((m) => m.id));
+  const transf = new Set(excluir.filter(ehTransferencia).map((m) => m.transferencia_id));
+  const soltar = movs
+    .filter((m) => !ids.has(m.id) && m.transferencia_id && transf.has(m.transferencia_id))
+    .map((m) => ({ ...m, transferencia_id: null, observacao: m.observacao || `Transferência ${m.tipo === 'deposito' ? 'de' : 'para'} ${conta.nome} (conta excluída)`.slice(0, 2000) }));
+  const caminhos = excluir.flatMap((m) => (m.comprovante?.caminho ? [m.comprovante.caminho] : []));
+  return { excluir, soltar, caminhos };
 }
 
 const ultimoDiaDoMes = (mes: string) => {
@@ -149,20 +213,20 @@ export function evolucaoMensal(contas: ContaCofrinho[], movs: MovimentoCofrinho[
   return serie;
 }
 
-/** Depósitos de cada um dos últimos `n` meses (do mais antigo para o atual) */
+/** Depósitos de cada um dos últimos `n` meses (do mais antigo para o atual; transferências não contam) */
 export function depositosPorMes(movs: MovimentoCofrinho[], hoje: string, n = 12): { mes: string; centavos: number }[] {
   const meses = Array.from({ length: n }, (_, i) => somarMeses(`${hoje.slice(0, 7)}-01`, i - n + 1).slice(0, 7));
-  return meses.map((mes) => ({ mes, centavos: movs.filter((m) => m.tipo === 'deposito' && m.data.startsWith(mes)).reduce((s, m) => s + m.valor_centavos, 0) }));
+  return meses.map((mes) => ({ mes, centavos: movs.filter((m) => ehDeposito(m) && m.data.startsWith(mes)).reduce((s, m) => s + m.valor_centavos, 0) }));
 }
 
 /** Depósito sem "quem mandou" (não conta como pessoa em "N pessoas contribuíram") */
 export const SEM_NOME = 'Sem nome';
 
-/** Quem colocou quanto (depósitos), do maior para o menor */
+/** Quem colocou quanto (depósitos; transferências entre contas não contam), do maior para o menor */
 export function porQuem(movs: MovimentoCofrinho[]): { de: string; centavos: number; vezes: number }[] {
   const mapa = new Map<string, { de: string; centavos: number; vezes: number }>();
   for (const m of movs) {
-    if (m.tipo !== 'deposito') continue;
+    if (!ehDeposito(m)) continue;
     const nome = m.de?.trim() || SEM_NOME;
     const chave = nome.toLocaleLowerCase('pt-BR');
     const atual = mapa.get(chave) ?? { de: nome, centavos: 0, vezes: 0 };
@@ -175,7 +239,7 @@ export function porQuem(movs: MovimentoCofrinho[]): { de: string; centavos: numb
 
 /** Meses seguidos com depósito (o mês atual conta se já teve; se ainda não, começa no anterior) */
 export function mesesSeguidos(movs: MovimentoCofrinho[], hoje: string): number {
-  const comDeposito = new Set(movs.filter((m) => m.tipo === 'deposito').map((m) => m.data.slice(0, 7)));
+  const comDeposito = new Set(movs.filter(ehDeposito).map((m) => m.data.slice(0, 7)));
   let mes = hoje.slice(0, 7);
   if (!comDeposito.has(mes)) mes = somarMeses(`${mes}-01`, -1).slice(0, 7);
   let n = 0;
@@ -347,7 +411,7 @@ export interface AtualizacaoSaldo {
   mov: MovimentoCofrinho;
   /** Quanto rendeu desde a atualização anterior (já descontados depósitos e retiradas do período) */
   rendeu: number;
-  /** Depósitos − retiradas entre a atualização anterior e esta */
+  /** Depósitos − retiradas entre a atualização anterior e esta (transferências entre contas incluídas) */
   colocado: number;
   /** Primeira atualização da conta (o "rendeu" conta desde o início) */
   primeira: boolean;

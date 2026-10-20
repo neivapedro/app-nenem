@@ -101,7 +101,10 @@ export function semAcento(s: string): string {
 export function combinaBusca(d: Documento, busca: string): boolean {
   const q = semAcento(busca.trim());
   if (!q) return true;
-  return semAcento([d.titulo, d.numero, d.observacao, NOME_CATEGORIA[d.categoria], ...d.arquivos.map((a) => a.nome)].filter(Boolean).join(' ')).includes(q);
+  if (semAcento([d.titulo, d.numero, d.observacao, NOME_CATEGORIA[d.categoria], ...d.arquivos.map((a) => a.nome)].filter(Boolean).join(' ')).includes(q)) return true;
+  // Número digitado só com os dígitos (ex.: "12345678900" acha "123.456.789-00")
+  const digitos = q.replace(/\D/g, '');
+  return digitos.length >= 3 && /^[\d\s.\-/]+$/.test(q) && !!d.numero && d.numero.replace(/\D/g, '').includes(digitos);
 }
 
 export function tamanhoTexto(bytes: number): string {

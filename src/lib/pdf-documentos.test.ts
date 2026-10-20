@@ -48,6 +48,10 @@ describe('documentos', () => {
     expect(combinaBusca(doc({ numero: '700 1234' }), 'certidao')).toBe(true);
     expect(combinaBusca(doc({ numero: '700 1234' }), '1234')).toBe(true);
     expect(combinaBusca(doc({}), 'passaporte')).toBe(false);
+    // CPF digitado só com números acha o número com pontos e traço
+    expect(combinaBusca(doc({ numero: '123.456.789-00' }), '12345678900')).toBe(true);
+    expect(combinaBusca(doc({ numero: '123.456.789-00' }), '456789')).toBe(true);
+    expect(combinaBusca(doc({ numero: '123.456.789-00' }), '999')).toBe(false);
   });
 
   it('junta fotos e PDFs com capa e índice', async () => {

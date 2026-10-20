@@ -1,8 +1,9 @@
 // Relatório em PDF para o pediatra, com o período escolhido: 7, 15 ou 30 dias,
-// tudo desde o nascimento ou datas à escolha.
+// desde a última consulta, tudo desde o nascimento ou datas à escolha.
 import { useState } from 'react';
 import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { useAgora, useDados } from '../dados/contexto';
+import { ultimaConsulta } from '../lib/agenda';
 import { useRegistrosDesde } from '../dados/historico';
 import { diasPrematuridade, escoreZ, idadeParaOms, textoPercentil, type Indicador } from '../lib/crescimento';
 import { chaveDia, dataBr, diasEntre, horaCurta, idadeBebe, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
@@ -15,7 +16,7 @@ import { descrever, NOMES_TIPO } from '../lib/registros';
 import type { GraficoPdf, KpiPdf, ModeloRelatorio, PainelPdf } from '../lib/relatorio';
 import { Campo, Escolhas, Icone } from './ui';
 
-type Periodo = '7' | '15' | '30' | 'tudo' | 'datas';
+type Periodo = '7' | '15' | '30' | 'consulta' | 'tudo' | 'datas';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const horas = (ms: number) => `${(ms / 3_600_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h`;
@@ -176,9 +177,14 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
 }
 
 export function RelatorioPediatra() {
-  const { hoje, bebe, medidas, vacinas, registros: carregados } = useDados();
+  const { hoje, bebe, medidas, vacinas, compromissos, registros: carregados } = useDados();
   const agora = useAgora(60_000);
-  const [periodo, setPeriodo] = useState<Periodo>('30');
+  const [periodoEscolhido, setPeriodo] = useState<Periodo>('30');
+  // Desde a última consulta que já começou (se ela for excluída, volta para 30 dias)
+  const consulta = ultimaConsulta(compromissos, agora);
+  const periodo: Periodo = periodoEscolhido === 'consulta' && !consulta ? '30' : periodoEscolhido;
+  const tituloConsulta = consulta ? (consulta.titulo.length > 32 ? `${consulta.titulo.slice(0, 31).trimEnd()}…` : consulta.titulo) : '';
+  const desdeConsulta = periodo === 'consulta' && consulta ? `desde a consulta de ${dataBr(consulta.data).slice(0, 5)} (${tituloConsulta})` : '';
   const [deEscolhido, setDe] = useState(() => somarDiasLocal(hoje, -29));
   const [ateEscolhido, setAte] = useState(hoje);
   const [gerando, setGerando] = useState(false);
@@ -194,9 +200,9 @@ export function RelatorioPediatra() {
   }, null);
   const inicioDeTudo = nascDia ?? primeiro ?? somarDiasLocal(hoje, -29);
   const [de0, ate] =
-    periodo === 'tudo' ? [inicioDeTudo, hoje] : periodo === 'datas' ? [deEscolhido <= ateEscolhido ? deEscolhido : ateEscolhido, ateEscolhido >= deEscolhido ? ateEscolhido : deEscolhido] : [somarDiasLocal(hoje, -(Number(periodo) - 1)), hoje];
+    periodo === 'tudo' ? [inicioDeTudo, hoje] : periodo === 'consulta' && consulta ? [consulta.data, hoje] : periodo === 'datas' ? [deEscolhido <= ateEscolhido ? deEscolhido : ateEscolhido, ateEscolhido >= deEscolhido ? ateEscolhido : deEscolhido] : [somarDiasLocal(hoje, -(Number(periodo) - 1)), hoje];
   // 7/15/30 dias de um recém-nascido: começa no nascimento (sem dezenas de dias zerados antes dele)
-  const de = (periodo === '7' || periodo === '15' || periodo === '30') && nascDia && de0 < nascDia && nascDia <= ate ? nascDia : de0;
+  const de = (periodo === '7' || periodo === '15' || periodo === '30' || periodo === 'consulta') && nascDia && de0 < nascDia && nascDia <= ate ? nascDia : de0;
   const totalDias = diasEntre(de, ate) + 1;
   // Para 'tudo' não há período anterior; nos outros, busca também o anterior para comparar
   const comparar = periodo !== 'tudo';
@@ -266,7 +272,7 @@ export function RelatorioPediatra() {
           : primeiro
             ? 'Data de nascimento não cadastrada'
             : 'Ainda não nasceu',
-        periodo: `Período: ${dataBr(de)} a ${dataBr(ate)} (${totalDias} ${totalDias === 1 ? 'dia' : 'dias'}${periodo === 'tudo' && nascDia ? ', desde o nascimento' : ''})`,
+        periodo: `Período: ${dataBr(de)} a ${dataBr(ate)} (${totalDias} ${totalDias === 1 ? 'dia' : 'dias'}${periodo === 'tudo' && nascDia ? ', desde o nascimento' : ''}${desdeConsulta && consulta ? `, desde a consulta de ${dataBr(consulta.data).slice(0, 5)}: ${tituloConsulta}` : ''})`,
         destaques: [
           ['Alimentações por dia (média)', um(media(completos.map((d) => d.alimentacoes)))],
           ['Intervalo médio entre alimentações', intervalo ? textoDuracao(Math.round(intervalo / 60_000) * 60_000) : '—'],
@@ -292,8 +298,8 @@ export function RelatorioPediatra() {
             return [dataBr(v.data!), d?.vacina ?? v.nome ?? '', d?.dose ?? '', [v.rede === 'particular' ? 'Particular' : 'SUS', v.local, v.lote ? `lote ${v.lote}` : ''].filter(Boolean).join(' · ')];
           }),
         vacinasPendentes: cal
-          .filter((c) => c.situacao === 'atrasada' || c.situacao === 'agora' || c.situacao === 'proxima')
-          .map((c) => [dataBr(c.prevista), c.dose.vacina, c.dose.dose, c.situacao === 'atrasada' ? 'Atrasada' : c.situacao === 'agora' ? 'Já pode tomar' : 'Próxima']),
+          .filter((c) => c.situacao === 'passou' || c.situacao === 'atrasada' || c.situacao === 'agora' || c.situacao === 'proxima')
+          .map((c) => [dataBr(c.prevista), c.dose.vacina, c.dose.dose, c.situacao === 'passou' ? 'Passou da idade — fale com o pediatra' : c.situacao === 'atrasada' ? 'Atrasada' : c.situacao === 'agora' ? 'Já pode tomar' : 'Próxima']),
         remedios: noPeriodo.filter((r) => r.tipo === 'remedio').map((r) => [`${dataBr(chaveDia(r.inicio))} ${horaCurta(r.inicio)}`, r.tipo === 'remedio' ? r.dados.nome : '', r.tipo === 'remedio' ? (r.dados.dose ?? '') : '']),
         temperaturas: noPeriodo
           .filter((r) => r.tipo === 'temperatura')
@@ -328,6 +334,7 @@ export function RelatorioPediatra() {
             { valor: '7' as Periodo, rotulo: '7 dias' },
             { valor: '15' as Periodo, rotulo: '15 dias' },
             { valor: '30' as Periodo, rotulo: '30 dias' },
+            ...(consulta ? [{ valor: 'consulta' as Periodo, rotulo: 'Últ. consulta' }] : []),
             { valor: 'tudo' as Periodo, rotulo: 'Tudo' },
             { valor: 'datas' as Periodo, rotulo: 'Datas' },
           ]}
@@ -351,6 +358,7 @@ export function RelatorioPediatra() {
       <p className="mudo" style={{ margin: 0 }}>
         {dataBr(de)} a {dataBr(ate)} · {totalDias} {totalDias === 1 ? 'dia' : 'dias'}
         {periodo === 'tudo' && nascDia ? ' (desde o nascimento)' : ''}
+        {desdeConsulta ? ` · ${desdeConsulta}` : ''}
         {totalDias > LIMITE_DIARIO ? ' · resumo por mês' : ''}
       </p>
       <button className="botao primario" disabled={gerando || carregando} onClick={() => void gerarPdf()}>

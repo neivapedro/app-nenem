@@ -110,7 +110,7 @@ function EtiquetaValidade({ validade }: { validade: string | null }) {
   const s = situacaoValidade(validade, hoje);
   if (!s || !validade) return null;
   if (s === 'vencido') return <span className="etiqueta ruim">Vencido em {dataBr(validade)}</span>;
-  if (s === 'vence-logo') return <span className="etiqueta aviso">Vence em {dataBr(validade)}</span>;
+  if (s === 'vence-logo') return <span className="etiqueta aviso">{validade === hoje ? 'Vence hoje' : `Vence em ${dataBr(validade)}`}</span>;
   return null;
 }
 
@@ -711,6 +711,7 @@ function FolhaExportar({ docs, kit, aoFechar, aoGuardar }: { docs: Documento[]; 
                 <span className="texto-2">
                   {NOME_CATEGORIA[d.categoria]} · {d.arquivos.length ? qtd(d.arquivos.length, 'arquivo', 'arquivos') : 'só os dados'}
                 </span>
+                <EtiquetaValidade validade={d.validade} />
               </span>
             </label>
           ))}
@@ -722,6 +723,18 @@ function FolhaExportar({ docs, kit, aoFechar, aoGuardar }: { docs: Documento[]; 
             </span>
           </label>
         </div>
+        {(() => {
+          // Kit/PDF com documento vencido: avisa antes de mandar (ex.: carteirinha do plano vencida)
+          const vencidos = escolhidos.filter((d) => situacaoValidade(d.validade, dados.hoje) === 'vencido');
+          return vencidos.length ? (
+            <div className="alerta erro" role="status">
+              <Icone nome="alerta" />
+              <span>
+                {vencidos.length === 1 ? `${vencidos[0].titulo}: venceu em ${dataBr(vencidos[0].validade!)}.` : `Vencidos: ${vencidos.map((d) => `${d.titulo} (${dataBr(d.validade!)})`).join(', ')}.`} Confira antes de enviar.
+              </span>
+            </div>
+          ) : null;
+        })()}
         {montado && montado.faltam.length > 0 && (
           <div className="cartao-interno pilha-p">
             <strong>Ainda não guardados</strong>
@@ -951,7 +964,7 @@ export function SecaoDocumentos() {
           {alertas.length > 0 && (
             <div className="alerta">
               <Icone nome="alerta" />
-              <span>{alertas.map((d) => `${d.titulo} ${situacaoValidade(d.validade, hoje) === 'vencido' ? 'venceu' : 'vence'} em ${dataBr(d.validade!)}`).join('; ')}.</span>
+              <span>{alertas.map((d) => (d.validade === hoje ? `${d.titulo} vence hoje` : `${d.titulo} ${situacaoValidade(d.validade, hoje) === 'vencido' ? 'venceu' : 'vence'} em ${dataBr(d.validade!)}`)).join('; ')}.</span>
             </div>
           )}
 

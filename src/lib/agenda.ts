@@ -1,6 +1,8 @@
-import { EMOJI_TIPO } from '../../supabase/functions/_shared/ics.ts';
+import { EMOJI_TIPO, MESES_MESVERSARIO, textoMeses } from '../../supabase/functions/_shared/ics.ts';
+import { somarDias, somarMeses } from '../../supabase/functions/_shared/tempo.ts';
+import { calendarioDoBebe, type AplicacaoVacina } from '../../supabase/functions/_shared/vacinas.ts';
 import { chaveDia, dataBr, diasEntre, nomeDia } from './datas';
-import type { Compromisso, TipoCompromisso } from './tipos';
+import type { Bebe, Compromisso, TipoCompromisso } from './tipos';
 
 export { EMOJI_TIPO };
 
@@ -91,4 +93,115 @@ export function validarCompromisso(c: Compromisso): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(c.data)) return 'Informe a data.';
   if (c.hora !== null && !/^\d{2}:\d{2}$/.test(c.hora)) return 'Informe a hora ou marque "dia inteiro".';
   return null;
+}
+
+// ---------- Compromisso que se repete ----------
+
+export type Repeticao = 'nao' | 'semana' | 'quinzena' | 'mes';
+
+export const OPCOES_REPETICAO: { valor: Repeticao; rotulo: string }[] = [
+  { valor: 'nao', rotulo: 'Não' },
+  { valor: 'semana', rotulo: 'Toda semana' },
+  { valor: 'quinzena', rotulo: 'A cada 15 dias' },
+  { valor: 'mes', rotulo: 'Todo mês' },
+];
+
+/** Quantas vezes, por padrão (o usuário escolhe de 2 a 12) */
+export const VEZES_PADRAO: Record<Exclude<Repeticao, 'nao'>, number> = { semana: 4, quinzena: 4, mes: 6 };
+export const VEZES_MIN = 2;
+export const VEZES_MAX = 12;
+
+/** Datas da série, começando na própria data. Mensal: mesmo dia do mês (31 vira o último dia do mês curto). */
+export function datasRepetidas(data: string, repeticao: Repeticao, vezes: number): string[] {
+  if (repeticao === 'nao') return [data];
+  const n = Math.min(VEZES_MAX, Math.max(VEZES_MIN, Math.round(vezes)));
+  return Array.from({ length: n }, (_, i) => (repeticao === 'mes' ? somarMeses(data, i) : somarDias(data, i * (repeticao === 'semana' ? 7 : 14))));
+}
+
+/** Compromissos separados (cada um com id próprio), com a mesma hora, duração e aviso. O primeiro mantém o id. */
+export function serieCompromissos(c: Compromisso, repeticao: Repeticao, vezes: number): Compromisso[] {
+  return datasRepetidas(c.data, repeticao, vezes).map((data, i) => ({ ...c, id: i === 0 ? c.id : crypto.randomUUID(), data }));
+}
+
+// ---------- Itens automáticos (vacinas previstas e mesversários) ----------
+
+export interface ItemAutomatico {
+  chave: string;
+  tipo: 'vacina' | 'mesversario';
+  /** AAAA-MM-DD (vacina: a data prevista) */
+  data: string;
+  titulo: string;
+  detalhe: string;
+  situacao?: 'atrasada' | 'agora' | 'proxima';
+}
+
+/** Quantos mesversários futuros aparecem na lista */
+export const MESVERSARIOS_NA_LISTA = 3;
+
+const nomeCurtoVacina = (v: string) => v.split(' (')[0].split(' /')[0];
+
+/** "ao nascer", "de 1 mês", "dos 2 meses", "dos 4 anos" */
+function idadeDaVacina(meses: number): string {
+  if (meses === 0) return 'ao nascer';
+  if (meses === 1) return 'de 1 mês';
+  if (meses < 24) return `dos ${meses} meses`;
+  const anos = Math.floor(meses / 12);
+  const resto = meses % 12;
+  return `dos ${anos} anos${resto ? ` e ${resto} meses` : ''}`;
+}
+
+/**
+ * Vacinas que estão chegando (próximas 30 dias, já pode tomar ou atrasadas), agrupadas pela data
+ * prevista, e os próximos mesversários. Mesmo cálculo da tela de vacinas: sem nascimento, usa a data
+ * prevista do parto (prévia); mesversários só depois do nascimento.
+ */
+export function itensAutomaticos(bebe: Bebe | null, aplicacoes: AplicacaoVacina[], hoje: string): ItemAutomatico[] {
+  if (!bebe) return [];
+  const itens: ItemAutomatico[] = [];
+  const nasc = bebe.nascimento ? chaveDia(bebe.nascimento) : null;
+  const base = nasc ?? bebe.data_prevista;
+  if (base) {
+    const grupos = new Map<string, { meses: number; nomes: string[]; situacao: 'atrasada' | 'agora' | 'proxima' }>();
+    for (const d of calendarioDoBebe(base, bebe.calendario_vacinal, aplicacoes, hoje)) {
+      if (d.situacao !== 'atrasada' && d.situacao !== 'agora' && d.situacao !== 'proxima') continue;
+      // Prévia (ainda não nasceu): só as que estão chegando, nunca "atrasada" antes do parto
+      if (!nasc && d.situacao !== 'proxima') continue;
+      const g = grupos.get(d.prevista) ?? { meses: d.dose.idade_meses, nomes: [], situacao: d.situacao };
+      g.meses = Math.min(g.meses, d.dose.idade_meses);
+      const nome = nomeCurtoVacina(d.dose.vacina);
+      if (!g.nomes.includes(nome)) g.nomes.push(nome);
+      if (d.situacao === 'atrasada' || (d.situacao === 'agora' && g.situacao === 'proxima')) g.situacao = d.situacao;
+      grupos.set(d.prevista, g);
+    }
+    for (const [data, g] of grupos) {
+      itens.push({
+        chave: `vacinas-${data}`,
+        tipo: 'vacina',
+        data,
+        titulo: `💉 ${g.nomes.length === 1 ? 'Vacina' : 'Vacinas'} ${idadeDaVacina(g.meses)}`,
+        detalhe: g.nomes.join(', '),
+        situacao: g.situacao,
+      });
+    }
+  }
+  if (nasc) {
+    const nome = bebe.nome.trim().split(/\s+/)[0] || 'O bebê';
+    for (let n = 1; n <= MESES_MESVERSARIO && itens.filter((i) => i.tipo === 'mesversario').length < MESVERSARIOS_NA_LISTA; n++) {
+      const data = somarMeses(nasc, n);
+      if (data < hoje) continue;
+      itens.push({ chave: `mesversario-${n}`, tipo: 'mesversario', data, titulo: `🎂 ${nome} faz ${textoMeses(n)}`, detalhe: 'Mesversário' });
+    }
+  }
+  return itens.sort((a, b) => a.data.localeCompare(b.data));
+}
+
+/** "Hoje", "sexta, 13 nov · em 5 dias" (dia inteiro, sem hora) */
+export function textoDiaAutomatico(data: string, hoje: string): string {
+  const dif = diasEntre(hoje, data);
+  return `${nomeDia(data, hoje)}${dif > 1 && dif <= 30 ? ` · em ${dif} dias` : ''}`;
+}
+
+/** Última consulta que já começou (para o relatório "desde a última consulta") */
+export function ultimaConsulta(lista: Compromisso[], agora: Date): Compromisso | null {
+  return lista.filter((c) => c.tipo === 'consulta' && compromissoJaPassou(c, agora)).sort((a, b) => ordem(b, a))[0] ?? null;
 }

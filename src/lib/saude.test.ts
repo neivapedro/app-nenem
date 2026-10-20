@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { avaliarTemperatura } from './conteudo';
 import { idFixo } from './ids';
 import { intervaloMedioAlimentacao, ultimosDias } from './padroes';
-import { alimentosProvados, emEstoque, proximaDose, situacaoPote, validadeLeite } from './saude';
+import { alimentosProvados, doseRecente, emEstoque, prazoAcabou, proximaDose, remedioEmUso, situacaoPote, ultimoDiaTratamento, validadeLeite } from './saude';
 import type { PoteLeite, Registro, Remedio } from './tipos';
 
 const base = { familia_id: 'f', bebe_id: 'b', criado_por: 'u', observacao: null };
@@ -17,6 +17,34 @@ describe('saúde', () => {
     ];
     expect(proximaDose(r, doses)).toBe(t('2026-12-01T20:10'));
     expect(proximaDose({ ...r, intervalo_h: null }, doses)).toBeNull();
+  });
+
+  it('tratamento com prazo: último dia, encerra sozinho e sem próxima dose depois do prazo', () => {
+    const r: Remedio = { id: 'r', familia_id: 'f', bebe_id: 'b', criado_por: 'u', nome: 'Amoxicilina', dose: null, intervalo_h: 8, ativo: true, observacao: null, termina_em: '2026-12-07' };
+    expect(ultimoDiaTratamento('2026-12-01', 7)).toBe('2026-12-07');
+    expect(ultimoDiaTratamento('2026-12-30', 3)).toBe('2027-01-01');
+    expect(ultimoDiaTratamento('2026-12-01', 1)).toBe('2026-12-01');
+    expect(prazoAcabou(r, '2026-12-07')).toBe(false);
+    expect(prazoAcabou(r, '2026-12-08')).toBe(true);
+    expect(remedioEmUso(r, '2026-12-07')).toBe(true);
+    expect(remedioEmUso(r, '2026-12-08')).toBe(false);
+    expect(remedioEmUso({ ...r, termina_em: null }, '2030-01-01')).toBe(true);
+    expect(remedioEmUso({ ...r, ativo: false }, '2026-12-01')).toBe(false);
+    const dose = (inicio: string): Registro[] => [{ ...base, id: 'x', tipo: 'remedio', inicio: t(inicio), fim: null, dados: { remedio_id: 'r', nome: 'Amoxicilina', dose: null } }];
+    expect(proximaDose(r, dose('2026-12-07T14:00'))).toBe(t('2026-12-07T22:00'));
+    // Última dose às 22h do último dia: a próxima cairia no dia 8
+    expect(proximaDose(r, dose('2026-12-07T22:00'))).toBeNull();
+  });
+
+  it('dose em dobro: menos da metade do intervalo (sem intervalo, 30 min)', () => {
+    const r: Remedio = { id: 'r', familia_id: 'f', bebe_id: 'b', criado_por: 'u', nome: 'Antitérmico', dose: null, intervalo_h: 6, ativo: true, observacao: null };
+    const doses: Registro[] = [{ ...base, id: 'd1', tipo: 'remedio', inicio: t('2026-12-01T08:00'), fim: null, dados: { remedio_id: 'r', nome: 'Antitérmico', dose: null } }];
+    const em = (s: string) => new Date(t(s));
+    expect(doseRecente(r, doses, em('2026-12-01T10:59'))?.id).toBe('d1');
+    expect(doseRecente(r, doses, em('2026-12-01T11:00'))).toBeNull();
+    expect(doseRecente({ ...r, intervalo_h: null }, doses, em('2026-12-01T08:29'))?.id).toBe('d1');
+    expect(doseRecente({ ...r, intervalo_h: null }, doses, em('2026-12-01T08:31'))).toBeNull();
+    expect(doseRecente({ ...r, id: 'outro' }, doses, em('2026-12-01T08:10'))).toBeNull();
   });
 
   it('leite: 12 h na geladeira, 15 dias no freezer, o que vence antes primeiro', () => {

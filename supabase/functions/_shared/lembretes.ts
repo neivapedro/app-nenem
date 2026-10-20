@@ -130,7 +130,8 @@ function minutosDesde(agora: Date, fuso: string, hhmm: string): number {
 
 /**
  * Vacinas: na véspera às 8h (doses do dia seguinte, num aviso só) e uma vez
- * quando uma dose fica atrasada (até 30 dias depois).
+ * quando uma dose fica atrasada (até 45 dias depois). Dose que passou da idade máxima
+ * (situação "passou") não avisa: é assunto para o pediatra.
  */
 export function avisosVacina(
   m: MembroAviso,
@@ -179,9 +180,11 @@ export interface RemedioAviso {
   intervalo_h: number | null;
   /** Última dose dada (id e início) */
   ultima: { id: string; inicio: string } | null;
+  /** Último dia do tratamento (AAAA-MM-DD); depois dele, sem avisos */
+  termina_em?: string | null;
 }
 
-/** Remédio com intervalo: avisa quando chega a hora da próxima dose. */
+/** Remédio com intervalo: avisa quando chega a hora da próxima dose (até o último dia do tratamento, se houver). */
 export function avisosRemedio(m: MembroAviso, remedios: RemedioAviso[], agora: Date, site: string): Aviso[] {
   if (m.lembrete_remedio === false) return [];
   const avisos: Aviso[] = [];
@@ -190,6 +193,8 @@ export function avisosRemedio(m: MembroAviso, remedios: RemedioAviso[], agora: D
     const proxima = new Date(r.ultima.inicio).getTime() + r.intervalo_h * 3_600_000;
     const atraso = (agora.getTime() - proxima) / 60_000;
     if (atraso < 0 || atraso > JANELA_REMEDIO_MIN) continue;
+    // Tratamento com prazo: a dose que cairia depois do último dia não existe
+    if (r.termina_em && dataNoFuso(new Date(proxima), m.fuso_horario) > r.termina_em) continue;
     avisos.push({
       chave: `remedio:${r.ultima.id}:${m.user_id}`,
       titulo: `💊 Hora do remédio: ${r.nome}`,

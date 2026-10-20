@@ -3,8 +3,10 @@ import {
   agruparPorDia,
   descrever,
   duracaoPorLado,
+  cronometroEsquecido,
   emAndamento,
   finalizarMamada,
+  finalizarMamadaEm,
   finalizarSono,
   iniciarMamada,
   iniciarSono,
@@ -158,5 +160,25 @@ describe('correções da verificação geral', () => {
     const m = finalizarMamada(iniciarMamada(base, 'E', t('10:00')), new Date(t('10:00').getTime() + 40_000));
     expect(descrever(m, t('11:00')).titulo).toBe('Mamada · 40 s');
     expect(descrever(sono('s', '22:00', null), t('08:00', '2026-11-17')).detalhe).toBe('15/11 22:00 · dormindo');
+  });
+});
+
+describe('cronômetro esquecido', () => {
+  it('finaliza numa hora do passado cortando o que veio depois', () => {
+    let m = iniciarMamada(base, 'E', t('10:00'));
+    m = trocarLado(m, t('10:15'));
+    m = trocarLado(m, t('11:00'));
+    const fim = finalizarMamadaEm(m, t('10:30'));
+    expect(fim.fim).toBe(t('10:30').toISOString());
+    expect(fim.dados.segmentos.map((s) => s.lado)).toEqual(['E', 'D']);
+    expect(duracaoPorLado(fim, t('15:00'))).toEqual({ E: 15 * 60_000, D: 15 * 60_000, total: 30 * 60_000 });
+  });
+
+  it('avisa quando o cronômetro passou do normal', () => {
+    const m = iniciarMamada(base, 'E', t('10:00'));
+    expect(cronometroEsquecido(m, t('12:00'))).toBe(false);
+    expect(cronometroEsquecido(m, t('13:30'))).toBe(true);
+    expect(cronometroEsquecido(iniciarSono(base, t('10:00')), t('23:00'))).toBe(false);
+    expect(cronometroEsquecido(iniciarSono(base, t('10:00')), t('08:00', '2026-11-16'))).toBe(true);
   });
 });

@@ -4,14 +4,14 @@ import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
 import { FolhaBebe } from '../componentes/bebe';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
-import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaSono } from '../componentes/registrar';
+import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, textoDuracao } from '../lib/datas';
 import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
 import { emEstoque, proximaDose, situacaoPote } from '../lib/saude';
-import { descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
+import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 
 type Folhas = TipoRegistro | null;
@@ -167,12 +167,16 @@ export function Hoje() {
     ? `${haQuanto(alimentacao.inicio, agora)}${alimentacao.tipo === 'mamada' && ladoFinal(alimentacao) ? ` · terminou no ${ladoFinal(alimentacao)}` : alimentacao.tipo === 'mamadeira' ? ` · ${alimentacao.dados.ml} ml` : ''}`
     : 'nenhuma ainda';
 
-  function acordou() {
+  const [perguntarSono, setPerguntarSono] = useState(false);
+  function acordou(quando?: Date) {
     if (!andamento.sono) return;
     const r = andamento.sono;
-    const fim = { ...r, fim: new Date(Math.max(Date.now(), new Date(r.inicio).getTime())).toISOString() };
+    // Contando há mais de 14 h: pergunta que horas acordou
+    if (!quando && cronometroEsquecido(r, new Date())) return setPerguntarSono(true);
+    setPerguntarSono(false);
+    const fim = { ...r, fim: new Date(Math.max((quando ?? new Date()).getTime(), new Date(r.inicio).getTime())).toISOString() };
     gravar({ tipo: 'registro', dado: fim });
-    mostrarAviso({ texto: `Sono salvo (${textoDuracao(new Date(fim.fim).getTime() - new Date(r.inicio).getTime())})`, desfazer: () => gravar({ tipo: 'registro', dado: r }) });
+    mostrarAviso({ texto: `Sono salvo (${textoDuracao(new Date(fim.fim).getTime() - new Date(r.inicio).getTime(), true)})`, desfazer: () => gravar({ tipo: 'registro', dado: r }) });
   }
 
   return (
@@ -182,6 +186,7 @@ export function Hoje() {
 
       {andamento.mamada && <CartaoMamadaAtiva r={andamento.mamada} />}
       {andamento.sono && <CartaoSonoAtivo r={andamento.sono} />}
+      {perguntarSono && andamento.sono && <FolhaQueHorasTerminou r={andamento.sono} aoFechar={() => setPerguntarSono(false)} aoSalvar={(q) => acordou(q)} />}
 
       <section className="acoes" aria-label="Registrar">
         <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada}>

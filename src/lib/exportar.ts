@@ -4,7 +4,7 @@ import { strToU8, Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { MARCOS_CADERNETA } from './conteudo';
 import { NOME_CATEGORIA } from './documentos';
 import { chaveDia, horaCurta } from './datas';
-import { descrever, NOMES_TIPO } from './registros';
+import { descrever, duracaoPorLado, NOMES_TIPO } from './registros';
 import type { ContaCofrinho, Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
 
 export const celula = (v: unknown) => {
@@ -16,10 +16,53 @@ export const celula = (v: unknown) => {
 /** BOM para o Excel abrir com acentos */
 const planilha = (linhas: unknown[][]) => '﻿' + linhas.map((l) => l.map(celula).join(';')).join('\n');
 
+/** Número com vírgula (Excel/Numbers em português somam direto) */
+const num = (v: number | null | undefined, casas = 0) => (v === null || v === undefined || !isFinite(v) ? '' : v.toFixed(casas).replace('.', ','));
+const minutos = (ms: number) => num(ms / 60_000, 1);
+
 export function csvRegistros(registros: Registro[], agora: Date, nomeDe: (id: string | null) => string): string {
-  const linhas: unknown[][] = [['data', 'hora', 'tipo', 'resumo', 'detalhe', 'fim', 'observacao', 'registrado_por']];
+  // Colunas de texto (como antes) + colunas só com números, para somar e fazer gráfico no Excel
+  const linhas: unknown[][] = [
+    ['data', 'hora', 'tipo', 'resumo', 'detalhe', 'fim', 'observacao', 'registrado_por', 'duracao_min', 'peito_e_min', 'peito_d_min', 'comecou_no_peito', 'ml', 'xixi', 'coco', 'cor_coco', 'temperatura_c', 'remedio', 'dose'],
+  ];
   for (const r of [...registros].sort((a, b) => a.inicio.localeCompare(b.inicio))) {
     const d = descrever(r, agora);
+    const fimMs = r.fim ? new Date(r.fim).getTime() : null;
+    const n = {
+      duracao: '',
+      e: '',
+      dd: '',
+      lado: '',
+      ml: '',
+      xixi: '',
+      coco: '',
+      cor: '',
+      graus: '',
+      remedio: '',
+      dose: '',
+    };
+    if (r.tipo === 'mamada') {
+      const lados = duracaoPorLado(r, agora);
+      n.duracao = minutos(lados.total);
+      n.e = minutos(lados.E);
+      n.dd = minutos(lados.D);
+      n.lado = r.dados.segmentos[0]?.lado ?? '';
+    } else if (r.tipo === 'sono') {
+      n.duracao = fimMs ? minutos(fimMs - new Date(r.inicio).getTime()) : '';
+    } else if (r.tipo === 'mamadeira') {
+      n.ml = num(Number(r.dados.ml) || 0);
+    } else if (r.tipo === 'extracao') {
+      n.ml = num((r.dados.ml_e || 0) + (r.dados.ml_d || 0));
+    } else if (r.tipo === 'fralda') {
+      n.xixi = r.dados.xixi ? '1' : '0';
+      n.coco = r.dados.coco ? '1' : '0';
+      n.cor = r.dados.coco ? (r.dados.cor ?? '') : '';
+    } else if (r.tipo === 'temperatura') {
+      n.graus = num(r.dados.graus, 1);
+    } else if (r.tipo === 'remedio') {
+      n.remedio = r.dados.nome;
+      n.dose = r.dados.dose ?? '';
+    }
     linhas.push([
       chaveDia(r.inicio),
       horaCurta(r.inicio),
@@ -29,6 +72,17 @@ export function csvRegistros(registros: Registro[], agora: Date, nomeDe: (id: st
       r.fim ? `${chaveDia(r.fim)} ${horaCurta(r.fim)}` : '',
       r.observacao ?? '',
       nomeDe(r.criado_por),
+      n.duracao,
+      n.e,
+      n.dd,
+      n.lado,
+      n.ml,
+      n.xixi,
+      n.coco,
+      n.cor,
+      n.graus,
+      n.remedio,
+      n.dose,
     ]);
   }
   return planilha(linhas);

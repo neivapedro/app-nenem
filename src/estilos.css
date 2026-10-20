@@ -382,8 +382,14 @@ details.ajuda[open] summary { margin-bottom: 8px; }
   padding: calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
 }
 .noite { overflow-y: auto; }
+/* Folha aberta no modo noite (ex.: "Esqueceu o cronômetro?"): tons escuros e âmbar, sem clarão */
+.noite .folha {
+  color-scheme: dark; color: #c9b8a6;
+  --fundo: #000; --superficie: #0d0a08; --superficie-2: #1a110c; --borda: #2a221c;
+  --texto: #d9c4ae; --texto-2: #a08e7c; --texto-3: #8a7a6a; --destaque: #6b4a3a; --destaque-texto: #f0e2d2;
+}
 .noite .noite-grade { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(84px, 1fr); gap: 10px; }
-.noite button {
+.noite > :not(.folha-fundo) button {
   border: 1px solid #2a221c; background: #0d0a08; color: #c9b8a6; border-radius: 22px; font-size: 1.25rem; font-weight: 650;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; min-height: 84px;
 }

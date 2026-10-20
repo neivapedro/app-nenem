@@ -32,6 +32,12 @@ function Situacao({ d, hoje }: { d: DoseNoCalendario; hoje: string }) {
       </span>
     );
   if (s === 'pulada') return <span className="etiqueta">Não vai tomar</span>;
+  if (s === 'passou')
+    return (
+      <span className="etiqueta aviso" style={{ whiteSpace: 'normal', textAlign: 'right', maxWidth: '9.5em' }}>
+        Passou da idade — fale com o pediatra
+      </span>
+    );
   if (s === 'atrasada')
     return (
       <span className="etiqueta ruim">
@@ -103,6 +109,24 @@ function FolhaDose({ d, aoFechar }: { d: DoseNoCalendario; aoFechar: () => void 
             {d.dose.rede === 'ambas' ? 'SUS e particular' : d.dose.rede === 'sus' ? 'SUS' : 'só na rede particular'}
           </p>
           {d.dose.observacao && <p className="texto-2">{d.dose.observacao}</p>}
+          {d.situacao === 'passou' && d.dose.idade_max && (
+            <div className="alerta">
+              <Icone nome="alerta" />
+              <span>
+                Passou da idade máxima para esta dose ({d.dose.idade_max.texto}
+                {d.limite ? `, até ${dataBr(d.limite)}` : ''}). Fale com o pediatra sobre o que fazer. Se já tomou, marque abaixo com a data.
+              </span>
+            </div>
+          )}
+          {d.situacao === 'passou' && !d.dose.idade_max && (
+            <div className="alerta">
+              <Icone nome="alerta" />
+              <span>A dose anterior do esquema passou da idade sem ser marcada. Fale com o pediatra. Se já tomou, marque abaixo com a data.</span>
+            </div>
+          )}
+          {d.situacao !== 'passou' && d.limite && d.situacao !== 'aplicada' && d.situacao !== 'pulada' && (
+            <p className="texto-2">Pode ser tomada até {dataBr(d.limite)} ({d.dose.idade_max?.texto}).</p>
+          )}
           {d.dose.confirmar && (
             <div className="alerta">
               <Icone nome="alerta" />
@@ -155,6 +179,91 @@ function FolhaDose({ d, aoFechar }: { d: DoseNoCalendario; aoFechar: () => void 
             </button>
           </>
         )}
+      </div>
+    </Folha>
+  );
+}
+
+/** Marca de uma vez todas as doses pendentes (já liberadas) de uma faixa de idade */
+function FolhaGrupo({ titulo, doses, aoFechar }: { titulo: string; doses: DoseNoCalendario[]; aoFechar: () => void }) {
+  const { bebe, membro, usuario, gravar, mostrarAviso, vacinas } = useDados();
+  const [data, setData] = useState(hojeLocal());
+  const [rede, setRede] = useState<'sus' | 'particular'>(doses.every((d) => d.dose.rede === 'particular') ? 'particular' : 'sus');
+  const [local, setLocal] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!bebe || !membro) return null;
+  const nasc = bebe.nascimento ? chaveDia(bebe.nascimento) : null;
+
+  function salvar() {
+    if (!bebe || !membro) return;
+    const erro = erroDataVacina(data, nasc);
+    if (erro) return setMsg(erro);
+    // Mesmo formato da marcação de cada dose (id fixo por bebê + dose)
+    const pares = doses.map((d) => {
+      const existente = vacinas.find((v) => v.dose_id === d.dose.id) ?? null;
+      const v: VacinaRegistro = {
+        id: existente?.id ?? idFixo(`${bebe.id}:vacina:${d.dose.id}`),
+        familia_id: membro.familia_id,
+        bebe_id: bebe.id,
+        criado_por: existente?.criado_por ?? usuario?.id ?? null,
+        dose_id: d.dose.id,
+        nome: `${d.dose.vacina} – ${d.dose.dose}`,
+        status: 'aplicada',
+        data,
+        rede,
+        local: local.trim() || existente?.local || null,
+        lote: existente?.lote ?? null,
+        observacao: existente?.observacao ?? null,
+      };
+      return { v, existente };
+    });
+    gravar(...pares.map(({ v }) => ({ tipo: 'colecao' as const, colecao: 'vacinas' as const, dado: v })));
+    mostrarAviso({
+      texto: `${pares.length} ${pares.length === 1 ? 'vacina marcada como aplicada' : 'vacinas marcadas como aplicadas'}`,
+      desfazer: () =>
+        gravar(...pares.map(({ v, existente }) => (existente ? { tipo: 'colecao' as const, colecao: 'vacinas' as const, dado: existente } : { tipo: 'excluir' as const, dado: { alvo: 'vacinas' as const, id: v.id } }))),
+    });
+    aoFechar();
+  }
+
+  return (
+    <Folha titulo={`Vacinas de ${titulo.toLowerCase() === 'ao nascer' ? 'quando nasceu' : titulo}`} aoFechar={aoFechar}>
+      <div className="pilha">
+        <div className="pilha-p">
+          <p className="texto-2">Marca como aplicadas, na mesma data, as doses que ainda faltam desta idade:</p>
+          <ul style={{ margin: 0, paddingLeft: 20 }}>
+            {doses.map((d) => (
+              <li key={d.dose.id}>
+                {d.dose.vacina} <span className="mudo">· {d.dose.dose}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mudo">As marcadas como "não vai tomar" ficam como estão. Lote e observação podem ser anotados depois, em cada dose.</p>
+        </div>
+        <Campo rotulo="Data da aplicação">
+          <input type="date" value={data} min={nasc ?? undefined} max={hojeLocal()} onChange={(e) => setData(e.target.value)} />
+        </Campo>
+        <Campo rotulo="Onde" grupo>
+          <Escolhas
+            opcoes={[
+              { valor: 'sus' as const, rotulo: 'SUS' },
+              { valor: 'particular' as const, rotulo: 'Particular' },
+            ]}
+            valor={rede}
+            aoMudar={setRede}
+          />
+        </Campo>
+        <Campo rotulo="Local (opcional)">
+          <input value={local} maxLength={300} onChange={(e) => setLocal(e.target.value)} placeholder="UBS, clínica" />
+        </Campo>
+        {msg && (
+          <div className="alerta erro" role="alert">
+            {msg}
+          </div>
+        )}
+        <button className="botao primario" onClick={salvar} disabled={!data}>
+          <Icone nome="check" /> {doses.length === 1 ? 'Marcar como aplicada' : `Marcar as ${doses.length} como aplicadas`}
+        </button>
       </div>
     </Folha>
   );
@@ -245,6 +354,7 @@ function FolhaVacinaExtra({ inicial, aoFechar }: { inicial: VacinaRegistro | nul
 export function SecaoVacinas() {
   const { bebe, vacinas, hoje, gravar } = useDados();
   const [aberta, setAberta] = useState<DoseNoCalendario | null>(null);
+  const [grupoAberto, setGrupoAberto] = useState<{ titulo: string; doses: DoseNoCalendario[] } | null>(null);
   const [extra, setExtra] = useState<VacinaRegistro | null | 'nova'>(null);
   const [verTodas, setVerTodas] = useState(false);
 
@@ -263,7 +373,9 @@ export function SecaoVacinas() {
   // Mostra até a faixa de idade atual (primeira com dose que ainda não venceu) +1; as atrasadas
   // ficam antes dela e continuam visíveis. O resto fica em "ver todas".
   const idxAtual = grupos.findIndex((g) => g.itens.some((d) => d.situacao === 'agora' || d.situacao === 'proxima' || d.situacao === 'futura'));
-  const ultimoAtrasado = grupos.reduce((u, g, i) => (g.itens.some((d) => d.situacao === 'atrasada') ? i : u), -1);
+  const ultimoAtrasado = grupos.reduce((u, g, i) => (g.itens.some((d) => d.situacao === 'atrasada' || d.situacao === 'passou') ? i : u), -1);
+  // Doses que já podem ser marcadas em grupo: não aplicadas, idade alcançada (e o bebê já nasceu)
+  const liberadas = (itens: DoseNoCalendario[]) => (bebe?.nascimento ? itens.filter((d) => d.situacao === 'agora' || d.situacao === 'atrasada') : []);
   const visiveis = verTodas || idxAtual < 0 ? grupos : grupos.slice(0, Math.max(idxAtual + 2, ultimoAtrasado + 1));
 
   if (!bebe) return null;
@@ -304,6 +416,11 @@ export function SecaoVacinas() {
             <h2>{g.idade_texto}</h2>
             <span className="mudo">{dataBr(g.itens[0].prevista)}</span>
           </div>
+          {liberadas(g.itens).length > 1 && (
+            <button className="botao texto pequeno" style={{ padding: 0, minHeight: 32, marginBottom: 2 }} onClick={() => setGrupoAberto({ titulo: g.idade_texto, doses: liberadas(g.itens) })}>
+              <Icone nome="check" /> Marcar todas desta idade como aplicadas
+            </button>
+          )}
           <div className="lista">
             {g.itens.map((d) => (
               <button key={d.dose.id} className="item" onClick={() => setAberta(d)}>
@@ -371,6 +488,7 @@ export function SecaoVacinas() {
       </p>
 
       {aberta && <FolhaDose d={aberta} aoFechar={() => setAberta(null)} />}
+      {grupoAberto && <FolhaGrupo titulo={grupoAberto.titulo} doses={grupoAberto.doses} aoFechar={() => setGrupoAberto(null)} />}
       {extra && <FolhaVacinaExtra inicial={extra === 'nova' ? null : extra} aoFechar={() => setExtra(null)} />}
     </div>
   );

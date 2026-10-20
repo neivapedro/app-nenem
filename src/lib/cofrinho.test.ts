@@ -6,12 +6,16 @@ import {
   crc16,
   depositosPorMes,
   evolucaoMensal,
+  exclusaoDeConta,
   lerChavePix,
   lerReais,
   mesesAteIdade,
   mesesParaChegar,
   mesesSeguidos,
+  montarTransferencia,
+  outraPonta,
   payloadPix,
+  pontasTransferencia,
   porQuem,
   projetar,
   reais,
@@ -96,6 +100,77 @@ describe('saldo e rendimento', () => {
     // mês novo ainda sem depósito não quebra a sequência
     expect(mesesSeguidos(movs, '2027-02-03')).toBe(3);
     expect(mesesSeguidos(movs, '2027-03-03')).toBe(0);
+  });
+});
+
+describe('transferência entre contas', () => {
+  const c1 = conta('poup');
+  const c2 = conta('cdb');
+  const t = montarTransferencia({ transferenciaId: 'T1', idOrigem: 'tA', idDestino: 'tB', familiaId: 'f', criadoPor: null, contaOrigem: 'poup', contaDestino: 'cdb', data: '2027-01-12', valor: 30000 });
+  const base = [
+    mov('poup', 'deposito', '2026-12-20', 1000, 'Pedro'),
+    mov('poup', 'deposito', '2027-01-05', 200, 'Vovó'),
+    mov('cdb', 'deposito', '2027-01-10', 100, 'Padrinho'),
+  ];
+  const movs = [...base, t.origem, t.destino];
+
+  it('monta as duas pontas: retirada na origem, depósito no destino, mesmo id', () => {
+    expect(t.origem).toMatchObject({ id: 'tA', conta_id: 'poup', tipo: 'retirada', valor_centavos: 30000, transferencia_id: 'T1', de: null });
+    expect(t.destino).toMatchObject({ id: 'tB', conta_id: 'cdb', tipo: 'deposito', valor_centavos: 30000, transferencia_id: 'T1', de: null });
+    expect(pontasTransferencia(movs, 'T1')).toEqual({ origem: t.origem, destino: t.destino });
+    expect(outraPonta(movs, t.destino)?.id).toBe('tA');
+    expect(outraPonta(movs, base[0])).toBeUndefined();
+  });
+
+  it('muda o saldo de cada conta, mas o total colocado e o saldo total ficam iguais', () => {
+    const sem = resumo([c1, c2], base);
+    const com = resumo([c1, c2], movs);
+    expect(com.porConta.get('poup')).toEqual({ saldo: 90000, aportado: 90000, ultimoExtrato: null });
+    expect(com.porConta.get('cdb')).toEqual({ saldo: 40000, aportado: 40000, ultimoExtrato: null });
+    expect(com.saldo).toBe(sem.saldo);
+    expect(com.aportado).toBe(sem.aportado);
+    expect(com.aportado).toBe(130000);
+    expect(com.rendimento).toBe(0);
+    // não conta como depósito
+    expect(com.depositos).toBe(3);
+    // evolução: o colocado do mês não muda com a transferência
+    expect(evolucaoMensal([c1, c2], movs, '2027-01-31')).toEqual(evolucaoMensal([c1, c2], base, '2027-01-31'));
+  });
+
+  it('rendimento por conta continua certo com saldo do extrato depois da transferência', () => {
+    const extratos = [...movs, mov('poup', 'saldo', '2027-01-31', 905), mov('cdb', 'saldo', '2027-01-31', 402)];
+    const r = resumo([c1, c2], extratos);
+    // poupança: 1.200 − 300 = 900 colocados, 905 no banco → rendeu 5; CDB: 100 + 300 = 400, 402 no banco → rendeu 2
+    expect(r.porConta.get('poup')!.saldo - r.porConta.get('poup')!.aportado).toBe(500);
+    expect(r.porConta.get('cdb')!.saldo - r.porConta.get('cdb')!.aportado).toBe(200);
+    expect(r.rendimento).toBe(700);
+    expect(r.aportado).toBe(130000);
+    const cdb = atualizacoesSaldo(extratos.filter((m) => m.conta_id === 'cdb'));
+    expect(cdb[0]).toMatchObject({ rendeu: 200, colocado: 40000 });
+  });
+
+  it('não entra em quem contribuiu, depósitos por mês nem meses seguidos', () => {
+    const quem = porQuem(movs);
+    expect(quem.map((q) => q.de)).toEqual(['Pedro', 'Vovó', 'Padrinho']);
+    expect(quem.some((q) => q.de === 'Sem nome')).toBe(false);
+    expect(depositosPorMes(movs, '2027-01-31', 1)).toEqual([{ mes: '2027-01', centavos: 30000 }]);
+    // só transferência no mês não conta como mês com depósito
+    const soTransf = [mov('poup', 'deposito', '2026-12-01', 10), { ...t.destino, data: '2027-01-02' }];
+    expect(mesesSeguidos(soTransf, '2027-01-20')).toBe(1);
+    expect(mesesSeguidos(soTransf, '2027-02-20')).toBe(0);
+  });
+
+  it('excluir a conta: lançamentos dela saem e a outra ponta vira lançamento comum', () => {
+    const comComprovante = { ...base[0], comprovante: { caminho: 'f/a.jpg', nome: 'Comprovante.jpg', tipo: 'image/jpeg', tamanho: 1 } } as MovimentoCofrinho;
+    const lista = [comComprovante, ...base.slice(1), t.origem, t.destino];
+    const x = exclusaoDeConta(lista, { id: 'poup', nome: 'Poupança' });
+    expect(x.excluir.map((m) => m.id).sort()).toEqual([base[0].id, base[1].id, 'tA'].sort());
+    expect(x.caminhos).toEqual(['f/a.jpg']);
+    expect(x.soltar).toEqual([{ ...t.destino, transferencia_id: null, observacao: 'Transferência de Poupança (conta excluída)' }]);
+    // o saldo do CDB não muda, e o dinheiro que veio da conta excluída passa a contar como colocado
+    const depois = [...lista.filter((m) => !x.excluir.includes(m) && m.id !== 'tB'), ...x.soltar];
+    expect(resumo([c2], depois).porConta.get('cdb')!.saldo).toBe(40000);
+    expect(resumo([c2], depois).depositos).toBe(2);
   });
 });
 

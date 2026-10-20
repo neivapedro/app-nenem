@@ -1,6 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { csvCofrinho, juntarRegistros, limpar, listaDocumentos, MontadorZip, planejarArquivos, planejarDocumentos } from './exportar';
+import { csvCofrinho, csvRegistros, juntarRegistros, limpar, listaDocumentos, MontadorZip, planejarArquivos, planejarDocumentos } from './exportar';
 import type { Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
 
 const arq = (caminho: string, tipo = 'application/pdf') => ({ caminho, nome: caminho, tipo, tamanho: 10 });
@@ -73,5 +73,23 @@ describe('exportar tudo', () => {
         expect(JSON.parse(strFromU8(u['Heitor/dados.json']))).toEqual({ ok: 1 });
         expect([...u['Heitor/fotos/x.jpg']]).toEqual([1, 2, 3]);
       });
+  });
+});
+
+describe('planilha dos registros', () => {
+  it('tem colunas só com números para somar no Excel', () => {
+    const base = { familia_id: 'f', bebe_id: 'b', criado_por: null, observacao: null };
+    const regs = [
+      { ...base, id: '1', tipo: 'mamadeira', inicio: '2026-11-15T13:00:00.000Z', fim: '2026-11-15T13:00:00.000Z', dados: { ml: 90, conteudo: 'formula' } },
+      { ...base, id: '2', tipo: 'temperatura', inicio: '2026-11-15T14:00:00.000Z', fim: '2026-11-15T14:00:00.000Z', dados: { graus: 37.8 } },
+      { ...base, id: '3', tipo: 'fralda', inicio: '2026-11-15T15:00:00.000Z', fim: '2026-11-15T15:00:00.000Z', dados: { xixi: true, coco: true, cor: 'amarela' } },
+      { ...base, id: '4', tipo: 'sono', inicio: '2026-11-15T16:00:00.000Z', fim: '2026-11-15T17:30:00.000Z', dados: {} },
+    ] as unknown as Registro[];
+    const linhas = csvRegistros(regs, new Date('2026-11-16T00:00:00Z'), () => 'Pedro').replace('﻿', '').split('\n').map((l) => l.split(';'));
+    const col = (nome: string) => linhas[0].indexOf(nome);
+    expect(linhas[1][col('ml')]).toBe('90');
+    expect(linhas[2][col('temperatura_c')]).toBe('37,8');
+    expect([linhas[3][col('xixi')], linhas[3][col('coco')], linhas[3][col('cor_coco')]]).toEqual(['1', '1', 'amarela']);
+    expect(linhas[4][col('duracao_min')]).toBe('90,0');
   });
 });
