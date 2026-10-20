@@ -154,7 +154,9 @@ export function FormTemperatura({ inicial, aoSalvar, rodape }: PropsForm<Registr
 // ---------- Extração de leite ----------
 
 export function FormExtracao({ inicial, aoSalvar, rodape, novo }: PropsForm<RegistroDe<'extracao'>> & { novo?: boolean }) {
-  const { membro, usuario } = useDados();
+  const { membro, usuario, leite } = useDados();
+  // O pote do estoque tem o mesmo id da extração (editar/excluir a extração mexe nele)
+  const poteAtual = novo ? undefined : leite.find((p) => p.id === inicial.id);
   const [e, setE] = useState(inicial.dados.ml_e ? String(inicial.dados.ml_e) : '');
   const [d, setD] = useState(inicial.dados.ml_d ? String(inicial.dados.ml_d) : '');
   const [inicio, setInicio] = useState(paraCampoDataHora(inicial.inicio));
@@ -172,10 +174,12 @@ export function FormExtracao({ inicial, aoSalvar, rodape, novo }: PropsForm<Regi
         const r: RegistroDe<'extracao'> = { ...inicial, inicio: ini, fim: ini, dados: { ml_e: Number(e) || 0, ml_d: Number(d) || 0 } };
         const p = validarRegistro(r, new Date());
         if (p) return setMsg(p);
-        const pote: PoteLeite | undefined =
-          novo && guardar !== 'nao' && membro
+        if ((poteAtual || guardar !== 'nao') && total > 1000) return setMsg('Um pote do estoque vai até 1000 ml. Divida em dois registros ou escolha "Não" em guardar.');
+        const pote: PoteLeite | undefined = poteAtual
+          ? { ...poteAtual, ml: total, extraido_em: ini }
+          : guardar !== 'nao' && membro
             ? {
-                id: crypto.randomUUID(),
+                id: inicial.id,
                 familia_id: membro.familia_id,
                 criado_por: usuario?.id ?? null,
                 extraido_em: ini,
@@ -199,7 +203,9 @@ export function FormExtracao({ inicial, aoSalvar, rodape, novo }: PropsForm<Regi
       </div>
       {total > 0 && <p className="texto-2">Total: {total} ml</p>}
       <CampoHora valor={inicio} aoMudar={setInicio} />
-      {novo && (
+      {poteAtual ? (
+        <p className="mudo">Está no estoque ({poteAtual.local === 'freezer' ? 'freezer' : 'geladeira'}): ao salvar, o pote também muda.</p>
+      ) : (
         <Campo rotulo="Guardar no estoque?" grupo dica="Validade: 12 horas na geladeira, 15 dias no freezer (Ministério da Saúde).">
           <Escolhas
             opcoes={[

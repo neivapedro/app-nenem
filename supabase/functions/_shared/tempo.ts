@@ -28,6 +28,19 @@ export function partesNoFuso(instante: Date, fuso: string): PartesData {
 
 const dois = (n: number) => String(n).padStart(2, '0');
 
+/** O fuso do membro, se for válido; senão o de São Paulo (um fuso inválido derrubaria tudo) */
+export function fusoValido(f?: string | null): string {
+  try {
+    if (f) {
+      new Intl.DateTimeFormat('en-US', { timeZone: f });
+      return f;
+    }
+  } catch {
+    // inválido: cai no padrão
+  }
+  return 'America/Sao_Paulo';
+}
+
 /** Data (AAAA-MM-DD) de um instante no fuso indicado. */
 export function dataNoFuso(instante: Date, fuso: string): string {
   const p = partesNoFuso(instante, fuso);

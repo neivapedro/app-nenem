@@ -7,6 +7,8 @@ export interface PontoCrescimento {
   data: string;
   valor: number;
   percentil: string;
+  /** Comparado com a OMS pela idade corrigida (prematuro) */
+  corrigida?: boolean;
 }
 
 const L = 40;
@@ -29,7 +31,7 @@ const fmt = (v: number, casas: number) => v.toLocaleString('pt-BR', { minimumFra
  * Curvas da OMS (P3, P15, P50, P85, P97) em cinza, com a faixa P3–P97 bem clara,
  * e as medidas do bebê numa linha só. Toque num ponto para ver o valor.
  */
-export function GraficoCrescimento({ indicador, sexo, pontos }: { indicador: Indicador; sexo: Sexo; pontos: PontoCrescimento[] }) {
+export function GraficoCrescimento({ indicador, sexo, pontos, idadeCorrigida = false }: { indicador: Indicador; sexo: Sexo; pontos: PontoCrescimento[]; idadeCorrigida?: boolean }) {
   const [ativo, setAtivo] = useState<string | null>(null);
   const unidade = UNIDADE_INDICADOR[indicador];
   const casas = indicador === 'peso' ? 2 : 1;
@@ -85,7 +87,7 @@ export function GraficoCrescimento({ indicador, sexo, pontos }: { indicador: Ind
             </text>
           ))}
           <text x={(L + W - R) / 2} y={H - 3} textAnchor="middle" className="eixo-texto">
-            idade (meses)
+            {idadeCorrigida ? 'idade corrigida até 2 anos (meses)' : 'idade (meses)'}
           </text>
           <path d={faixa} className="faixa-oms" />
           {g.curvas.map((c) => (
@@ -102,7 +104,7 @@ export function GraficoCrescimento({ indicador, sexo, pontos }: { indicador: Ind
               key={p.id}
               tabIndex={0}
               role="button"
-              aria-label={`${p.data}: ${fmt(p.valor, casas)} ${unidade}, ${p.percentil}`}
+              aria-label={`${p.data}: ${fmt(p.valor, casas)} ${unidade}, ${p.percentil}${p.corrigida ? ' (idade corrigida)' : ''}`}
               onClick={(e) => {
                 e.stopPropagation();
                 setAtivo(p.id === ativo ? null : p.id);
@@ -129,7 +131,8 @@ export function GraficoCrescimento({ indicador, sexo, pontos }: { indicador: Ind
               {fmt(sel.valor, casas)} {unidade}
             </strong>
             <span>
-              {sel.percentil} · {sel.data}
+              {sel.percentil}
+              {sel.corrigida ? ' (idade corrigida)' : ''} · {sel.data}
             </span>
           </div>
         )}

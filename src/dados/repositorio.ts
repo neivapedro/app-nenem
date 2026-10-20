@@ -36,6 +36,12 @@ export interface Repositorio {
   obterFamilia(): Promise<Familia | null>;
   criarFamilia(f: NovaFamilia): Promise<void>;
   criarConvite(): Promise<Convite>;
+  /** Cancela o convite ainda não usado (ex.: link enviado para a pessoa errada) */
+  cancelarConvite(): Promise<void>;
+  /** Tira da família alguém que entrou depois de você */
+  removerMembro(userId: string): Promise<void>;
+  /** Sai da família (só se houver outro responsável) */
+  sairFamilia(): Promise<void>;
   entrarFamilia(codigo: string, nome: string): Promise<void>;
   /** Quem convidou e o nome do bebê (null = código inválido, vencido ou já usado) */
   infoConvite(codigo: string): Promise<{ convidou: string; bebe: string } | null>;

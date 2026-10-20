@@ -7,7 +7,9 @@ import { descrever, NOMES_TIPO } from './registros';
 import type { ContaCofrinho, Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
 
 export const celula = (v: unknown) => {
-  const s = v === null || v === undefined ? '' : String(v);
+  const bruto = v === null || v === undefined ? '' : String(v);
+  // Texto que começa com = + @ (ou - sem número) viraria fórmula no Excel: entra como texto
+  const s = /^[=+@\t]|^-(?!\d)/.test(bruto) ? `'${bruto}` : bruto;
   return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 /** BOM para o Excel abrir com acentos */
@@ -101,7 +103,7 @@ function nomesUnicos() {
 }
 
 const ordenarDocs = (documentos: Documento[]) =>
-  [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
+  [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR', { numeric: true }));
 
 /**
  * Os arquivos dos documentos com o nome que o documento tem no app, numa pasta

@@ -27,6 +27,8 @@ export interface Dose {
   confirmar?: boolean;
   /** Dose que depende da anterior: no mínimo `dias` depois dela */
   apos?: { id: string; dias: number };
+  /** No calendário da SBP, depende desta dose em vez de `apos` (ex.: reforço da pneumo depois da 3ª dose) */
+  apos_sbp?: { id: string; dias: number };
 }
 
 export const FONTES_VACINAS = [
@@ -71,7 +73,7 @@ export const DOSES: Dose[] = [
   { id: 'covid-3', vacina: 'COVID-19', dose: '3ª dose', idade_meses: 9, idade_texto: '9 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'covid-2', dias: 56 }, observacao: 'Só com a vacina da Pfizer. Com a da Moderna, o esquema termina na 2ª dose.' },
   { id: 'fa-1', vacina: 'Febre amarela', dose: '1ª dose', idade_meses: 9, idade_texto: '9 meses', rede: 'ambas', calendarios: PNI_SBP },
   // 12 meses
-  { id: 'pneumo-reforco', vacina: 'Pneumocócica conjugada', dose: 'Reforço', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'pneumo-2', dias: 60 }, observacao: 'No SUS, com a VPC20. Intervalo mínimo de 60 dias depois da 2ª dose.' },
+  { id: 'pneumo-reforco', vacina: 'Pneumocócica conjugada', dose: 'Reforço', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'pneumo-2', dias: 60 }, apos_sbp: { id: 'pneumo-3', dias: 60 }, observacao: 'No SUS, com a VPC20. Intervalo mínimo de 60 dias depois da última dose (a 2ª no SUS, a 3ª no esquema da SBP).' },
   { id: 'meningo-reforco', vacina: 'Meningocócica ACWY', dose: 'Reforço', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'No SUS, substitui o reforço da meningo C desde julho de 2025.' },
   { id: 'menb-reforco', vacina: 'Meningocócica B', dose: 'Reforço', idade_meses: 12, idade_texto: '12 a 15 meses', rede: 'particular', calendarios: ['sbp'], confirmar: true, observacao: 'A SBP indica "no 2º ano de vida".' },
   { id: 'scr-1', vacina: 'Tríplice viral (sarampo, caxumba, rubéola)', dose: '1ª dose', idade_meses: 12, idade_texto: '12 meses', rede: 'ambas', calendarios: PNI_SBP },
@@ -80,7 +82,7 @@ export const DOSES: Dose[] = [
   // 15 meses
   { id: 'vip-reforco-1', vacina: 'Poliomielite inativada (VIP)', dose: '1º reforço', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'dtp-reforco-1', vacina: 'Tríplice bacteriana (DTP no SUS / DTPa no particular)', dose: '1º reforço', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP },
-  { id: 'tetraviral', vacina: 'Tetraviral (tríplice viral + varicela)', dose: '2ª dose da tríplice e varicela', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'No SUS é a 1ª dose da varicela; para quem seguiu a SBP, é a 2ª.' },
+  { id: 'tetraviral', vacina: 'Tetraviral (tríplice viral + varicela)', dose: '2ª dose da tríplice viral + varicela', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: '2ª dose da tríplice viral. Da varicela, no SUS é a 1ª dose; para quem seguiu a SBP (varicela aos 12 meses), é a 2ª.' },
   { id: 'hepa-sus', vacina: 'Hepatite A', dose: 'Dose única', idade_meses: 15, idade_texto: '15 meses', rede: 'sus', calendarios: ['pni'], observacao: 'No SUS, aceita até 4 anos, 11 meses e 29 dias.' },
   // 18 meses
   { id: 'hepa-sbp-2', vacina: 'Hepatite A', dose: '2ª dose', idade_meses: 18, idade_texto: '18 meses', rede: 'particular', calendarios: ['sbp'], confirmar: true, apos: { id: 'hepa-sbp-1', dias: 180 } },
@@ -133,11 +135,12 @@ export function calendarioDoBebe(nascimento: string, cal: Calendario, aplicacoes
   const previstas = new Map<string, string>();
   return lista.map((dose) => {
     let prevista = somarMeses(nascimento, dose.idade_meses);
-    if (dose.apos) {
-      const anterior = porId.get(dose.apos.id);
-      const base = anterior?.status === 'aplicada' && anterior.data ? anterior.data : previstas.get(dose.apos.id);
+    const apos = (cal === 'sbp' && dose.apos_sbp) || dose.apos;
+    if (apos) {
+      const anterior = porId.get(apos.id);
+      const base = anterior?.status === 'aplicada' && anterior.data ? anterior.data : previstas.get(apos.id);
       if (base) {
-        const minimo = somarDias(base, dose.apos.dias);
+        const minimo = somarDias(base, apos.dias);
         if (minimo > prevista) prevista = minimo;
       }
     }

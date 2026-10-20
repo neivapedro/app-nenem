@@ -77,25 +77,51 @@ function CampoFoto({ foto, aoMudar }: { foto: string | null; aoMudar: (caminho: 
 }
 
 function FolhaMarco({ inicial, novo, titulo, aoFechar }: { inicial: Marco; novo: boolean; titulo: string; aoFechar: () => void }) {
-  const { gravar, mostrarAviso, nomeDe } = useDados();
+  const { gravar, mostrarAviso, nomeDe, repo } = useDados();
   const [m, setM] = useState<Marco>(inicial);
+  const [msg, setMsg] = useState<string | null>(null);
   const livre = inicial.tipo === 'primeira-vez';
+  // A foto apagada sai do armazenamento na hora: aí não dá para desfazer
+  const apagarFoto = (caminho: string | null) => {
+    if (caminho) void repo.excluirFoto(caminho).catch(() => undefined);
+  };
   return (
     <Folha titulo={titulo} aoFechar={aoFechar}>
       <form
         className="pilha"
         onSubmit={(e) => {
           e.preventDefault();
-          if (livre && !m.titulo?.trim()) return;
+          if (livre && !m.titulo?.trim()) return setMsg('Escreva o que aconteceu (ex.: primeiro sorriso).');
           const final = { ...m, titulo: m.titulo?.trim() || null, observacao: m.observacao?.trim() || null };
           gravar({ tipo: 'colecao', colecao: 'marcos', dado: final });
-          mostrarAviso({ texto: 'Guardado ✨', desfazer: () => gravar(novo ? { tipo: 'excluir', dado: { alvo: 'marcos', id: m.id } } : { tipo: 'colecao', colecao: 'marcos', dado: inicial }) });
+          const trocouFoto = !novo && !!inicial.foto && inicial.foto !== final.foto;
+          if (trocouFoto) apagarFoto(inicial.foto);
+          mostrarAviso({
+            texto: 'Guardado ✨',
+            desfazer: novo
+              ? () => {
+                  gravar({ tipo: 'excluir', dado: { alvo: 'marcos', id: m.id } });
+                  apagarFoto(final.foto);
+                }
+              : trocouFoto
+                ? undefined
+                : () => gravar({ tipo: 'colecao', colecao: 'marcos', dado: inicial }),
+          });
           aoFechar();
         }}
       >
         {livre && (
           <Campo rotulo="O quê">
-            <input value={m.titulo ?? ''} maxLength={200} onChange={(e) => setM({ ...m, titulo: e.target.value })} placeholder="Ex.: primeiro sorriso" autoCapitalize="sentences" />
+            <input
+              value={m.titulo ?? ''}
+              maxLength={200}
+              onChange={(e) => {
+                setM({ ...m, titulo: e.target.value });
+                setMsg(null);
+              }}
+              placeholder="Ex.: primeiro sorriso"
+              autoCapitalize="sentences"
+            />
           </Campo>
         )}
         <Campo rotulo="Quando">
@@ -105,6 +131,11 @@ function FolhaMarco({ inicial, novo, titulo, aoFechar }: { inicial: Marco; novo:
           <textarea value={m.observacao ?? ''} maxLength={2000} onChange={(e) => setM({ ...m, observacao: e.target.value })} />
         </Campo>
         <CampoFoto foto={m.foto} aoMudar={(foto) => setM({ ...m, foto })} />
+        {msg && (
+          <div className="alerta erro" role="alert">
+            {msg}
+          </div>
+        )}
         <button className="botao primario">Salvar</button>
         {!novo && (
           <>
@@ -113,8 +144,10 @@ function FolhaMarco({ inicial, novo, titulo, aoFechar }: { inicial: Marco; novo:
               type="button"
               className="botao perigo"
               onClick={() => {
+                if (inicial.foto && !confirm(`${livre ? 'Excluir' : 'Desmarcar'}? A foto também será apagada e não dá para desfazer.`)) return;
                 gravar({ tipo: 'excluir', dado: { alvo: 'marcos', id: inicial.id } });
-                mostrarAviso({ texto: livre ? 'Excluído' : 'Marcação desfeita', desfazer: () => gravar({ tipo: 'colecao', colecao: 'marcos', dado: inicial }) });
+                apagarFoto(inicial.foto);
+                mostrarAviso({ texto: livre ? 'Excluído' : 'Marcação desfeita', desfazer: inicial.foto ? undefined : () => gravar({ tipo: 'colecao', colecao: 'marcos', dado: inicial }) });
                 aoFechar();
               }}
             >
@@ -291,7 +324,7 @@ function PrimeirasVezes() {
 }
 
 function FotosDoMes() {
-  const { bebe, marcos, gravar, mostrarAviso, hoje } = useDados();
+  const { bebe, marcos, gravar, mostrarAviso, hoje, repo } = useDados();
   const novoMarco = useNovoMarco();
   const entrada = useRef<HTMLInputElement>(null);
   const [alvo, setAlvo] = useState<number | null>(null);
@@ -364,8 +397,10 @@ function FotosDoMes() {
             <button
               className="botao perigo"
               onClick={() => {
+                if (!confirm('Tirar esta foto? Ela será apagada e não dá para desfazer.')) return;
                 gravar({ tipo: 'excluir', dado: { alvo: 'marcos', id: aberta.id } });
-                mostrarAviso({ texto: 'Foto tirada do mês', desfazer: () => gravar({ tipo: 'colecao', colecao: 'marcos', dado: aberta }) });
+                if (aberta.foto) void repo.excluirFoto(aberta.foto).catch(() => undefined);
+                mostrarAviso({ texto: 'Foto tirada do mês' });
                 setAberta(null);
               }}
             >

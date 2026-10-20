@@ -60,13 +60,23 @@ export function dataCurta(c: Compromisso): string {
   return dataBr(c.data);
 }
 
+/** Já começou (dia inteiro: o dia já passou) */
+export function compromissoJaPassou(c: Pick<Compromisso, 'data' | 'hora'>, agora: Date): boolean {
+  if (!c.hora) return c.data < chaveDia(agora);
+  const [a, m, d] = c.data.split('-').map(Number);
+  const [h, min] = c.hora.split(':').map(Number);
+  return new Date(a, m - 1, d, h, min).getTime() <= agora.getTime();
+}
+
+/** Compromisso novo: hoje às 9h; depois das 9h, amanhã às 9h. */
 export function compromissoVazio(familiaId: string, criadoPor: string | null, agora = new Date()): Compromisso {
+  const dia = agora.getHours() >= 9 ? new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1) : agora;
   return {
     id: crypto.randomUUID(),
     familia_id: familiaId,
     tipo: 'consulta',
     titulo: '',
-    data: chaveDia(agora),
+    data: chaveDia(dia),
     hora: '09:00',
     duracao_min: 60,
     local: null,

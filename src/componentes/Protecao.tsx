@@ -22,6 +22,9 @@ export class Protecao extends Component<{ children: ReactNode; chave?: string },
         <button className="botao primario" onClick={() => location.reload()}>
           Recarregar
         </button>
+        <a className="botao" href={import.meta.env.BASE_URL}>
+          Voltar ao início
+        </a>
       </div>
     );
   }

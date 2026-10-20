@@ -93,6 +93,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   const ultimaRecarga = useRef(0);
 
   const uid = useRef<string | null>(null);
+  const geracao = useRef(0);
   const fila = useRef<ItemFila[]>([]);
   const versao = useRef(0);
   const [pendentes, setPendentes] = useState(0);
@@ -120,19 +121,38 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     setPendentes(nova.length);
   }, []);
 
-  const carregar = useCallback(async () => {
+  /** true = buscou do servidor; false = ficou com o que tinha (sem internet ou sem conta) */
+  const carregar = useCallback(async (): Promise<boolean> => {
+    // Cada carga tem um número: uma carga lenta que termina depois de outra mais nova não sobrescreve a tela
+    const minha = ++geracao.current;
     const u = await repositorio.usuarioAtual();
-    setUsuario(u);
+    // Mesmo usuário: mantém o objeto (senão o tempo real se reinscreve a cada carga)
+    setUsuario((antes) => (antes?.id === u?.id && antes?.email === u?.email ? antes : u));
     if (!u) {
       uid.current = null;
+      // A fila de outra conta não pode ser enviada sem sessão (ela continua guardada no aparelho)
+      fila.current = [];
+      setPendentes(0);
       mudarDados(() => VAZIO);
-      return;
+      return false;
     }
     if (uid.current !== u.id) {
       uid.current = u.id;
       fila.current = lerFila(u.id);
       versao.current = Math.max(versao.current, 0, ...fila.current.map((i) => i.versao));
       setPendentes(fila.current.length);
+    }
+    // Primeira carga: mostra logo a cópia guardada (abrir sem internet não fica em "Carregando…")
+    if (!carregouNaSessao.current && repositorio.modo === 'nuvem') {
+      const c = lerCache<Dados>(u.id);
+      if (c) {
+        mudarDados(() => aplicarFila({ ...VAZIO, ...c.dados }, fila.current));
+        // Sem internet nenhuma (modo avião): nem tenta o servidor
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          setOfflineDesde(c.em);
+          return false;
+        }
+      }
     }
     let base: Dados;
     try {
@@ -148,6 +168,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
         ]);
         const colecoes = Object.fromEntries(COLECOES.map((c, i) => [c, listas[i]])) as unknown as ListasColecoes;
         base = { ...colecoes, membro: familia.membro, membros: familia.membros, bebe: familia.bebe, registros, compromissos };
+        if (minha !== geracao.current) return false;
         if (repositorio.modo === 'nuvem') gravarCache(u.id, base);
       }
       setFalhouCarregar(false);
@@ -156,6 +177,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
       setOfflineDesde(null);
       setSemConexao(false);
     } catch (e) {
+      if (minha !== geracao.current) return false;
       if (!ehErroDeRede(e)) {
         setFalhouCarregar(true);
         throw e;
@@ -163,17 +185,21 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
       // Já carregou nesta sessão: a tela tem dados mais novos que a cópia guardada
       if (carregouNaSessao.current) {
         setOfflineDesde((d) => d ?? new Date().toISOString());
-        return;
+        return false;
       }
       const cache = lerCache<Dados>(u.id);
       if (!cache) {
         setSemConexao(true);
-        return;
+        return false;
       }
       base = { ...VAZIO, ...cache.dados };
       setOfflineDesde(cache.em);
+      mudarDados(() => aplicarFila(base, fila.current));
+      return false;
     }
+    if (minha !== geracao.current) return false;
     mudarDados(() => aplicarFila(base, fila.current));
+    return true;
   }, [mudarDados]);
 
   // Envia a fila, uma operação de cada vez
@@ -204,7 +230,10 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
           }
           if (ehSessaoExpirada(e)) {
             esperar = true;
+            setFalhaRede(true);
             setErro('Sessão expirada. Entre novamente: o que você registrou continua guardado no aparelho.');
+            // O token costuma renovar sozinho: tenta de novo daqui a pouco
+            timer.current = setTimeout(() => void processarFila(), 15000);
             return;
           }
           // Erro de dados: descarta a operação e mostra o motivo
@@ -249,8 +278,8 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   const recarregarSilencioso = useCallback(() => {
     clearTimeout(timerSilencioso.current);
     timerSilencioso.current = setTimeout(() => {
-      // Com gravações saindo, a fila recarrega sozinha ao terminar
-      if (enviando.current || fila.current.length || !uid.current) return;
+      // Com gravações saindo, a fila recarrega sozinha ao terminar (fila parada não impede: o pendente é reaplicado por cima)
+      if (enviando.current || !uid.current) return;
       carregar().catch(() => undefined);
     }, 400);
   }, [carregar]);
@@ -280,9 +309,18 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
   );
 
   const carregarMais = useCallback(async () => {
+    // Só passa a dizer que carregou mais dias se a busca deu certo (sem internet, volta como estava)
+    const antes = diasRef.current;
     diasRef.current += 60;
-    setDias(diasRef.current);
-    await carregar().catch((e) => setErro(traduzirErro(e)));
+    const ok = await carregar().catch((e) => {
+      setErro(traduzirErro(e));
+      return false;
+    });
+    if (ok) setDias(diasRef.current);
+    else {
+      diasRef.current = antes;
+      setErro('Sem internet: não deu para buscar os dias mais antigos.');
+    }
   }, [carregar, setErro]);
 
   // Abertura, login/logout e link de nova senha
@@ -303,14 +341,15 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
 
   // Tempo real: o que o outro membro registra aparece aqui
   const temFamilia = !!dados.membro;
+  const usuarioId = usuario?.id ?? null;
   useEffect(() => {
-    if (!usuario || !temFamilia) return;
+    if (!usuarioId || !temFamilia) return;
     return repositorio.aoMudarDados(() => {
       // Logo depois de uma carga completa, a confirmação da conexão não precisa recarregar
       if (Date.now() - ultimaRecarga.current < 1500) return;
       recarregarSilencioso();
     });
-  }, [usuario, temFamilia, recarregarSilencioso]);
+  }, [usuarioId, temFamilia, recarregarSilencioso]);
 
   // Ao voltar para o app: dados novos, fila pendente e a data de hoje
   useEffect(() => {
@@ -337,8 +376,8 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
 
   // Aparelho com avisos ligados: garante a inscrição para a conta atual
   useEffect(() => {
-    if (usuario && temFamilia) sincronizarInscricao(repositorio).catch(() => undefined);
-  }, [usuario, temFamilia]);
+    if (usuarioId && temFamilia) sincronizarInscricao(repositorio).catch(() => undefined);
+  }, [usuarioId, temFamilia]);
 
   const nomeDe = useCallback(
     (userId: string | null) => {

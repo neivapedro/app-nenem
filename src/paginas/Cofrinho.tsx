@@ -14,6 +14,7 @@ import {
   chaveFormatada,
   depositosPorMes,
   evolucaoMensal,
+  idDoSaldo,
   lerChavePix,
   lerReais,
   mesesAteIdade,
@@ -28,6 +29,9 @@ import {
   projetar,
   reais,
   resumo,
+  saldoConta,
+  saldosDoDiaAjustados,
+  SEM_NOME,
   TIPOS_CONTA,
   ultimaAtualizacao,
   type TipoChavePix,
@@ -82,12 +86,13 @@ function CampoReais({ rotulo, valor, aoMudar, dica }: { rotulo: string; valor: s
   );
 }
 
-const paraTexto = (centavos: number | null | undefined) => (centavos ? (centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
+/** Centavos → texto do campo ("1.234,56"; 0 vira "0,00"; vazio só sem valor) */
+const paraTexto = (centavos: number | null | undefined) => (centavos === null || centavos === undefined ? '' : (centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
 // ---------- Folhas ----------
 
 function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo: boolean; aoFechar: () => void }) {
-  const { gravar, mostrarAviso } = useDados();
+  const { gravar, mostrarAviso, cofrinho_movimentos, hoje, usuario } = useDados();
   const [c, setC] = useState(inicial);
   const lida = c.chave_pix ? lerChavePix(c.chave_pix) : null;
   const [tipoChave, setTipoChave] = useState<TipoChavePix>(lida?.tipo ?? 'cpf');
@@ -116,8 +121,54 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
       observacao: limpo(c.observacao),
       chave_pix: chavePix,
     };
-    gravar({ tipo: 'colecao', colecao: 'cofrinho_contas', dado: final });
-    mostrarAviso({ texto: novo ? 'Conta criada 🐷' : 'Conta atualizada' });
+    // Encerrar conta com saldo: o saldo sai do total com uma retirada (senão ficaria preso no total, sem como zerar)
+    const extras: MovimentoCofrinho[] = [];
+    if (!novo && inicial.ativa && !final.ativa) {
+      const movsConta = cofrinho_movimentos.filter((m) => m.conta_id === final.id);
+      const resta = saldoConta(movsConta, hoje).saldo;
+      if (resta !== 0) {
+        const texto =
+          resta > 0
+            ? `A conta ainda tem ${reais(resta)} no app. Para encerrar, o app registra hoje uma retirada de ${reais(resta)} e ela sai do total.\n\nSe o dinheiro foi para outra conta do cofrinho, depois registre um depósito nela.\n\nEncerrar a conta?`
+            : `O saldo desta conta no app está negativo (${reais(resta)}). Para encerrar, o app anota o saldo de hoje como R$ 0,00.\n\nEncerrar a conta?`;
+        if (!window.confirm(texto)) return;
+        if (resta > 0) {
+          extras.push({
+            id: crypto.randomUUID(),
+            familia_id: final.familia_id,
+            criado_por: usuario?.id ?? null,
+            conta_id: final.id,
+            tipo: 'retirada',
+            data: hoje,
+            valor_centavos: resta,
+            de: null,
+            ocasiao: null,
+            recado: null,
+            observacao: 'Conta encerrada',
+            comprovante: null,
+          });
+          // Saldo já anotado hoje viria depois da retirada e a anularia: desconta dele também
+          extras.push(...saldosDoDiaAjustados(movsConta, final.id, hoje, -resta));
+        } else {
+          extras.push({
+            id: idDoSaldo(cofrinho_movimentos, final.id, hoje),
+            familia_id: final.familia_id,
+            criado_por: usuario?.id ?? null,
+            conta_id: final.id,
+            tipo: 'saldo',
+            data: hoje,
+            valor_centavos: 0,
+            de: null,
+            ocasiao: null,
+            recado: null,
+            observacao: 'Conta encerrada',
+            comprovante: null,
+          });
+        }
+      }
+    }
+    gravar({ tipo: 'colecao', colecao: 'cofrinho_contas', dado: final }, ...extras.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })));
+    mostrarAviso({ texto: novo ? 'Conta criada 🐷' : !final.ativa && inicial.ativa ? 'Conta encerrada' : 'Conta atualizada' });
     aoFechar();
   }
 
@@ -206,7 +257,8 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
 function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: MovimentoCofrinho; novo: boolean; contas: ContaCofrinho[]; aoFechar: () => void }) {
   const { gravar, mostrarAviso, repo, membros, cofrinho_movimentos } = useDados();
   const [m, setM] = useState(inicial);
-  const [valor, setValor] = useState(paraTexto(inicial.valor_centavos));
+  // Lançamento novo sem valor sugerido começa vazio (não "0,00")
+  const [valor, setValor] = useState(novo && !inicial.valor_centavos ? '' : paraTexto(inicial.valor_centavos));
   const [enviando, setEnviando] = useState(false);
   const [vendo, setVendo] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -239,19 +291,58 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
     if (centavos === null || (centavos <= 0 && m.tipo !== 'saldo')) return setMsg('Informe o valor (ex.: 150 ou 1.234,56).');
     if (!m.conta_id) return setMsg('Escolha a conta.');
     if (enviando) return setMsg('Espere o comprovante terminar de enviar.');
+    // Os outros lançamentos da conta (sem este, se for edição)
+    const outros = cofrinho_movimentos.filter((x) => x.id !== inicial.id);
+    const daConta = outros.filter((x) => x.conta_id === m.conta_id);
+    const saldosDoDia = daConta.filter((x) => x.tipo === 'saldo' && x.data === m.data);
+    let id = m.id;
+    const excluir: MovimentoCofrinho[] = [];
+    let ajustados: MovimentoCofrinho[] = [];
+    if (m.tipo === 'retirada') {
+      const disponivel = saldoConta(daConta, m.data).saldo;
+      if (centavos > disponivel && !window.confirm(`A retirada (${reais(centavos)}) é maior que o saldo da conta em ${dataBr(m.data)} (${reais(Math.max(0, disponivel))}). Salvar mesmo assim?`)) return;
+    }
+    if (m.tipo === 'saldo' && saldosDoDia.length) {
+      // Um saldo do extrato por conta e dia
+      if (!window.confirm(`Já tem um saldo anotado em ${dataBr(m.data)} nesta conta (${reais(saldosDoDia[0].valor_centavos)}). Trocar por ${reais(centavos)}?`)) return;
+      if (novo) id = idDoSaldo(outros, m.conta_id, m.data);
+      excluir.push(...saldosDoDia.filter((x) => x.id !== id));
+    } else if (m.tipo === 'saldo' && novo) id = idDoSaldo(outros, m.conta_id, m.data);
+    else if (m.tipo !== 'saldo' && novo && saldosDoDia.length) {
+      // No mesmo dia, o saldo anotado vale por cima dos depósitos/retiradas: pergunta se já inclui este
+      const nome = m.tipo === 'deposito' ? 'depósito' : 'retirada';
+      const jaInclui = window.confirm(
+        `Já tem um saldo do banco anotado em ${dataBr(m.data)} nesta conta (${reais(saldosDoDia[0].valor_centavos)}).\n\nEsse saldo já inclui ${m.tipo === 'deposito' ? 'este' : 'esta'} ${nome} de ${reais(centavos)}?\n\nOK = já inclui (o saldo fica igual)\nCancelar = não inclui (o app ${m.tipo === 'deposito' ? 'soma ao' : 'tira do'} saldo anotado)`,
+      );
+      if (!jaInclui) ajustados = saldosDoDiaAjustados(daConta, m.conta_id, m.data, m.tipo === 'deposito' ? centavos : -centavos);
+    }
     const final: MovimentoCofrinho = {
       ...m,
+      id,
       valor_centavos: centavos,
       de: deposito ? m.de?.trim() || null : null,
       ocasiao: deposito ? m.ocasiao : null,
       recado: deposito ? m.recado?.trim() || null : null,
       observacao: m.observacao?.trim() || null,
     };
-    gravar({ tipo: 'colecao', colecao: 'cofrinho_movimentos', dado: final });
+    // Trocando um saldo que já existia: desfazer volta o anterior em vez de apagar
+    const anterior = novo ? cofrinho_movimentos.find((x) => x.id === id) : undefined;
+    gravar(
+      { tipo: 'colecao', colecao: 'cofrinho_movimentos', dado: final },
+      ...ajustados.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })),
+      ...excluir.map((x) => ({ tipo: 'excluir' as const, dado: { alvo: 'cofrinho_movimentos' as const, id: x.id } })),
+    );
     if (inicial.comprovante && inicial.comprovante.caminho !== final.comprovante?.caminho) void repo.excluirArquivos([inicial.comprovante.caminho]).catch(() => undefined);
+    const restaurar = [...(anterior ? [anterior] : []), ...excluir, ...daConta.filter((x) => ajustados.some((a) => a.id === x.id))];
     mostrarAviso({
       texto: m.tipo === 'deposito' ? `${reais(centavos)} no cofrinho 🐷` : m.tipo === 'saldo' ? 'Saldo atualizado' : 'Retirada registrada',
-      desfazer: novo ? () => gravar({ tipo: 'excluir', dado: { alvo: 'cofrinho_movimentos', id: final.id } }) : undefined,
+      desfazer: novo
+        ? () =>
+            gravar(
+              ...(anterior ? [] : [{ tipo: 'excluir' as const, dado: { alvo: 'cofrinho_movimentos' as const, id: final.id } }]),
+              ...restaurar.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })),
+            )
+        : undefined,
     });
     aoFechar();
   }
@@ -367,7 +458,8 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
 function FolhaPlano({ inicial, aoFechar }: { inicial: PlanoCofrinho; aoFechar: () => void }) {
   const { gravar, mostrarAviso } = useDados();
   const [p, setP] = useState(inicial);
-  const [valor, setValor] = useState(paraTexto(inicial.aporte_mensal_centavos));
+  const [valor, setValor] = useState(inicial.aporte_mensal_centavos ? paraTexto(inicial.aporte_mensal_centavos) : '');
+  const [msg, setMsg] = useState<string | null>(null);
   const cenario = CENARIOS.find((c) => c.taxa === p.taxa_real);
   return (
     <Folha titulo="Plano do cofrinho" aoFechar={aoFechar}>
@@ -375,7 +467,10 @@ function FolhaPlano({ inicial, aoFechar }: { inicial: PlanoCofrinho; aoFechar: (
         className="pilha"
         onSubmit={(e) => {
           e.preventDefault();
-          gravar({ tipo: 'colecao', colecao: 'cofrinho_planos', dado: { ...p, aporte_mensal_centavos: lerReais(valor) ?? 0 } });
+          // Em branco = sem depósito mensal; valor que não dá para ler não vira R$ 0 em silêncio
+          const aporte = valor.trim() ? lerReais(valor) : 0;
+          if (aporte === null) return setMsg('Valor inválido no depósito por mês (ex.: 150 ou 1.234,56).');
+          gravar({ tipo: 'colecao', colecao: 'cofrinho_planos', dado: { ...p, aporte_mensal_centavos: aporte } });
           mostrarAviso({ texto: 'Plano salvo' });
           aoFechar();
         }}
@@ -406,6 +501,11 @@ function FolhaPlano({ inicial, aoFechar }: { inicial: PlanoCofrinho; aoFechar: (
           </select>
         </Campo>
         <p className="mudo">A projeção usa juros compostos mês a mês e mostra tudo em dinheiro de hoje (já descontada a inflação). É uma estimativa, não uma garantia.</p>
+        {msg && (
+          <div className="alerta erro" role="alert">
+            {msg}
+          </div>
+        )}
         <button className="botao primario">Salvar</button>
       </form>
     </Folha>
@@ -415,7 +515,7 @@ function FolhaPlano({ inicial, aoFechar }: { inicial: PlanoCofrinho; aoFechar: (
 function FolhaMeta({ inicial, novo, aoFechar }: { inicial: MetaCofrinho; novo: boolean; aoFechar: () => void }) {
   const { gravar, mostrarAviso } = useDados();
   const [m, setM] = useState(inicial);
-  const [valor, setValor] = useState(paraTexto(inicial.valor_centavos));
+  const [valor, setValor] = useState(inicial.valor_centavos ? paraTexto(inicial.valor_centavos) : '');
   const [msg, setMsg] = useState<string | null>(null);
   return (
     <Folha titulo={novo ? 'Nova meta' : 'Editar meta'} aoFechar={aoFechar}>
@@ -730,9 +830,12 @@ function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCof
 /** Atualizar o saldo: um campo por conta, já com o saldo atual; salva só o que mudou (ou foi confirmado) */
 function FolhaAtualizarSaldo({ contas, movs, aoFechar }: { contas: ContaCofrinho[]; movs: MovimentoCofrinho[]; aoFechar: () => void }) {
   const { gravar, mostrarAviso, membro, usuario, hoje, nomeDe } = useDados();
-  const atuais = useMemo(() => new Map(contas.map((c) => [c.id, resumo([c], movs, hoje).saldo])), [contas, movs, hoje]);
-  const [valores, setValores] = useState<Record<string, string>>(() => Object.fromEntries(contas.map((c) => [c.id, paraTexto(atuais.get(c.id))])));
+  // Saldo que o app tem hoje (nunca negativo: o banco não mostra saldo negativo na caixinha)
+  const atuais = useMemo(() => new Map(contas.map((c) => [c.id, Math.max(0, resumo([c], movs, hoje).saldo)])), [contas, movs, hoje]);
+  const [valores, setValores] = useState<Record<string, string>>(() => Object.fromEntries(contas.map((c) => [c.id, paraTexto(atuais.get(c.id) ?? 0)])));
+  // tocados = vai salvar (digitou ou confirmou "Está igual"); digitados = mexeu no campo
   const [tocados, setTocados] = useState<Set<string>>(new Set());
+  const [digitados, setDigitados] = useState<Set<string>>(new Set());
   const [msg, setMsg] = useState<string | null>(null);
 
   function salvar(e: React.FormEvent) {
@@ -742,13 +845,13 @@ function FolhaAtualizarSaldo({ contas, movs, aoFechar }: { contas: ContaCofrinho
     let rendeu = 0;
     for (const c of contas) {
       if (!tocados.has(c.id)) continue;
-      const v = lerReais(valores[c.id] ?? '');
+      // "Está igual" (sem digitar): usa o saldo atual do app
+      const v = digitados.has(c.id) ? lerReais(valores[c.id] ?? '') : (atuais.get(c.id) ?? 0);
       if (v === null) return setMsg(`Valor inválido em ${c.nome}.`);
       rendeu += v - (atuais.get(c.id) ?? 0);
-      // Já anotaram hoje nesta conta: troca a anotação de hoje em vez de criar outra
-      const hojeJa = movs.find((m) => m.conta_id === c.id && m.tipo === 'saldo' && m.data === hoje);
+      // Já anotaram hoje nesta conta: troca a anotação de hoje em vez de criar outra (id fixo por conta e dia)
       novos.push({
-        id: hojeJa?.id ?? crypto.randomUUID(),
+        id: idDoSaldo(movs, c.id, hoje),
         familia_id: membro.familia_id,
         criado_por: usuario?.id ?? null,
         conta_id: c.id,
@@ -775,7 +878,7 @@ function FolhaAtualizarSaldo({ contas, movs, aoFechar }: { contas: ContaCofrinho
         {contas.map((c) => {
           const ultima = movs.filter((m) => m.conta_id === c.id && m.tipo === 'saldo').sort((a, b) => b.data.localeCompare(a.data))[0];
           const lido = lerReais(valores[c.id] ?? '');
-          const dif = lido !== null && tocados.has(c.id) ? lido - (atuais.get(c.id) ?? 0) : 0;
+          const dif = lido !== null && digitados.has(c.id) ? lido - (atuais.get(c.id) ?? 0) : 0;
           return (
             <div key={c.id} className="pilha-p">
               <Campo
@@ -796,6 +899,7 @@ function FolhaAtualizarSaldo({ contas, movs, aoFechar }: { contas: ContaCofrinho
                   onChange={(e) => {
                     setValores({ ...valores, [c.id]: e.target.value });
                     setTocados(new Set(tocados).add(c.id));
+                    setDigitados(new Set(digitados).add(c.id));
                   }}
                 />
               </Campo>
@@ -827,20 +931,29 @@ function ListaAtualizacoes({ contas, movs, oculto, limite }: { contas: ContaCofr
   return (
     <div className="doc-lista">
       {(limite ? lista.slice(0, limite) : lista).map(({ mov, rendeu, colocado, primeira, conta }) => (
-        <div key={mov.id} className="doc-linha" style={{ cursor: 'default' }}>
+        <div key={mov.id} className="doc-linha" style={{ cursor: 'default', flexWrap: 'wrap', rowGap: 4 }}>
           <span className="mov-icone" aria-hidden="true">
             {rendeu > 0 ? '📈' : rendeu < 0 ? '📉' : '🧾'}
           </span>
-          <span className="cresce">
+          <span className="cresce" style={{ flexBasis: 120 }}>
             <span className="doc-titulo">{oculto ? 'R$ •••' : reais(mov.valor_centavos)}</span>
             <span className="texto-2">
               {dataBr(mov.data)}
               {contas.length > 1 && ` · ${conta.nome}`}
               {mov.criado_por && ` · ${nomeDe(mov.criado_por)}`}
-              {!oculto && colocado !== 0 && ` · ${colocado > 0 ? '+' : '−'}${reais(Math.abs(colocado))} depositado`}
+              {!oculto && colocado !== 0 && (
+                <>
+                  {' · '}
+                  <span style={{ whiteSpace: 'nowrap' }}>
+                    {colocado > 0 ? '+' : '−'}
+                    {reais(Math.abs(colocado))}
+                  </span>{' '}
+                  depositado
+                </>
+              )}
             </span>
           </span>
-          <span style={{ textAlign: 'right' }}>
+          <span style={{ textAlign: 'right', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
             <strong className={`mov-valor ${rendeu > 0 ? 'deposito' : rendeu < 0 ? 'retirada' : ''}`}>{oculto ? '•••' : reais(rendeu, { sinal: true })}</strong>
             <span className="mudo" style={{ display: 'block', fontSize: '0.72rem' }}>
               {primeira ? 'rendeu até aqui' : 'rendeu no período'}
@@ -906,6 +1019,7 @@ export function Cofrinho() {
   const evolucao = useMemo(() => evolucaoMensal(contas, movs, hoje), [contas, movs, hoje]);
   const porMes = useMemo(() => depositosPorMes(movs, hoje, 12), [movs, hoje]);
   const quem = useMemo(() => porQuem(movs), [movs]);
+  const pessoas = quem.filter((q) => q.de !== SEM_NOME).length;
   const seguidos = mesesSeguidos(movs, hoje);
   const recados = movs.filter((m) => m.tipo === 'deposito' && m.recado);
   const $ = (c: number, o?: Parameters<typeof reais>[1]) => (oculto ? 'R$ •••' : reais(c, o));
@@ -1034,6 +1148,14 @@ export function Cofrinho() {
     return t;
   })();
 
+  // Tabela da projeção: uma linha por idade, a última é a idade-alvo (posição mesesProj da série)
+  const linhasTabela = (() => {
+    const idades = Array.from({ length: idadeAlvo }, (_, k) => k + 1)
+      .map((idade) => ({ idade, i: mesesProj - (idadeAlvo - idade) * 12 }))
+      .filter((l) => l.i > 0);
+    return idades.length <= 10 ? idades : idades.filter((l) => (idadeAlvo - l.idade) % 2 === 0);
+  })();
+
   // Sem conta ainda: boas-vindas
   if (!contas.length)
     return (
@@ -1077,7 +1199,7 @@ export function Cofrinho() {
         <div className="linha" style={{ gap: 6 }}>
           {seguidos >= 2 && <span className="etiqueta bom">🔥 {seguidos} meses seguidos</span>}
           {r.depositos > 0 && <span className="etiqueta">{r.depositos} {r.depositos === 1 ? 'depósito' : 'depósitos'}</span>}
-          {quem.length > 1 && <span className="etiqueta">{quem.length} pessoas contribuíram</span>}
+          {pessoas > 1 && <span className="etiqueta">{pessoas} pessoas contribuíram</span>}
         </div>
         {!r.depositos && <p className="mudo">Registre o primeiro depósito para o cofrinho ganhar vida.</p>}
         {(() => {
@@ -1176,29 +1298,34 @@ export function Cofrinho() {
         )}
         <details className="ajuda">
           <summary>Ver em tabela</summary>
-          <table className="tabela-simples">
+          <div style={{ overflowX: 'auto' }}>
+          <table className="tabela-simples" style={{ fontSize: '0.8rem' }}>
             <thead>
               <tr>
-                <th>Idade</th>
+                <th style={{ padding: '8px 2px' }}>Idade</th>
                 {projecoes.map((p) => (
-                  <th key={p.id}>{p.nome}</th>
+                  <th key={p.id} style={{ padding: '8px 2px' }}>
+                    {p.nome}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: Math.floor(mesesProj / 12) }, (_, k) => (k + 1) * 12)
-                .filter((i) => i <= mesesProj)
-                .filter((_, k, arr) => arr.length <= 10 || k % 2 === 1 || k === arr.length - 1)
-                .map((i) => (
-                  <tr key={i}>
-                    <td>{Math.floor((idadeHojeMeses + i) / 12)} anos</td>
-                    {projecoes.map((p) => (
-                      <td key={p.id}>{$(p.serie[i], { compacto: true })}</td>
-                    ))}
-                  </tr>
-                ))}
+              {linhasTabela.map(({ idade, i }) => (
+                <tr key={idade}>
+                  <td style={{ padding: '8px 2px' }}>
+                    {idade} {idade === 1 ? 'ano' : 'anos'}
+                  </td>
+                  {projecoes.map((p) => (
+                    <td key={p.id} style={{ padding: '8px 2px' }}>
+                      {$eixo(p.serie[i])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
+          </div>
         </details>
       </section>
 
@@ -1231,7 +1358,11 @@ export function Cofrinho() {
                 {pct >= 1
                   ? 'Meta alcançada! 🎉'
                   : `${Math.round(pct * 100)}% · ${meses === null ? 'no ritmo atual não chega' : `no ritmo atual, chega aos ${idadeTexto(idadeHojeMeses + meses)}`}`}
-                {pct < 1 && precisa !== null && m.idade_anos && ` · para os ${m.idade_anos} anos: ${oculto ? '•••' : reais(precisa)}/mês`}
+                {pct < 1 &&
+                  precisa !== null &&
+                  m.idade_anos &&
+                  // Prazo já passou (ou é agora): mostra quanto falta, não "por mês"
+                  ` · para ${m.idade_anos === 1 ? '1 ano' : `os ${m.idade_anos} anos`}: ${prazo ? '' : 'faltam '}${oculto ? '•••' : reais(precisa)}${prazo ? '/mês' : ''}`}
               </span>
             </button>
           );

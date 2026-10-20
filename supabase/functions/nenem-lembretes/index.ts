@@ -9,7 +9,7 @@ import webpush from 'npm:web-push@3.6.7';
 import { avisoCofrinho, avisoMamada, avisoSaldoCofrinho, avisosAgenda, avisosDocumentos, avisosRemedio, avisosTarefas, avisosVacina, type Alimentacao, type Aviso, type CofrinhoAviso, type DocumentoAviso, type MembroAviso, type RemedioAviso } from '../_shared/lembretes.ts';
 import type { AplicacaoVacina, Calendario } from '../_shared/vacinas.ts';
 import type { CompromissoIcs } from '../_shared/ics.ts';
-import { dataNoFuso, somarDias } from '../_shared/tempo.ts';
+import { dataNoFuso, fusoValido, somarDias } from '../_shared/tempo.ts';
 
 const SITE = 'https://neivapedro.github.io/app-nenem/';
 const url = Deno.env.get('SUPABASE_URL')!;
@@ -43,10 +43,11 @@ Deno.serve(async (req) => {
   for (const i of inscricoes ?? []) porUsuario.set(i.user_id, [...(porUsuario.get(i.user_id) ?? []), i]);
   if (!porUsuario.size) return Response.json(res);
 
-  const { data: membros } = await db
+  const { data: membros, error: erroMembros } = await db
     .from('nenem_membros')
     .select('*')
     .in('user_id', [...porUsuario.keys()]);
+  if (erroMembros) return new Response(erroMembros.message, { status: 500 });
 
   // Dados de cada família, buscados uma vez só
   interface DadosFamilia {
@@ -63,13 +64,13 @@ Deno.serve(async (req) => {
   const familias = new Map<string, DadosFamilia>();
   async function dadosDaFamilia(fid: string, fuso: string): Promise<DadosFamilia> {
     if (familias.has(fid)) return familias.get(fid)!;
-    const { data: bebes } = await db.from('nenem_bebes').select('*').eq('familia_id', fid).order('criado_em');
+    const { data: bebes, error: erroBebes } = await db.from('nenem_bebes').select('*').eq('familia_id', fid).order('criado_em');
+    if (erroBebes) throw new Error(`bebês: ${erroBebes.message}`);
     const nasceu = (bebes ?? []).some((b) => b.nascimento);
     const b0 = (bebes ?? []).find((b) => b.nascimento);
     const bebe = b0 ? { id: b0.id as string, nome: String(b0.nome ?? ''), nascimento: dataNoFuso(new Date(b0.nascimento), fuso), calendario: (b0.calendario_vacinal === 'sbp' ? 'sbp' : 'pni') as Calendario } : null;
-    // Tabelas da Fase 2: se ainda não existirem, seguem vazias
     const inicioMes = `${dataNoFuso(agora, fuso).slice(0, 7)}-01`;
-    const [{ data: vac }, { data: rem }, { data: tar }, { data: doses }, { data: docs }, { data: planos }, { data: depMes }, { data: contasCof }, { data: ultSaldo }] = await Promise.all([
+    const consultas = await Promise.all([
       db.from('nenem_vacinas').select('dose_id, status, data').eq('familia_id', fid),
       db.from('nenem_remedios').select('id, nome, dose, intervalo_h').eq('familia_id', fid).eq('ativo', true),
       db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', fid),
@@ -88,6 +89,10 @@ Deno.serve(async (req) => {
       db.from('nenem_cofrinho_contas').select('id').eq('familia_id', fid).eq('ativa', true).limit(1),
       db.from('nenem_cofrinho_movimentos').select('data').eq('familia_id', fid).eq('tipo', 'saldo').order('data', { ascending: false }).limit(1),
     ]);
+    // Uma consulta que falhou não pode virar "lista vazia" (ex.: todas as vacinas "atrasadas"): pula a família nesta rodada
+    const falhou = consultas.find((c) => c.error);
+    if (falhou) throw new Error(falhou.error!.message);
+    const [{ data: vac }, { data: rem }, { data: tar }, { data: doses }, { data: docs }, { data: planos }, { data: depMes }, { data: contasCof }, { data: ultSaldo }] = consultas;
     const ultimaPorRemedio = new Map<string, { id: string; inicio: string }>();
     for (const d of doses ?? []) {
       const rid = (d.dados as { remedio_id?: string } | null)?.remedio_id;
@@ -97,24 +102,26 @@ Deno.serve(async (req) => {
     let ultima: Alimentacao | null = null;
     let emAndamento = false;
     if (nasceu) {
-      const { data: alim } = await db
+      const { data: alim, error: erroAlim } = await db
         .from('nenem_registros')
         .select('id, tipo, inicio, fim, dados')
         .eq('familia_id', fid)
         .in('tipo', ['mamada', 'mamadeira'])
         .order('inicio', { ascending: false })
         .limit(5);
+      if (erroAlim) throw new Error(erroAlim.message);
       ultima = (alim?.[0] as Alimentacao | undefined) ?? null;
       emAndamento = (alim ?? []).some((a) => a.tipo === 'mamada' && !a.fim);
     }
     const hoje = dataNoFuso(agora, fuso);
-    const { data: comp } = await db
+    const { data: comp, error: erroComp } = await db
       .from('nenem_compromissos')
       .select('id, tipo, titulo, data, hora, duracao_min, local, observacao, avisar_min')
       .eq('familia_id', fid)
       .not('avisar_min', 'is', null)
       .gte('data', somarDias(hoje, -1))
       .lte('data', somarDias(hoje, 15));
+    if (erroComp) throw new Error(erroComp.message);
     const compromissos = (comp ?? []).map((c) => ({ ...c, hora: c.hora ? String(c.hora).slice(0, 5) : null })) as CompromissoIcs[];
     const d: DadosFamilia = { ultima, emAndamento, compromissos, bebe, vacinas: (vac ?? []) as AplicacaoVacina[], remedios, tarefas: tar ?? [], documentos: (docs ?? []) as DocumentoAviso[],
       cofrinho: {
@@ -132,8 +139,10 @@ Deno.serve(async (req) => {
   }
 
   for (const m of (membros ?? []) as (MembroAviso & { familia_id: string })[]) {
+    // Um membro com problema (fuso inválido, consulta que falhou) não impede os avisos dos outros
+    try {
     res.membros++;
-    const fuso = m.fuso_horario || 'America/Sao_Paulo';
+    const fuso = fusoValido(m.fuso_horario);
     const f = await dadosDaFamilia(m.familia_id, fuso);
     const avisos: Aviso[] = [];
     const mamada = avisoMamada({ ...m, fuso_horario: fuso }, f.ultima, f.emAndamento, agora, SITE);
@@ -155,6 +164,7 @@ Deno.serve(async (req) => {
       // Reserva o aviso antes de enviar: duas execuções seguidas não mandam em dobro
       const { error: jaFoi } = await db.from('nenem_lembretes_enviados').insert({ chave: aviso.chave });
       if (jaFoi) continue;
+      let entregues = 0;
       for (const i of [...lista]) {
         try {
           await webpush.sendNotification(
@@ -163,6 +173,7 @@ Deno.serve(async (req) => {
             { TTL: 60 * 60 },
           );
           res.enviados++;
+          entregues++;
         } catch (e) {
           const status = (e as { statusCode?: number }).statusCode;
           // Aparelho desinscrito ou app removido: apaga a inscrição
@@ -173,6 +184,11 @@ Deno.serve(async (req) => {
           }
         }
       }
+      // Nada chegou (falha passageira da Apple/rede): libera para tentar de novo na próxima rodada
+      if (!entregues && lista.length) await db.from('nenem_lembretes_enviados').delete().eq('chave', aviso.chave);
+    }
+    } catch (e) {
+      console.error('membro', m.user_id, e);
     }
   }
 

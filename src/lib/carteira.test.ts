@@ -53,6 +53,17 @@ describe('carteira de documentos', () => {
     expect(k.faltam.map((m) => m.id)).toEqual(['carteirinha', 'caderneta', 'alta']);
   });
 
+  it('exames recentes do kit incluem teste do pezinho e da orelhinha (tipos fora da lista do kit)', () => {
+    const consulta = KITS.find((k) => k.id === 'consulta')!;
+    const docs = [
+      doc({ id: 'pe', modelo_id: 'pezinho', categoria: 'exames', titulo: 'Pezinho', data: '2026-11-20', arquivos: arq }),
+      doc({ id: 'or', modelo_id: 'orelhinha', categoria: 'exames', titulo: 'Orelhinha', data: '2026-11-16', arquivos: arq }),
+      doc({ id: 'e1', categoria: 'exames', titulo: 'Exame antigo', data: '2026-01-01', arquivos: arq }),
+      doc({ id: 'e2', categoria: 'exames', titulo: 'Exame novo', data: '2026-12-01', arquivos: arq }),
+    ];
+    expect(montarKit(consulta, docs).documentos.map((d) => d.id)).toEqual(['e2', 'pe', 'or']);
+  });
+
   it('aviso de vencimento: 30 e 7 dias antes e no dia, às 8h; desliga pela preferência', () => {
     const m: MembroAviso = { user_id: 'u', fuso_horario: 'America/Sao_Paulo', lembrete_mamada: false, lembrete_mamada_min: 180, lembrete_agenda: true };
     const docs = [
@@ -81,7 +92,7 @@ describe('carteira de documentos', () => {
     ];
     const m = modeloCarteiraVacinacao(bebe, vac, [doc({ modelo_id: 'cpf', numero: '123.456.789-00' })], '2027-01-20', 'agora');
     expect(m.aplicadas).toHaveLength(2);
-    expect(m.aplicadas[0]).toEqual(['15/11/2026', 'BCG', 'Dose única', 'SUS · Maternidade · lote A1']);
+    expect(m.aplicadas[0]).toEqual(['15/11/2026', 'BCG', 'Dose única', 'lote A1 · SUS · Maternidade']);
     expect(m.identificacao).toEqual([['CPF', '123.456.789-00']]);
     expect(m.pendentes.some((p) => p[1].startsWith('Pentavalente'))).toBe(true);
     const pdf = await PDFDocument.load(await montarCarteiraVacinacao(m));

@@ -97,6 +97,33 @@ export function faixaPercentil(z: number): 'abaixo' | 'normal' | 'acima' {
   return 'normal';
 }
 
+const diaUtc = (dia: string) => {
+  const [a, m, d] = dia.split('-').map(Number);
+  return Date.UTC(a, m - 1, d) / 86_400_000;
+};
+
+/** Prematuridade mínima (dias antes da data prevista) para usar a idade corrigida: nasceu com menos de 37 semanas */
+export const PREMATURO_DIAS = 21;
+/** Até quando (idade cronológica em dias) a idade corrigida é usada: 2 anos */
+const CORRIGIR_ATE_DIA = 731;
+
+/** Dias que faltavam para a data prevista quando nasceu (0 se não é prematuro ou não há data prevista) */
+export function diasPrematuridade(nascimento: string, dataPrevista: string | null): number {
+  if (!dataPrevista) return 0;
+  const d = Math.round(diaUtc(dataPrevista) - diaUtc(nascimento));
+  return d >= PREMATURO_DIAS ? d : 0;
+}
+
+/**
+ * Idade (dias) para comparar com as curvas da OMS. Prematuros usam a idade corrigida
+ * até 2 anos de idade cronológica. null = antes da data prevista (não compara com a OMS).
+ */
+export function idadeParaOms(diaCronologico: number, prematuridade: number): { dia: number; corrigida: boolean } | null {
+  if (prematuridade <= 0 || diaCronologico >= CORRIGIR_ATE_DIA) return { dia: diaCronologico, corrigida: false };
+  const dia = diaCronologico - prematuridade;
+  return dia < 0 ? null : { dia, corrigida: true };
+}
+
 /** Valor da medida no indicador (peso em kg) */
 export function valorMedida(m: { peso_g: number | null; comprimento_cm: number | null; pc_cm: number | null }, ind: Indicador): number | null {
   if (ind === 'peso') return m.peso_g ? m.peso_g / 1000 : null;

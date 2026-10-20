@@ -43,10 +43,19 @@ export function gravarFila(usuario: string, fila: ItemFila[]) {
   }
 }
 
-/** Uma operação nova substitui a anterior com a mesma chave (o último estado vale). */
+/**
+ * Uma operação nova substitui a anterior com a mesma chave (o último estado vale).
+ * Uma gravação fica no MESMO LUGAR da anterior: editar a conta do cofrinho depois de
+ * lançar um depósito nela não pode mandar o depósito antes da conta (chave estrangeira).
+ * Exclusões vão para o fim (depois de tudo o que dependia do item).
+ */
 export function enfileirar(fila: ItemFila[], op: Operacao, versao: number): ItemFila[] {
   const chave = chaveDe(op);
-  return [...fila.filter((i) => i.chave !== chave), { ...op, chave, versao }];
+  const i = fila.findIndex((x) => x.chave === chave);
+  if (i < 0 || op.tipo === 'excluir') return [...fila.filter((x) => x.chave !== chave), { ...op, chave, versao }];
+  const nova = [...fila];
+  nova[i] = { ...op, chave, versao };
+  return nova;
 }
 
 export async function executarOperacao(repo: Repositorio, op: Operacao): Promise<void> {

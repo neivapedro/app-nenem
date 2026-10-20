@@ -20,7 +20,7 @@ export function modeloCarteiraVacinacao(bebe: Bebe, vacinas: VacinaRegistro[], d
     .sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''))
     .map((v): [string, string, string, string] => {
       const d = porDose.get(v.dose_id);
-      return [dataBr(v.data!), d?.vacina ?? v.nome ?? v.dose_id.replace(/^extra:/, ''), d?.dose ?? '', [v.rede === 'particular' ? 'Particular' : v.rede === 'sus' ? 'SUS' : '', v.local, v.lote && `lote ${v.lote}`].filter(Boolean).join(' · ')];
+      return [dataBr(v.data!), d?.vacina ?? v.nome ?? v.dose_id.replace(/^extra:/, ''), d?.dose ?? '', [v.lote && `lote ${v.lote}`, v.rede === 'particular' ? 'Particular' : v.rede === 'sus' ? 'SUS' : '', v.local].filter(Boolean).join(' · ')];
     });
   const pendentes = nasc
     ? calendarioDoBebe(nasc, bebe.calendario_vacinal, vacinas.filter((v) => v.bebe_id === bebe.id), hoje)

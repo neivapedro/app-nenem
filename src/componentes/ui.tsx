@@ -1,4 +1,4 @@
-import { useEffect, useId, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, type ReactNode } from 'react';
 import type { TipoRegistro } from '../lib/tipos';
 
 const caminhos: Record<string, ReactNode> = {
@@ -136,6 +136,24 @@ const caminhos: Record<string, ReactNode> = {
   subir: <path d="m18 15-6-6-6 6" />,
   vacina: <path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6" />,
 };
+
+/**
+ * Trava contra toque duplo: depois de um toque, ignora os próximos por um
+ * instante (a tela redesenha e o 2º toque cairia no botão que aparece no lugar).
+ */
+export function useUmToque(intervalo = 700) {
+  const ultimo = useRef(0);
+  return useCallback(
+    <A extends unknown[]>(fn: (...a: A) => void) =>
+      (...a: A) => {
+        const t = Date.now();
+        if (t - ultimo.current < intervalo) return;
+        ultimo.current = t;
+        fn(...a);
+      },
+    [intervalo],
+  );
+}
 
 export function Icone({ nome }: { nome: string }) {
   return (

@@ -20,13 +20,24 @@ describe('fila offline', () => {
     fila = enfileirar(fila, { tipo: 'registro', dado: reg('a', '2026-11-15T10:00:00.000Z', 60) }, 1);
     fila = enfileirar(fila, { tipo: 'registro', dado: reg('b', '2026-11-15T11:00:00.000Z') }, 2);
     fila = enfileirar(fila, { tipo: 'registro', dado: reg('a', '2026-11-15T10:00:00.000Z', 90) }, 3);
+    // A edição fica no lugar da anterior (a ordem entre itens diferentes se mantém)
     expect(fila.map((i) => [i.chave, i.versao])).toEqual([
-      ['registro:b', 2],
       ['registro:a', 3],
+      ['registro:b', 2],
     ]);
     // Excluir substitui a edição pendente
     fila = enfileirar(fila, { tipo: 'excluir', dado: { alvo: 'registro', id: 'b' } }, 4);
     expect(fila.map((i) => i.tipo)).toEqual(['registro', 'excluir']);
+  });
+
+  it('editar a conta depois de lançar um depósito nela não inverte a ordem (chave estrangeira)', () => {
+    let fila: ItemFila[] = [];
+    const conta = (pix: string) => ({ tipo: 'colecao', colecao: 'cofrinho_contas', dado: { id: 'C', chave_pix: pix } }) as never;
+    fila = enfileirar(fila, conta('a'), 1);
+    fila = enfileirar(fila, { tipo: 'colecao', colecao: 'cofrinho_movimentos', dado: { id: 'M', conta_id: 'C' } } as never, 2);
+    fila = enfileirar(fila, conta('b'), 3);
+    expect(fila.map((i) => i.chave)).toEqual(['cofrinho_contas:C', 'cofrinho_movimentos:M']);
+    expect((fila[0].dado as { chave_pix: string }).chave_pix).toBe('b');
   });
 
   it('aplica sobre os dados do servidor, em ordem (mais recente primeiro)', () => {

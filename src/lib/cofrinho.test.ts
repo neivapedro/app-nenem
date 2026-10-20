@@ -215,3 +215,112 @@ describe('atualizar o saldo pela caixinha', () => {
     expect(ultimaAtualizacao([mov('c', 'deposito', '2027-01-10', 1)])).toBeNull();
   });
 });
+
+import { idDoSaldo, saldosDoDiaAjustados, SEM_NOME } from './cofrinho';
+import { idFixo } from './ids';
+
+describe('correções do cofrinho', () => {
+  it('compacto não mostra "1.000 mil" e vírgula com 3 casas não é valor', () => {
+    expect(reais(99995000, { compacto: true })).toBe('R$ 1 mi');
+    expect(reais(99940000, { compacto: true })).toBe('R$ 999 mil');
+    expect(reais(-99995000, { compacto: true })).toBe('R$ -1 mi');
+    expect(lerReais('12,345')).toBeNull();
+    expect(lerReais('1,234')).toBeNull();
+    expect(lerReais('1,234.56')).toBe(123456);
+    expect(lerReais('12,34')).toBe(1234);
+    expect(lerReais('0,00')).toBe(0);
+    expect(lerReais('-50,00')).toBeNull();
+  });
+
+  it('dois saldos no mesmo dia: o resultado não depende da ordem da lista', () => {
+    const a = { ...mov('k', 'saldo', '2027-03-01', 100), id: 'a' };
+    const b = { ...mov('k', 'saldo', '2027-03-01', 200), id: 'b' };
+    expect(saldoConta([a, b]).saldo).toBe(saldoConta([b, a]).saldo);
+    expect(atualizacoesSaldo([a, b])[0].mov.id).toBe(atualizacoesSaldo([b, a])[0].mov.id);
+  });
+
+  it('id do saldo: um por conta e dia', () => {
+    const fixo = idFixo('k:saldo:2027-03-01');
+    expect(idDoSaldo([], 'k', '2027-03-01')).toBe(fixo);
+    const ja = { ...mov('k', 'saldo', '2027-03-01', 100), id: 'existente' };
+    expect(idDoSaldo([ja], 'k', '2027-03-01')).toBe('existente');
+    // outra conta ou outro dia não conta
+    expect(idDoSaldo([ja], 'outra', '2027-03-01')).toBe(idFixo('outra:saldo:2027-03-01'));
+    // o id fixo já está num saldo que mudou de data: usa um id novo
+    const movido = { ...mov('k', 'saldo', '2027-03-05', 100), id: fixo };
+    expect(idDoSaldo([movido], 'k', '2027-03-01', () => 'novo')).toBe('novo');
+  });
+
+  it('depósito depois do saldo anotado no mesmo dia: ajustar o saldo faz o depósito entrar', () => {
+    const ms = [mov('j', 'deposito', '2027-04-01', 1234.56), mov('j', 'saldo', '2027-04-01', 1240)];
+    const dep = mov('j', 'deposito', '2027-04-01', 100);
+    // sem ajuste (o caso do bug): o saldo anotado engole o depósito
+    expect(saldoConta([...ms, dep]).saldo).toBe(124000);
+    const ajustados = saldosDoDiaAjustados(ms, 'j', '2027-04-01', 10000);
+    expect(ajustados).toHaveLength(1);
+    expect(ajustados[0].id).toBe(ms[1].id);
+    const depois = [ms[0], ajustados[0], dep];
+    expect(saldoConta(depois).saldo).toBe(134000);
+    const at = atualizacoesSaldo(depois);
+    // rendeu = 1.340 − (1.234,56 + 100) = 5,44 (e não −94,56)
+    expect(at[0].rendeu).toBe(544);
+    // retirada maior que o saldo não deixa o saldo anotado negativo
+    expect(saldosDoDiaAjustados(ms, 'j', '2027-04-01', -999_999_00)[0].valor_centavos).toBe(0);
+    expect(saldosDoDiaAjustados(ms, 'j', '2027-04-02', 100)).toEqual([]);
+  });
+
+  it('depósito sem nome não vira pessoa', () => {
+    const q = porQuem([mov('x', 'deposito', '2027-01-01', 10, null), mov('x', 'deposito', '2027-01-02', 10, 'Vovó')]);
+    expect(q.filter((p) => p.de !== SEM_NOME)).toHaveLength(1);
+  });
+
+  it('Pix com e-mail longo continua válido (campo 26 até 99) e e-mail com acento é recusado', () => {
+    const email = `${'a'.repeat(60)}@exemplo.com.br`;
+    expect(lerChavePix(email, 'email')?.chave).toBe(email);
+    const p = payloadPix({ chave: email, nome: 'Heitor', cidade: 'Jundiai', mensagem: 'Cofrinho do Heitor' });
+    const tam = Number(p.slice(p.indexOf('26') + 2, p.indexOf('26') + 4));
+    expect(p.startsWith('000201' + '26')).toBe(true);
+    expect(tam).toBeLessThanOrEqual(99);
+    expect(p.slice(10, 10 + tam)).toBe(`0014br.gov.bcb.pix01${String(email.length).padStart(2, '0')}${email}`);
+    expect(p.slice(10 + tam, 14 + tam)).toBe('5204');
+    expect(p).not.toContain('Cofrinho do Heitor');
+    expect(p.slice(-4)).toBe(crc16(p.slice(0, -4)));
+    // e-mail no limite (77): ainda cabe
+    const max = `${'b'.repeat(65)}@exemplo.com`;
+    expect(max.length).toBe(77);
+    expect(payloadPix({ chave: max, nome: 'Heitor', cidade: 'Jundiai' })).toContain('2699');
+    // chave curta mantém a mensagem
+    expect(payloadPix({ chave: 'a@b.co', nome: 'Heitor', cidade: 'Jundiai', mensagem: 'Cofrinho do Heitor' })).toContain('0218Cofrinho do Heitor');
+    expect(lerChavePix('joão@exemplo.com', 'email')).toBeNull();
+    expect(lerChavePix('joao@exémplo.com')).toBeNull();
+  });
+});
+
+// Abre os fluxos (deflate) do PDF e devolve cada texto desenhado
+async function textosDoPdf(bytes: Uint8Array): Promise<string[]> {
+  const latin1 = (b: Uint8Array) => Array.from(b, (c) => String.fromCharCode(c)).join('');
+  const bin = latin1(bytes);
+  const textos: string[] = [];
+  for (const m of bin.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    let t = '';
+    try {
+      const fluxo = new Blob([Uint8Array.from(m[1], (c) => c.charCodeAt(0))]).stream().pipeThrough(new DecompressionStream('deflate'));
+      t = latin1(new Uint8Array(await new Response(fluxo).arrayBuffer()));
+    } catch {
+      continue;
+    }
+    for (const h of t.matchAll(/<([0-9A-F]+)> Tj/g)) textos.push(latin1(Uint8Array.from(h[1].match(/../g)!, (x) => parseInt(x, 16))));
+  }
+  return textos;
+}
+
+describe('extrato em PDF: textos', () => {
+  it('tira emoji (não vira "??") e mantém as quebras de linha do recado', async () => {
+    const bytes = await montarExtratoCofrinho({ titulo: 'T', geradoEm: 'g', resumo: [], contas: [], quem: [], movimentos: [], recados: [['01/01/2027', 'Vovó 🕊️', 'Linha um\nLinha dois 💛']] });
+    const textos = await textosDoPdf(bytes);
+    expect(textos).toContain('"Linha um');
+    expect(textos).toContain('Linha dois"');
+    expect(textos.some((t) => t.startsWith('Vov') && t.endsWith('01/01/2027'))).toBe(true);
+    expect(textos.join('')).not.toContain('?');
+  });
+});

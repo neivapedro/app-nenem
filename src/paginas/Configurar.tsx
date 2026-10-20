@@ -31,6 +31,7 @@ export function Configurar() {
     if (caminho === 'convite' && codigo.replace(/[^A-Za-z0-9]/g, '').length < 6) return setMsg('Digite o código de 6 letras que você recebeu.');
     const nasc = nasceu ? deCampoDataHora(quando) : null;
     if (caminho === 'novo' && nasceu && !nasc) return setMsg('Informe a data e a hora do nascimento.');
+    if (nasc && new Date(nasc).getTime() > Date.now() + 5 * 60_000) return setMsg('O nascimento está no futuro: confira a data e a hora.');
     setEnviando(true);
     try {
       if (caminho === 'novo')

@@ -72,18 +72,32 @@ export function cantosIniciais(w: number, h: number, margem = 0.06): Cantos {
   ];
 }
 
-/** Os 4 cantos formam um quadrilátero convexo (dá para endireitar) */
+/**
+ * Põe os cantos na ordem certa (superior esquerdo, superior direito, inferior
+ * direito, inferior esquerdo), seja qual for a bolinha arrastada para cada ponta:
+ * gira em volta do centro no sentido horário, começando pela mais perto do canto
+ * superior esquerdo. Assim a foto nunca sai espelhada.
+ */
+export function ordenarCantos(c: Cantos): Cantos {
+  const cx = (c[0].x + c[1].x + c[2].x + c[3].x) / 4;
+  const cy = (c[0].y + c[1].y + c[2].y + c[3].y) / 4;
+  // Na tela o y cresce para baixo: ângulo crescente = sentido horário
+  const ordem = [...c].sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+  const minX = Math.min(...c.map((p) => p.x));
+  const minY = Math.min(...c.map((p) => p.y));
+  let inicio = 0;
+  for (let i = 1; i < 4; i++) if (distancia(ordem[i], { x: minX, y: minY }) < distancia(ordem[inicio], { x: minX, y: minY })) inicio = i;
+  return [0, 1, 2, 3].map((k) => ordem[(inicio + k) % 4]) as Cantos;
+}
+
+/** Os 4 cantos formam um quadrilátero convexo, na ordem da tela (sentido horário): dá para endireitar sem espelhar */
 export function cantosValidos(c: Cantos): boolean {
-  let sinal = 0;
   for (let i = 0; i < 4; i++) {
     const a = c[i];
     const b = c[(i + 1) % 4];
     const d = c[(i + 2) % 4];
     const z = (b.x - a.x) * (d.y - b.y) - (b.y - a.y) * (d.x - b.x);
-    if (Math.abs(z) < 1e-6) return false;
-    const s = Math.sign(z);
-    if (sinal && s !== sinal) return false;
-    sinal = s;
+    if (z < 1e-6) return false;
   }
   return true;
 }
@@ -95,6 +109,9 @@ interface Imagem {
 }
 
 const ajuste = (v: number, contraste: number, brilho: number) => (v - 128) * contraste + 128 + brilho;
+
+/** Cor do pixel sobre papel branco (PNG transparente não vira preto) */
+const sobreBranco = (c: number, alfa: number) => 255 - ((255 - c) * alfa) / 255;
 
 /**
  * Endireita (amostragem bilinear) e aplica o filtro. `origem` e `destino` são
@@ -127,7 +144,9 @@ export function endireitar(origem: Imagem, cantos: Cantos, destino: Imagem, filt
       let g = 0;
       let b = 0;
       for (let k = 0; k < 3; k++) {
-        const val = (src[i00 + k] * (1 - fx) + src[i10 + k] * fx) * (1 - fy) + (src[i01 + k] * (1 - fx) + src[i11 + k] * fx) * fy;
+        const val =
+          (sobreBranco(src[i00 + k], src[i00 + 3]) * (1 - fx) + sobreBranco(src[i10 + k], src[i10 + 3]) * fx) * (1 - fy) +
+          (sobreBranco(src[i01 + k], src[i01 + 3]) * (1 - fx) + sobreBranco(src[i11 + k], src[i11 + 3]) * fx) * fy;
         if (k === 0) r = val;
         else if (k === 1) g = val;
         else b = val;

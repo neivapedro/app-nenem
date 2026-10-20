@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cantosIniciais, cantosValidos, endireitar, quadradoParaQuadrilatero, tamanhoSaida, type Cantos } from './perspectiva';
+import { cantosIniciais, cantosValidos, endireitar, ordenarCantos, quadradoParaQuadrilatero, tamanhoSaida, type Cantos } from './perspectiva';
 
 describe('endireitar documento', () => {
   it('leva os cantos do quadrado aos cantos marcados (também em perspectiva)', () => {
@@ -55,5 +55,35 @@ describe('endireitar documento', () => {
     endireitar(cinza, cantosIniciais(1, 1, 0), pb, 'pb');
     expect(pb.data[0]).toBe(pb.data[1]);
     expect(pb.data[1]).toBe(pb.data[2]);
+  });
+
+  it('cantos espelhados ou trocados voltam para a ordem certa (a foto não sai invertida)', () => {
+    const certo = cantosIniciais(100, 80, 0);
+    // espelhado (sentido anti-horário) não vale como está
+    const espelhado: Cantos = [certo[1], certo[0], certo[3], certo[2]];
+    expect(cantosValidos(espelhado)).toBe(false);
+    expect(ordenarCantos(espelhado)).toEqual(certo);
+    // cruzados ou girados: também viram a ordem certa
+    expect(ordenarCantos([certo[0], certo[2], certo[1], certo[3]])).toEqual(certo);
+    expect(ordenarCantos([certo[2], certo[3], certo[0], certo[1]])).toEqual(certo);
+    // documento torto em perspectiva
+    const torto: Cantos = [
+      { x: 30, y: 10 },
+      { x: 170, y: 20 },
+      { x: 190, y: 150 },
+      { x: 5, y: 140 },
+    ];
+    expect(ordenarCantos([torto[3], torto[2], torto[1], torto[0]])).toEqual(torto);
+    expect(cantosValidos(ordenarCantos([torto[1], torto[3], torto[0], torto[2]]))).toBe(true);
+  });
+
+  it('PNG transparente fica branco, não preto', () => {
+    // pixel totalmente transparente (RGB 0) e um meio transparente preto
+    const origem = { width: 2, height: 1, data: new Uint8ClampedArray([0, 0, 0, 0, 0, 0, 0, 128]) };
+    const out = { width: 2, height: 1, data: new Uint8ClampedArray(8) };
+    endireitar(origem, cantosIniciais(2, 1, 0), out);
+    expect([...out.data.slice(0, 4)]).toEqual([255, 255, 255, 255]);
+    expect(out.data[4]).toBeGreaterThan(100);
+    expect(out.data[4]).toBeLessThan(150);
   });
 });

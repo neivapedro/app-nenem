@@ -3,15 +3,21 @@
 // tela acesa. Funciona sem internet quando o arquivo já está no celular.
 import { useEffect, useRef, useState } from 'react';
 import { useDados } from '../dados/contexto';
-import type { Documento } from '../lib/tipos';
+import type { ArquivoDocumento, Documento } from '../lib/tipos';
 import { obterArquivo } from './doc-arquivos';
 import { Icone } from './ui';
 
 interface Pagina {
   chave: string;
   url: string | null;
-  rotulo: string;
+  /** Nome da folha do PDF; foto: "Página N" contada pela posição na tela */
+  rotulo: string | null;
+  /** Não abriu: o motivo aparece no lugar de "Abrindo…" */
+  falha?: string;
 }
+
+const paginasIniciais = (arquivos: ArquivoDocumento[]): Pagina[] =>
+  arquivos.map((a) => ({ chave: a.caminho, url: null, rotulo: a.tipo === 'application/pdf' ? a.nome : null }));
 
 /** Mantém a tela acesa enquanto o documento está aberto */
 function useTelaAcesa() {
@@ -142,21 +148,30 @@ export function Visualizador({
   aoCompartilhar?: () => void;
 }) {
   const { repo, mostrarAviso } = useDados();
-  const [paginas, setPaginas] = useState<Pagina[]>(() =>
-    doc.arquivos.map((a, i) => ({ chave: a.caminho, url: null, rotulo: a.tipo === 'application/pdf' ? `${a.nome}` : `Página ${i + 1}` })),
-  );
+  const [paginas, setPaginas] = useState<Pagina[]>(() => paginasIniciais(doc.arquivos));
   const [atual, setAtual] = useState(inicio);
   const [ampliada, setAmpliada] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const trilho = useRef<HTMLDivElement>(null);
   useTelaAcesa();
 
+  // A cada recarga (a cada minuto, ou quando o outro membro muda algo) os documentos
+  // chegam como objetos novos: só recarrega se os arquivos mudaram de verdade
+  const assinatura = doc.arquivos.map((a) => `${a.caminho}|${a.tipo}|${a.nome}`).join('\n');
+  const arquivosRef = useRef(doc.arquivos);
+  useEffect(() => {
+    arquivosRef.current = doc.arquivos;
+  });
+
   // Carrega cada arquivo (do celular ou do servidor); PDF vira uma página por folha
   useEffect(() => {
     let cancelado = false;
     const criadas: string[] = [];
+    const arquivos = arquivosRef.current;
+    setPaginas(paginasIniciais(arquivos));
+    setErro(null);
     (async () => {
-      for (const a of doc.arquivos) {
+      for (const a of arquivos) {
         if (cancelado) return;
         try {
           const blob = await obterArquivo(repo, a.caminho);
@@ -175,8 +190,10 @@ export function Visualizador({
             (url, n, total) => {
               criadas.push(url);
               setPaginas((ps) => {
-                const i = ps.findIndex((p) => p.chave === a.caminho || p.chave === `${a.caminho}#1`);
                 const nova = { chave: `${a.caminho}#${n}`, url, rotulo: total > 1 ? `${a.nome} · folha ${n} de ${total}` : a.nome };
+                // Folha que já está na tela: troca (nunca repete)
+                if (ps.some((p) => p.chave === nova.chave)) return ps.map((p) => (p.chave === nova.chave ? nova : p));
+                const i = ps.findIndex((p) => p.chave === a.caminho);
                 if (n === 1) return ps.map((p, j) => (j === i ? nova : p));
                 // Folhas seguintes entram logo depois da anterior
                 const anterior = ps.findIndex((p) => p.chave === `${a.caminho}#${n - 1}`);
@@ -185,8 +202,16 @@ export function Visualizador({
             },
             () => cancelado,
           );
-        } catch {
-          if (!cancelado) setErro('Parte do documento não abriu. Sem internet, só abrem os arquivos que já estão guardados no celular.');
+        } catch (e) {
+          if (cancelado) return;
+          const senha = (e as Error)?.name === 'PasswordException';
+          const falha = senha ? 'PDF protegido por senha' : 'Não abriu';
+          setPaginas((ps) => ps.map((p) => (p.chave === a.caminho ? { ...p, falha } : p)));
+          setErro(
+            senha
+              ? `"${a.nome}" tem senha para abrir e não dá para mostrar aqui.${aoCompartilhar ? ' Use o botão de enviar para abrir em outro app.' : ''}`
+              : 'Parte do documento não abriu. Sem internet, só abrem os arquivos que já estão guardados no celular.',
+          );
         }
       }
     })();
@@ -194,7 +219,7 @@ export function Visualizador({
       cancelado = true;
       for (const u of criadas) URL.revokeObjectURL(u);
     };
-  }, [doc.arquivos, repo]);
+  }, [assinatura, repo]);
 
   // Começa na página pedida
   useEffect(() => {
@@ -254,9 +279,13 @@ export function Visualizador({
           setAtual(Math.round(t.scrollLeft / Math.max(1, t.clientWidth)));
         }}
       >
-        {paginas.map((p) => (
+        {paginas.map((p, i) => (
           <div key={p.chave} className="vis-pagina">
-            {p.url ? <ImagemZoom url={p.url} alt={p.rotulo} aoZoom={setAmpliada} /> : <span className="vis-carregando">Abrindo…</span>}
+            {p.url ? (
+              <ImagemZoom url={p.url} alt={p.rotulo ?? `Página ${i + 1}`} aoZoom={setAmpliada} />
+            ) : (
+              <span className="vis-carregando">{p.falha ?? 'Abrindo…'}</span>
+            )}
           </div>
         ))}
         {!total && <div className="vis-pagina vis-carregando">Sem arquivo anexado.</div>}

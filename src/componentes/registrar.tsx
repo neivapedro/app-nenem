@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { useAgora, useDados } from '../dados/contexto';
-import { agoraIso, deCampoDataHora, horaCurta, paraCampoDataHora, relogio, textoDuracao } from '../lib/datas';
+import { agoraIso, chaveDia, dataBr, deCampoDataHora, horaCurta, paraCampoDataHora, relogio, textoDuracao } from '../lib/datas';
 import {
   AVISO_FEZES_CLARAS,
   CORES_FEZES,
   corFezes,
   duracaoPorLado,
+  emAndamento,
   finalizarMamada,
   finalizarSono,
   iniciarMamada,
@@ -18,12 +19,16 @@ import {
   pausarMamada,
   textoFralda,
   trocarLado,
+  ultimoDoTipo,
   ultimoLado,
   validarRegistro,
 } from '../lib/registros';
-import type { ConteudoMamadeira, CorFezes, Lado, Registro, RegistroDe } from '../lib/tipos';
+import type { ConteudoMamadeira, CorFezes, Lado, PoteLeite, Registro, RegistroDe } from '../lib/tipos';
 import { FormExtracao, FormRefeicao, FormRemedio, FormTemperatura } from './registrar-mais';
-import { Campo, Escolhas, Folha, Icone } from './ui';
+import { Campo, Escolhas, Folha, Icone, useUmToque } from './ui';
+
+/** "desde 20:36" se foi hoje; "desde 18/10 20:36" se começou outro dia (cronômetro esquecido) */
+const desde = (iso: string) => (chaveDia(iso) === chaveDia(new Date()) ? horaCurta(iso) : `${dataBr(chaveDia(iso)).slice(0, 5)} ${horaCurta(iso)}`);
 
 // ---------- Peças comuns ----------
 
@@ -75,7 +80,7 @@ function useSalvar() {
 
 /** Começar uma mamada (cronômetro) ou registrar uma que já passou. */
 export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
-  const { registros, baseRegistro, gravar } = useDados();
+  const { registros, baseRegistro, gravar, mostrarAviso, nomeDe } = useDados();
   const salvar = useSalvar();
   const ultimo = ultimoLado(registros);
   const [manual, setManual] = useState(false);
@@ -86,6 +91,12 @@ export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
 
   function comecar(lado: Lado) {
+    // Já tem uma rolando (ex.: o outro celular começou agora): não abre outra
+    const ja = emAndamento(registros).mamada;
+    if (ja) {
+      mostrarAviso({ texto: `Já tem uma mamada em andamento${ja.criado_por ? ` (iniciada por ${nomeDe(ja.criado_por)})` : ''}` });
+      return aoFechar();
+    }
     gravar({ tipo: 'registro', dado: iniciarMamada(baseRegistro(), lado, new Date()) });
     aoFechar();
   }
@@ -164,12 +175,13 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
   const agora = useAgora(1000);
   const d = duracaoPorLado(r, agora);
   const ativo = ladoAtivo(r);
+  const toque = useUmToque();
   const salvar = (novo: Registro) => gravar({ tipo: 'registro', dado: novo });
 
   function finalizar() {
     const fim = finalizarMamada(r, new Date());
     salvar(fim);
-    mostrarAviso({ texto: `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total)})`, desfazer: () => salvar(r) });
+    mostrarAviso({ texto: `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, desfazer: () => salvar(r) });
   }
 
   function cancelar() {
@@ -186,7 +198,7 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
           <strong>{ativo ? `Mamando no peito ${NOME_LADO[ativo].toLowerCase()}` : 'Mamada pausada'}</strong>
         </span>
         <span className="mudo">
-          desde {horaCurta(r.inicio)}
+          desde {desde(r.inicio)}
           {r.criado_por ? ` · ${nomeDe(r.criado_por)}` : ''}
         </span>
       </div>
@@ -198,7 +210,7 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
           <button
             key={l}
             className={`lado ${ativo === l ? 'ativo' : ''}`}
-            onClick={() => ativo !== l && salvar(trocarLado(r, new Date(), l))}
+            onClick={toque(() => ativo !== l && salvar(trocarLado(r, new Date(), l)))}
             aria-pressed={ativo === l}
           >
             <span className="tempo">{relogio(d[l])}</span>
@@ -208,15 +220,15 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
       </div>
       <div className="linha">
         {ativo ? (
-          <button className="botao" onClick={() => salvar(pausarMamada(r, new Date()))}>
+          <button className="botao" onClick={toque(() => salvar(pausarMamada(r, new Date())))}>
             <Icone nome="pausar" /> Pausar
           </button>
         ) : (
-          <button className="botao" onClick={() => salvar(trocarLado(r, new Date(), ladoFinal(r) ?? 'E'))}>
+          <button className="botao" onClick={toque(() => salvar(trocarLado(r, new Date(), ladoFinal(r) ?? 'E')))}>
             <Icone nome="tocar" /> Continuar
           </button>
         )}
-        <button className="botao primario cresce" onClick={finalizar}>
+        <button className="botao primario cresce" onClick={toque(finalizar)}>
           <Icone nome="parar" /> Finalizar
         </button>
       </div>
@@ -284,7 +296,7 @@ export function FolhaMamadeira({ aoFechar }: { aoFechar: () => void }) {
   const { registros, baseRegistro } = useDados();
   const salvar = useSalvar();
   // Repete o tipo de leite da última mamadeira
-  const ultima = registros.find((r): r is RegistroDe<'mamadeira'> => r.tipo === 'mamadeira');
+  const ultima = ultimoDoTipo(registros, 'mamadeira');
   const agora = agoraIso();
   const inicial: RegistroDe<'mamadeira'> = {
     ...baseRegistro(),
@@ -346,10 +358,16 @@ export function FolhaFralda({ aoFechar }: { aoFechar: () => void }) {
   const [mudarHora, setMudarHora] = useState(false);
   const [cor, setCor] = useState<CorFezes | null>(null);
   const [verCor, setVerCor] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const toque = useUmToque();
 
   function registrar(xixi: boolean, coco: boolean) {
-    const ini = (mudarHora && deCampoDataHora(inicio)) || agoraIso();
+    const escolhida = mudarHora ? deCampoDataHora(inicio) : null;
+    if (mudarHora && !escolhida) return setMsg('Informe a hora da troca.');
+    const ini = escolhida ?? agoraIso();
     const r: RegistroDe<'fralda'> = { ...baseRegistro(), tipo: 'fralda', inicio: ini, fim: ini, observacao: null, dados: { xixi, coco, cor: coco ? cor : null } };
+    const problema = validarRegistro(r, new Date());
+    if (problema) return setMsg(problema);
     salvar(r, `Fralda registrada (${textoFralda(r.dados)})`);
     aoFechar();
   }
@@ -358,16 +376,17 @@ export function FolhaFralda({ aoFechar }: { aoFechar: () => void }) {
     <Folha titulo="Troca de fralda" aoFechar={aoFechar}>
       <div className="pilha">
         <div className="grandes t-fralda">
-          <button className="botao-grande" onClick={() => registrar(true, false)}>
+          <button className="botao-grande" onClick={toque(() => registrar(true, false))}>
             💧<span>Xixi</span>
           </button>
-          <button className="botao-grande" onClick={() => registrar(false, true)}>
+          <button className="botao-grande" onClick={toque(() => registrar(false, true))}>
             💩<span>Cocô</span>
           </button>
-          <button className="botao-grande" onClick={() => registrar(true, true)}>
+          <button className="botao-grande" onClick={toque(() => registrar(true, true))}>
             💧💩<span>Os dois</span>
           </button>
         </div>
+        <Erro msg={msg} />
         {!verCor ? (
           <button className="botao texto pequeno" onClick={() => setVerCor(true)}>
             Anotar a cor do cocô
@@ -392,7 +411,7 @@ export function FolhaFralda({ aoFechar }: { aoFechar: () => void }) {
 // ---------- Sono ----------
 
 export function FolhaSono({ aoFechar }: { aoFechar: () => void }) {
-  const { baseRegistro, gravar } = useDados();
+  const { registros, baseRegistro, gravar, mostrarAviso } = useDados();
   const salvar = useSalvar();
   const [manual, setManual] = useState(false);
   const [inicio, setInicio] = useState(() => paraCampoDataHora(new Date(Date.now() - 60 * 60_000).toISOString()));
@@ -406,7 +425,9 @@ export function FolhaSono({ aoFechar }: { aoFechar: () => void }) {
           <button
             className="botao-grande t-sono"
             onClick={() => {
-              gravar({ tipo: 'registro', dado: iniciarSono(baseRegistro(), new Date()) });
+              // O outro celular pode ter marcado "Dormiu" agora mesmo
+              if (emAndamento(registros).sono) mostrarAviso({ texto: 'O sono já está sendo contado' });
+              else gravar({ tipo: 'registro', dado: iniciarSono(baseRegistro(), new Date()) });
               aoFechar();
             }}
           >
@@ -451,11 +472,12 @@ export function FolhaSono({ aoFechar }: { aoFechar: () => void }) {
 export function CartaoSonoAtivo({ r }: { r: RegistroDe<'sono'> }) {
   const { gravar, mostrarAviso, nomeDe } = useDados();
   const agora = useAgora(1000);
+  const toque = useUmToque();
   function acordou() {
     const fim = finalizarSono(r, new Date());
     gravar({ tipo: 'registro', dado: fim });
     mostrarAviso({
-      texto: `Sono salvo (${textoDuracao(new Date(fim.fim!).getTime() - new Date(r.inicio).getTime())})`,
+      texto: `Sono salvo (${textoDuracao(new Date(fim.fim!).getTime() - new Date(r.inicio).getTime(), true)})`,
       desfazer: () => gravar({ tipo: 'registro', dado: r }),
     });
   }
@@ -467,12 +489,12 @@ export function CartaoSonoAtivo({ r }: { r: RegistroDe<'sono'> }) {
           <strong>Dormindo</strong>
         </span>
         <span className="mudo">
-          desde {horaCurta(r.inicio)}
+          desde {desde(r.inicio)}
           {r.criado_por ? ` · ${nomeDe(r.criado_por)}` : ''}
         </span>
       </div>
       <div className="grande">{relogio(agora.getTime() - new Date(r.inicio).getTime())}</div>
-      <button className="botao primario largo" onClick={acordou}>
+      <button className="botao primario largo" onClick={toque(acordou)}>
         Acordou
       </button>
     </section>
@@ -482,14 +504,33 @@ export function CartaoSonoAtivo({ r }: { r: RegistroDe<'sono'> }) {
 // ---------- Editar qualquer registro (Histórico) ----------
 
 export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void }) {
-  const { gravar, mostrarAviso, nomeDe } = useDados();
+  const { gravar, mostrarAviso, nomeDe, leite } = useDados();
   const salvar = useSalvar();
   const [msg, setMsg] = useState<string | null>(null);
+  // Extração guardada no estoque: o pote tem o mesmo id do registro
+  const pote = r.tipo === 'extracao' ? leite.find((p) => p.id === r.id) : undefined;
 
   function excluir() {
-    if (!confirm('Excluir este registro?')) return;
-    gravar({ tipo: 'excluir', dado: { alvo: 'registro', id: r.id } });
-    mostrarAviso({ texto: 'Registro excluído', desfazer: () => gravar({ tipo: 'registro', dado: r }) });
+    if (!confirm(pote ? 'Excluir este registro? O pote do estoque também sai.' : 'Excluir este registro?')) return;
+    gravar({ tipo: 'excluir', dado: { alvo: 'registro', id: r.id } }, ...(pote ? [{ tipo: 'excluir' as const, dado: { alvo: 'leite' as const, id: pote.id } }] : []));
+    mostrarAviso({
+      texto: 'Registro excluído',
+      desfazer: () => gravar({ tipo: 'registro', dado: r }, ...(pote ? [{ tipo: 'colecao' as const, colecao: 'leite' as const, dado: pote }] : [])),
+    });
+    aoFechar();
+  }
+
+  function salvarExtracao(novo: Registro, extra?: { pote?: PoteLeite }) {
+    const p = extra?.pote;
+    gravar({ tipo: 'registro', dado: novo }, ...(p ? [{ tipo: 'colecao' as const, colecao: 'leite' as const, dado: p }] : []));
+    mostrarAviso({
+      texto: 'Extração atualizada',
+      desfazer: () =>
+        gravar(
+          { tipo: 'registro', dado: r },
+          ...(p ? [pote ? { tipo: 'colecao' as const, colecao: 'leite' as const, dado: pote } : { tipo: 'excluir' as const, dado: { alvo: 'leite' as const, id: p.id } }] : []),
+        ),
+    });
     aoFechar();
   }
 
@@ -534,7 +575,7 @@ export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void
       {r.tipo === 'sono' && <EditarSono r={r} aoSalvar={(novo) => (salvar(novo, 'Sono atualizado', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
       {r.tipo === 'remedio' && <FormRemedio inicial={r} aoSalvar={atualizar('Remédio atualizado')} rodape={rodape} />}
       {r.tipo === 'temperatura' && <FormTemperatura inicial={r} aoSalvar={atualizar('Temperatura atualizada')} rodape={rodape} />}
-      {r.tipo === 'extracao' && <FormExtracao inicial={r} aoSalvar={atualizar('Extração atualizada')} rodape={rodape} />}
+      {r.tipo === 'extracao' && <FormExtracao inicial={r} aoSalvar={salvarExtracao} rodape={rodape} />}
       {r.tipo === 'refeicao' && <FormRefeicao inicial={r} aoSalvar={atualizar('Refeição atualizada')} rodape={rodape} />}
     </Folha>
   );
@@ -554,10 +595,15 @@ function EditarMamada({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<Registro
   const [min, setMin] = useState({ E: d.E ? String(Math.round(d.E / 60_000)) : '', D: d.D ? String(Math.round(d.D / 60_000)) : '' });
   const [primeiro, setPrimeiro] = useState<Lado>(r.dados.segmentos[0]?.lado ?? 'E');
   const [obs, setObs] = useState(r.observacao ?? '');
+  // Valores de quando abriu: se só a observação mudar, os trechos (e o lado em que terminou) ficam como estão
+  const [original] = useState(() => ({ inicio: paraCampoDataHora(r.inicio), E: min.E, D: min.D, primeiro }));
   if (!r.fim) {
     return (
       <div className="pilha">
-        <p className="texto-2">Esta mamada está em andamento. Use o cronômetro na tela Hoje para trocar de lado ou finalizar.</p>
+        <p className="texto-2">Esta mamada está em andamento. Dá para trocar de lado pelo cronômetro na tela Hoje, ou finalizar aqui.</p>
+        <button type="button" className="botao primario" onClick={() => aoSalvar(finalizarMamada(r, new Date()))}>
+          <Icone nome="parar" /> Finalizar agora
+        </button>
         {rodape}
       </div>
     );
@@ -569,7 +615,10 @@ function EditarMamada({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<Registro
         e.preventDefault();
         const ini = deCampoDataHora(inicio);
         if (!ini) return setMsg('Informe a hora do início.');
-        const novo = { ...mamadaManual(r, ini, { E: Number(min.E) || 0, D: Number(min.D) || 0 }, primeiro), observacao: obs.trim() || null };
+        const mudou = inicio !== original.inicio || min.E !== original.E || min.D !== original.D || primeiro !== original.primeiro;
+        const novo = mudou
+          ? { ...mamadaManual(r, ini, { E: Number(min.E) || 0, D: Number(min.D) || 0 }, primeiro), observacao: obs.trim() || null }
+          : { ...r, observacao: obs.trim() || null };
         const problema = validarRegistro(novo, new Date());
         if (problema) return setMsg(problema);
         aoSalvar(novo);
@@ -643,6 +692,7 @@ function EditarFralda({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<Registro
 }
 
 function EditarSono({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<RegistroDe<'sono'>>) {
+  const { registros } = useDados();
   const [inicio, setInicio] = useState(paraCampoDataHora(r.inicio));
   const [fim, setFim] = useState(r.fim ? paraCampoDataHora(r.fim) : '');
   const [obs, setObs] = useState(r.observacao ?? '');
@@ -654,6 +704,7 @@ function EditarSono({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<RegistroDe
         const ini = deCampoDataHora(inicio);
         if (!ini) return setMsg('Informe quando dormiu.');
         const novo: RegistroDe<'sono'> = { ...r, inicio: ini, fim: deCampoDataHora(fim), observacao: obs.trim() || null };
+        if (!novo.fim && registros.some((x) => x.tipo === 'sono' && !x.fim && x.id !== r.id)) return setMsg('Já tem outro sono sendo contado. Informe quando acordou.');
         const problema = validarRegistro(novo, new Date());
         if (problema) return setMsg(problema);
         aoSalvar(novo);

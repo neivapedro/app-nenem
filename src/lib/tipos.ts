@@ -112,6 +112,8 @@ export interface Membro {
   lembrete_documento: boolean;
   lembrete_cofrinho: boolean;
   token_calendario: string | null;
+  /** Quando entrou na família (quem entrou antes pode remover quem entrou depois) */
+  criado_em?: string;
 }
 
 /** O que cada membro pode mudar em si mesmo */
@@ -191,6 +193,8 @@ export interface PoteLeite extends Item {
   usado_em: string | null;
   descartado_em: string | null;
   observacao: string | null;
+  /** Quando saiu do freezer para a geladeira (vale 12 h a partir daqui) */
+  descongelado_em?: string | null;
 }
 
 export interface Marco extends Item {

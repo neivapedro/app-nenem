@@ -14,7 +14,11 @@ export async function reduzirFoto(arquivo: File, max = 1600, qualidade = 0.82): 
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
-    canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+    const ctx = canvas.getContext('2d')!;
+    // Fundo branco: PNG transparente não vira quadro preto no JPEG
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
     return await new Promise<Blob>((ok, falha) => canvas.toBlob((b) => (b ? ok(b) : falha(new Error('Não foi possível preparar a foto.'))), 'image/jpeg', qualidade));
   } finally {
     URL.revokeObjectURL(url);

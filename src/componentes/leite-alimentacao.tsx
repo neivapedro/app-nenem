@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import { useAgora, useDados } from '../dados/contexto';
 import { ALIMENTOS_ATENCAO, FONTE_ALIMENTACAO, IDADE_INTRODUCAO_MESES, ORIENTACAO_INTRODUCAO, ORIENTACAO_LEITE } from '../lib/conteudo';
 import { chaveDia, dataBr, horaCurta, nomeDia, textoDuracao } from '../lib/datas';
@@ -11,31 +12,59 @@ import { Campo, Escolhas, Folha, Icone, Selo } from './ui';
 
 // ---------- Leite materno: extrações e estoque ----------
 
+/** "hoje às 14:30", "ontem às 08:10" */
+function quandoFoi(iso: string, agora: Date): string {
+  return `${nomeDia(chaveDia(iso), chaveDia(agora)).toLowerCase()} às ${horaCurta(iso)}`;
+}
+
 function FolhaPote({ p, aoFechar }: { p: PoteLeite; aoFechar: () => void }) {
   const { gravar, mostrarAviso } = useDados();
   const [ml, setMl] = useState(String(p.ml));
   const [local, setLocal] = useState(p.local);
+  const [msg, setMsg] = useState<string | null>(null);
+  const agora = new Date();
   const salvar = (novo: PoteLeite, texto: string) => {
     gravar({ tipo: 'colecao', colecao: 'leite', dado: novo });
     mostrarAviso({ texto, desfazer: () => gravar({ tipo: 'colecao', colecao: 'leite', dado: p }) });
     aoFechar();
   };
+  const salvarAlteracoes = () => {
+    const n = Number(ml);
+    if (!(n >= 1 && n <= 1000)) return setMsg('A quantidade do pote vai de 1 a 1000 ml.');
+    // Saiu do freezer para a geladeira: descongelado agora (vale 12 h a partir daqui)
+    const descongelado_em = local === 'freezer' ? null : p.local === 'freezer' ? new Date().toISOString() : (p.descongelado_em ?? null);
+    salvar({ ...p, ml: n, local, descongelado_em }, 'Pote atualizado');
+  };
   return (
     <Folha titulo={`Pote de ${p.ml} ml`} aoFechar={aoFechar}>
       <div className="pilha">
         <p className="texto-2">
-          Tirado {nomeDia(chaveDia(p.extraido_em), chaveDia(new Date())).toLowerCase()} às {horaCurta(p.extraido_em)} · vale até {dataBr(chaveDia(validadeLeite(p)))} {horaCurta(validadeLeite(p))}
+          Tirado {quandoFoi(p.extraido_em, agora)}
+          {p.local === 'geladeira' && p.descongelado_em ? ` · descongelado ${quandoFoi(p.descongelado_em, agora)}` : ''} · vale até {dataBr(chaveDia(validadeLeite(p)))} {horaCurta(validadeLeite(p))}
         </p>
         <button className="botao primario" onClick={() => salvar({ ...p, usado_em: new Date().toISOString() }, 'Pote marcado como usado')}>
           <Icone nome="check" /> Usei este pote
         </button>
+        {p.local === 'freezer' && (
+          <button className="botao" onClick={() => salvar({ ...p, local: 'geladeira', descongelado_em: new Date().toISOString() }, 'Pote descongelado: vale 12 horas')}>
+            Descongelei agora
+          </button>
+        )}
         <button className="botao" onClick={() => salvar({ ...p, descartado_em: new Date().toISOString() }, 'Pote descartado')}>
           Descartei
         </button>
         <Campo rotulo="Quantidade (ml)">
-          <input inputMode="numeric" pattern="[0-9]*" value={ml} onChange={(e) => setMl(e.target.value.replace(/\D/g, '').slice(0, 4))} />
+          <input
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={ml}
+            onChange={(e) => {
+              setMl(e.target.value.replace(/\D/g, '').slice(0, 4));
+              setMsg(null);
+            }}
+          />
         </Campo>
-        <Campo rotulo="Onde está" grupo dica="Passar da geladeira para o freezer muda a validade (vale a data em que o leite foi tirado).">
+        <Campo rotulo="Onde está" grupo dica="Tirar do freezer para a geladeira conta como descongelado: vale 12 horas a partir de agora (não congele de novo).">
           <Escolhas
             opcoes={[
               { valor: 'geladeira' as const, rotulo: 'Geladeira' },
@@ -45,7 +74,13 @@ function FolhaPote({ p, aoFechar }: { p: PoteLeite; aoFechar: () => void }) {
             aoMudar={setLocal}
           />
         </Campo>
-        <button className="botao" disabled={!(Number(ml) > 0)} onClick={() => salvar({ ...p, ml: Number(ml), local }, 'Pote atualizado')}>
+        {msg && (
+          <div className="alerta erro" role="alert">
+            <Icone nome="alerta" />
+            <span>{msg}</span>
+          </div>
+        )}
+        <button className="botao" disabled={!(Number(ml) > 0)} onClick={salvarAlteracoes}>
           Salvar alterações
         </button>
       </div>
@@ -96,7 +131,8 @@ export function SecaoLeite() {
                       {p.ml} ml · {p.local === 'freezer' ? 'freezer' : 'geladeira'}
                     </div>
                     <div className="detalhe">
-                      tirado {nomeDia(chaveDia(p.extraido_em), chaveDia(agora)).toLowerCase()} às {horaCurta(p.extraido_em)}
+                      tirado {quandoFoi(p.extraido_em, agora)}
+                      {p.local === 'geladeira' && p.descongelado_em ? ` · descongelado ${quandoFoi(p.descongelado_em, agora)}` : ''}
                     </div>
                   </div>
                   {s === 'vencido' ? (
@@ -163,13 +199,13 @@ export function SecaoAlimentacao() {
   const refeicoes = ordenarRecentes(registros.filter((r): r is RegistroDe<'refeicao'> => r.tipo === 'refeicao')).slice(0, 30);
   const provados = alimentosProvados(registros);
   const provadosNomes = new Set(provados.map((a) => a.nome.toLocaleLowerCase('pt-BR')));
-  const nasc = bebe?.nascimento ? new Date(bebe.nascimento) : null;
-  const inicio = nasc ? new Date(nasc.getFullYear(), nasc.getMonth() + IDADE_INTRODUCAO_MESES, nasc.getDate()) : null;
-  const antes = inicio && inicio.getTime() > agora.getTime();
+  // Mesmo dia, 6 meses depois (em mês curto, o último dia do mês)
+  const inicio = bebe?.nascimento ? somarMeses(chaveDia(bebe.nascimento), IDADE_INTRODUCAO_MESES) : null;
+  const antes = inicio && inicio > chaveDia(agora);
 
   return (
     <div className="pilha">
-      {antes && inicio && <div className="alerta info">A introdução alimentar começa a partir dos 6 meses ({inicio.toLocaleDateString('pt-BR')}). Até lá, só leite.</div>}
+      {antes && inicio && <div className="alerta info">A introdução alimentar começa a partir dos 6 meses ({dataBr(inicio)}). Até lá, só leite.</div>}
       <button className="botao primario" onClick={() => setNova(true)}>
         <Icone nome="refeicao" /> Registrar refeição
       </button>

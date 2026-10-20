@@ -282,6 +282,7 @@ export function Resumo() {
 
       <details className="ajuda cartao">
         <summary>Ver em tabela</summary>
+        <div style={{ overflowX: 'auto' }}>
         <table className="tabela-simples">
           <thead>
             <tr>
@@ -308,6 +309,7 @@ export function Resumo() {
             ))}
           </tbody>
         </table>
+        </div>
       </details>
 
       <RelatorioPediatra />

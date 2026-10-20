@@ -29,8 +29,16 @@ describe('datas', () => {
 
   it('nascido dia 31: o mês seguinte conta pelo último dia', () => {
     const nasc = t('2027-01-31T10:00').toISOString();
-    expect(idadeBebe(nasc, t('2027-02-28T10:00'))).toBe('4 semanas');
+    // Em fevereiro o mesversário é o dia 28 (igual aos meses de vida)
+    expect(idadeBebe(nasc, t('2027-02-27T10:00'))).toBe('3 semanas e 6 dias');
+    expect(idadeBebe(nasc, t('2027-02-28T10:00'))).toBe('1 mês');
     expect(idadeBebe(nasc, t('2027-03-03T10:00'))).toBe('1 mês e 3 dias');
+    expect(idadeBebe(t('2026-11-30T10:00').toISOString(), t('2027-02-28T10:00'))).toBe('3 meses');
+  });
+
+  it('antes de nascer não diz "nasceu hoje"', () => {
+    expect(idadeBebe(t('2026-11-15T10:00').toISOString(), t('2026-11-10T10:00'))).toBe('Ainda não nasceu');
+    expect(idadeBebe(t('2026-11-15T10:00').toISOString(), t('2026-11-15T22:00'))).toBe('Nasceu hoje');
   });
 
   it('semanas de gestação pela data prevista', () => {
