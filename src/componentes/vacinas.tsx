@@ -32,12 +32,8 @@ function Situacao({ d, hoje }: { d: DoseNoCalendario; hoje: string }) {
       </span>
     );
   if (s === 'pulada') return <span className="etiqueta">Não vai tomar</span>;
-  if (s === 'passou')
-    return (
-      <span className="etiqueta aviso" style={{ whiteSpace: 'normal', textAlign: 'right', maxWidth: '9.5em' }}>
-        Passou da idade — fale com o pediatra
-      </span>
-    );
+  // O "fale com o pediatra" vai na linha de detalhe da dose (a etiqueta fica curta)
+  if (s === 'passou') return <span className="etiqueta aviso">Passou da idade</span>;
   if (s === 'atrasada')
     return (
       <span className="etiqueta ruim">
@@ -435,6 +431,7 @@ export function SecaoVacinas() {
                   <div className="detalhe">
                     {d.dose.dose}
                     {d.dose.rede === 'particular' ? ' · particular' : ''}
+                    {d.situacao === 'passou' ? ' — fale com o pediatra' : ''}
                   </div>
                 </div>
                 <Situacao d={d} hoje={hoje} />

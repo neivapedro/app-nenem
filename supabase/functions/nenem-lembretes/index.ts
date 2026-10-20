@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       db.from('nenem_documentos').select('id, titulo, validade').eq('familia_id', fid).not('validade', 'is', null),
       // Cofrinho (tabelas novas: vazias se ainda não existirem)
       db.from('nenem_cofrinho_planos').select('bebe_id, dia_aporte, aporte_mensal_centavos').eq('familia_id', fid),
-      db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', fid).eq('tipo', 'deposito').gte('data', inicioMes).limit(1),
+      db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', fid).eq('tipo', 'deposito').is('transferencia_id', null).gte('data', inicioMes).limit(1),
       db.from('nenem_cofrinho_contas').select('id').eq('familia_id', fid).eq('ativa', true).limit(1),
       db.from('nenem_cofrinho_movimentos').select('data').eq('familia_id', fid).eq('tipo', 'saldo').order('data', { ascending: false }).limit(1),
     ]);

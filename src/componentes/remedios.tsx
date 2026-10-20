@@ -104,7 +104,7 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
         >
           <Escolhas
             rotulo="Duração do tratamento"
-            opcoes={[{ valor: null, rotulo: 'Sem prazo' }, ...DURACOES.map((d) => ({ valor: d, rotulo: `${d} dias` }))]}
+            opcoes={[{ valor: null, rotulo: 'Sem prazo' }, ...DURACOES.map((d) => ({ valor: d, rotulo: String(d) }))]}
             valor={termina ? (diasRestantes && DURACOES.includes(diasRestantes) ? diasRestantes : -1) : null}
             aoMudar={(d) => setTermina(d && d > 0 ? ultimoDiaTratamento(hoje, d) : '')}
           />

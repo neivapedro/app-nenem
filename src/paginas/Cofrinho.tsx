@@ -950,12 +950,12 @@ function FolhaContaVer({ conta, aoFechar, aoEditar, aoLancamento }: { conta: Con
   );
 }
 
-/** Nome do lançamento no extrato ("Transferência para X" / "Transferência de Y" numa transferência) */
+/** Nome do lançamento no extrato (transferência: "Para X" / "De Y", com "Transferência" logo abaixo; a palavra inteira no título quebraria no meio em 320 px) */
 function tituloMovimento(m: MovimentoCofrinho, todos: MovimentoCofrinho[], nomeConta: (id: string) => string | undefined): string {
   if (ehTransferencia(m)) {
     const outra = outraPonta(todos, m);
     const nome = outra ? nomeConta(outra.conta_id) : undefined;
-    return `Transferência ${m.tipo === 'deposito' ? 'de' : 'para'} ${nome ?? 'outra conta'}`;
+    return `${m.tipo === 'deposito' ? 'De' : 'Para'} ${nome ?? 'outra conta'}`;
   }
   return m.tipo === 'deposito' ? m.de || 'Depósito' : m.tipo === 'saldo' ? 'Saldo do extrato' : 'Retirada';
 }
@@ -976,6 +976,7 @@ function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCof
           <span className="cresce">
             <span className="doc-titulo">{tituloMovimento(m, cofrinho_movimentos, (id) => nomeConta.get(id))}</span>
             <span className="texto-2">
+              {ehTransferencia(m) && 'Transferência · '}
               {dataBr(m.data)}
               {contas.length > 1 && ` · ${nomeConta.get(m.conta_id) ?? ''}`}
               {m.ocasiao && ` · ${OCASIAO[m.ocasiao].nome}`}
@@ -1111,7 +1112,8 @@ function ListaAtualizacoes({ contas, movs, oculto, limite }: { contas: ContaCofr
                     {colocado > 0 ? '+' : '−'}
                     {reais(Math.abs(colocado))}
                   </span>{' '}
-                  depositado
+                  {/* "colocado": inclui transferências entre contas (o rendeu da conta já desconta) */}
+                  colocado
                 </>
               )}
             </span>
