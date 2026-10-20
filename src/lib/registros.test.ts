@@ -7,6 +7,7 @@ import {
   emAndamento,
   finalizarMamada,
   finalizarMamadaEm,
+  finalizarMamadaNaHora,
   finalizarSono,
   iniciarMamada,
   iniciarSono,
@@ -180,5 +181,16 @@ describe('cronômetro esquecido', () => {
     expect(cronometroEsquecido(m, t('13:30'))).toBe(true);
     expect(cronometroEsquecido(iniciarSono(base, t('10:00')), t('23:00'))).toBe(false);
     expect(cronometroEsquecido(iniciarSono(base, t('10:00')), t('08:00', '2026-11-16'))).toBe(true);
+  });
+});
+
+describe('finalizar na hora escolhida', () => {
+  it('mamada pausada: aceitar a hora sugerida não perde os segundos', () => {
+    let m = iniciarMamada(base, 'E', new Date(t('10:00').getTime() + 30_000));
+    m = pausarMamada(m, new Date(t('10:12').getTime() + 45_000));
+    const fim = finalizarMamadaNaHora(m, t('10:12'), t('15:00'));
+    expect(duracaoPorLado(fim, t('15:00')).E).toBe(12 * 60_000 + 15_000);
+    // Hora escolhida antes da pausa: corta
+    expect(duracaoPorLado(finalizarMamadaNaHora(m, t('10:05'), t('15:00')), t('15:00')).E).toBe(4 * 60_000 + 30_000);
   });
 });

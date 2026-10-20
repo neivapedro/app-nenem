@@ -203,5 +203,7 @@ export function textoDiaAutomatico(data: string, hoje: string): string {
 
 /** Última consulta que já começou (para o relatório "desde a última consulta") */
 export function ultimaConsulta(lista: Compromisso[], agora: Date): Compromisso | null {
-  return lista.filter((c) => c.tipo === 'consulta' && compromissoJaPassou(c, agora)).sort((a, b) => ordem(b, a))[0] ?? null;
+  // Consulta de hoje (ex.: na sala de espera) não conta: o relatório é para levar a ela, desde a anterior
+  const hoje = chaveDia(agora);
+  return lista.filter((c) => c.tipo === 'consulta' && c.data < hoje && compromissoJaPassou(c, agora)).sort((a, b) => ordem(b, a))[0] ?? null;
 }

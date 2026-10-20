@@ -100,7 +100,7 @@ describe('itens automáticos da agenda', () => {
 });
 
 describe('última consulta', () => {
-  it('a mais recente que já começou (hoje só depois da hora)', () => {
+  it('a mais recente antes de hoje (a de hoje é a que o relatório vai levar)', () => {
     const agora = new Date('2026-12-10T10:00:00-03:00');
     const lista = [
       comp({ titulo: 'A', data: '2026-11-20' }),
@@ -110,7 +110,8 @@ describe('última consulta', () => {
       comp({ titulo: 'Futura', data: '2026-12-20' }),
     ];
     expect(ultimaConsulta(lista, agora)?.titulo).toBe('B');
-    expect(ultimaConsulta([...lista, comp({ titulo: 'Hoje cedo', data: '2026-12-10', hora: '08:00' })], agora)?.titulo).toBe('Hoje cedo');
+    // Consulta de hoje, mesmo já começada (pais na sala de espera), não vira o início do período
+    expect(ultimaConsulta([...lista, comp({ titulo: 'Hoje cedo', data: '2026-12-10', hora: '08:00' })], agora)?.titulo).toBe('B');
     // Dia inteiro hoje ainda não conta
     expect(ultimaConsulta([comp({ data: '2026-12-10', hora: null })], agora)).toBeNull();
   });

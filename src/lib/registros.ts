@@ -114,6 +114,19 @@ export function finalizarMamadaEm(r: RegistroDe<'mamada'>, quando: Date): Regist
   return { ...r, fim: new Date(t).toISOString(), dados: { segmentos } };
 }
 
+/**
+ * Finaliza na hora escolhida na folha "Esqueceu o cronômetro?". O campo tem só
+ * minutos: se a hora é "agora" ou (mamada pausada) a hora da pausa, mantém os
+ * trechos como estão, sem perder os segundos.
+ */
+export function finalizarMamadaNaHora(r: RegistroDe<'mamada'>, quando: Date, agora = new Date()): RegistroDe<'mamada'> {
+  if (agora.getTime() - quando.getTime() < 60_000) return finalizarMamada(r, agora);
+  const pausada = r.dados.segmentos.every((s) => s.fim);
+  const ultimoFim = Math.max(ms(r.inicio), ...r.dados.segmentos.map((s) => (s.fim ? ms(s.fim) : 0)));
+  if (pausada && quando.getTime() >= ultimoFim - 60_000) return finalizarMamada(r, quando);
+  return finalizarMamadaEm(r, quando);
+}
+
 /** Cronômetro aberto há tempo demais (provavelmente esquecido): mamada > 3 h, sono > 14 h */
 export const LIMITE_ESQUECIDO_MS = { mamada: 3 * 3_600_000, sono: 14 * 3_600_000 } as const;
 export function cronometroEsquecido(r: Registro, agora: Date): boolean {

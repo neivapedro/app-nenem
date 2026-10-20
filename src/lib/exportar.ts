@@ -96,9 +96,12 @@ export function csvCofrinho(contas: ContaCofrinho[], movimentos: MovimentoCofrin
     linhas.push([
       m.data,
       conta.get(m.conta_id) ?? '',
-      nomes[m.tipo],
+      // Transferência entre contas: não é dinheiro novo (somar "Depósito" daria a mais)
+      m.transferencia_id ? (m.tipo === 'deposito' ? 'Transferência (entrada)' : 'Transferência (saída)') : nomes[m.tipo],
       (m.valor_centavos / 100).toFixed(2).replace('.', ','),
-      m.de ?? '',
+      m.transferencia_id
+        ? `${m.tipo === 'deposito' ? 'de' : 'para'} ${conta.get(movimentos.find((x) => x.transferencia_id === m.transferencia_id && x.id !== m.id)?.conta_id ?? '') ?? 'outra conta'}`
+        : (m.de ?? ''),
       m.ocasiao ?? '',
       m.recado ?? '',
       m.observacao ?? '',

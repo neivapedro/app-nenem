@@ -47,8 +47,10 @@ function Situacao({ d, hoje }: { d: DoseNoCalendario; hoje: string }) {
 }
 
 function FolhaDose({ d, aoFechar }: { d: DoseNoCalendario; aoFechar: () => void }) {
-  const { bebe, membro, usuario, gravar, mostrarAviso, vacinas, nomeDe } = useDados();
+  const { bebe, membro, usuario, gravar, mostrarAviso, vacinas, nomeDe, hoje } = useDados();
   const existente = vacinas.find((v) => v.dose_id === d.dose.id) ?? null;
+  // Passou pela idade desta dose (ou só porque a anterior do esquema passou e esta ficou bloqueada)
+  const passouPelaPropria = d.situacao === 'passou' && !!d.dose.idade_max && !!d.limite && d.limite < hoje;
   const [data, setData] = useState(existente?.data ?? hojeLocal());
   const [rede, setRede] = useState<'sus' | 'particular'>(existente?.rede ?? (d.dose.rede === 'particular' ? 'particular' : 'sus'));
   const [local, setLocal] = useState(existente?.local ?? '');
@@ -105,16 +107,16 @@ function FolhaDose({ d, aoFechar }: { d: DoseNoCalendario; aoFechar: () => void 
             {d.dose.rede === 'ambas' ? 'SUS e particular' : d.dose.rede === 'sus' ? 'SUS' : 'só na rede particular'}
           </p>
           {d.dose.observacao && <p className="texto-2">{d.dose.observacao}</p>}
-          {d.situacao === 'passou' && d.dose.idade_max && (
+          {passouPelaPropria && (
             <div className="alerta">
               <Icone nome="alerta" />
               <span>
-                Passou da idade máxima para esta dose ({d.dose.idade_max.texto}
+                Passou da idade máxima para esta dose ({d.dose.idade_max?.texto}
                 {d.limite ? `, até ${dataBr(d.limite)}` : ''}). Fale com o pediatra sobre o que fazer. Se já tomou, marque abaixo com a data.
               </span>
             </div>
           )}
-          {d.situacao === 'passou' && !d.dose.idade_max && (
+          {d.situacao === 'passou' && !passouPelaPropria && (
             <div className="alerta">
               <Icone nome="alerta" />
               <span>A dose anterior do esquema passou da idade sem ser marcada. Fale com o pediatra. Se já tomou, marque abaixo com a data.</span>
@@ -413,8 +415,8 @@ export function SecaoVacinas() {
             <span className="mudo">{dataBr(g.itens[0].prevista)}</span>
           </div>
           {liberadas(g.itens).length > 1 && (
-            <button className="botao texto pequeno" style={{ padding: 0, minHeight: 32, marginBottom: 2 }} onClick={() => setGrupoAberto({ titulo: g.idade_texto, doses: liberadas(g.itens) })}>
-              <Icone nome="check" /> Marcar todas desta idade como aplicadas
+            <button className="botao texto pequeno" style={{ padding: 0, minHeight: 32, marginBottom: 2, justifyContent: 'flex-start', textAlign: 'left' }} onClick={() => setGrupoAberto({ titulo: g.idade_texto, doses: liberadas(g.itens) })}>
+              <Icone nome="check" /> Marcar todas como aplicadas
             </button>
           )}
           <div className="lista">

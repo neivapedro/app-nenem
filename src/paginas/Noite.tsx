@@ -9,7 +9,7 @@ import {
   emAndamento,
   cronometroEsquecido,
   finalizarMamada,
-  finalizarMamadaEm,
+  finalizarMamadaNaHora,
   finalizarSono,
   iniciarMamada,
   iniciarSono,
@@ -77,7 +77,7 @@ export function Noite() {
     if (!m) return;
     if (!quando && cronometroEsquecido(m, new Date())) return setPerguntar('mamada');
     setPerguntar(null);
-    const fim = quando && Date.now() - quando.getTime() > 60_000 ? finalizarMamadaEm(m, quando) : finalizarMamada(m, new Date());
+    const fim = quando ? finalizarMamadaNaHora(m, quando) : finalizarMamada(m, new Date());
     salvar(fim, `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, m);
   }
   function acordouAgora(quando?: Date) {

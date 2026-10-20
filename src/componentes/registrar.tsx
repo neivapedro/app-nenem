@@ -8,7 +8,7 @@ import {
   duracaoPorLado,
   emAndamento,
   finalizarMamada,
-  finalizarMamadaEm,
+  finalizarMamadaNaHora,
   cronometroEsquecido,
   finalizarSono,
   iniciarMamada,
@@ -239,7 +239,7 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
     // Aberta há mais de 3 h: pergunta a hora em vez de salvar tudo isso
     if (!quando && cronometroEsquecido(r, new Date())) return setPerguntar(true);
     setPerguntar(false);
-    const fim = quando && Date.now() - quando.getTime() > 60_000 ? finalizarMamadaEm(r, quando) : finalizarMamada(r, new Date());
+    const fim = quando ? finalizarMamadaNaHora(r, quando) : finalizarMamada(r, new Date());
     salvar(fim);
     mostrarAviso({ texto: `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, desfazer: () => salvar(r) });
   }

@@ -184,7 +184,6 @@ export function RelatorioPediatra() {
   const consulta = ultimaConsulta(compromissos, agora);
   const periodo: Periodo = periodoEscolhido === 'consulta' && !consulta ? '30' : periodoEscolhido;
   const tituloConsulta = consulta ? (consulta.titulo.length > 32 ? `${consulta.titulo.slice(0, 31).trimEnd()}…` : consulta.titulo) : '';
-  const desdeConsulta = periodo === 'consulta' && consulta ? `desde a consulta de ${dataBr(consulta.data).slice(0, 5)} (${tituloConsulta})` : '';
   const [deEscolhido, setDe] = useState(() => somarDiasLocal(hoje, -29));
   const [ateEscolhido, setAte] = useState(hoje);
   const [gerando, setGerando] = useState(false);
@@ -204,6 +203,8 @@ export function RelatorioPediatra() {
   // 7/15/30 dias de um recém-nascido: começa no nascimento (sem dezenas de dias zerados antes dele)
   const de = (periodo === '7' || periodo === '15' || periodo === '30' || periodo === 'consulta') && nascDia && de0 < nascDia && nascDia <= ate ? nascDia : de0;
   const totalDias = diasEntre(de, ate) + 1;
+  // A consulta foi antes do nascimento (ex.: pré-natal): o período começa no nascimento e o texto diz isso
+  const desdeConsulta = periodo === 'consulta' && consulta ? (de === consulta.data ? `desde a consulta de ${dataBr(consulta.data).slice(0, 5)} (${tituloConsulta})` : 'desde o nascimento') : '';
   // Para 'tudo' não há período anterior; nos outros, busca também o anterior para comparar
   const comparar = periodo !== 'tudo';
   const { registros, erro } = useRegistrosDesde(comparar ? somarDiasLocal(de, -totalDias) : de);
@@ -272,7 +273,7 @@ export function RelatorioPediatra() {
           : primeiro
             ? 'Data de nascimento não cadastrada'
             : 'Ainda não nasceu',
-        periodo: `Período: ${dataBr(de)} a ${dataBr(ate)} (${totalDias} ${totalDias === 1 ? 'dia' : 'dias'}${periodo === 'tudo' && nascDia ? ', desde o nascimento' : ''}${desdeConsulta && consulta ? `, desde a consulta de ${dataBr(consulta.data).slice(0, 5)}: ${tituloConsulta}` : ''})`,
+        periodo: `Período: ${dataBr(de)} a ${dataBr(ate)} (${totalDias} ${totalDias === 1 ? 'dia' : 'dias'}${periodo === 'tudo' && nascDia ? ', desde o nascimento' : ''}${desdeConsulta && consulta ? (de === consulta.data ? `, desde a consulta de ${dataBr(consulta.data).slice(0, 5)}: ${tituloConsulta}` : ', desde o nascimento') : ''})`,
         destaques: [
           ['Alimentações por dia (média)', um(media(completos.map((d) => d.alimentacoes)))],
           ['Intervalo médio entre alimentações', intervalo ? textoDuracao(Math.round(intervalo / 60_000) * 60_000) : '—'],

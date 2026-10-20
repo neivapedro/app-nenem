@@ -70,7 +70,7 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
         onSubmit={(e) => {
           e.preventDefault();
           // Encerrado pelo prazo e com um novo último dia: volta para a lista de uso
-          salvar(inicial?.ativo ?? true, inicial ? (acabou && termina >= hoje ? 'Remédio reativado' : 'Remédio atualizado') : 'Remédio salvo');
+          salvar(inicial?.ativo ?? true, inicial ? (acabou && (!termina || termina >= hoje) ? 'Remédio reativado' : 'Remédio atualizado') : 'Remédio salvo');
         }}
       >
         <Campo rotulo="Remédio">

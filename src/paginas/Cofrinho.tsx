@@ -483,6 +483,8 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
             valor={transferir ? 'transferencia' : m.tipo}
             aoMudar={(tipo) => {
               setTransferir(tipo === 'transferencia');
+              // Transferência não é o depósito do mês: o valor do plano não vem preenchido
+              if (tipo === 'transferencia' && novo) setValor('');
               if (tipo !== 'transferencia') setM({ ...m, tipo });
               else if (destino === m.conta_id || !destino) setDestino(contas.find((c) => c.id !== m.conta_id)?.id ?? '');
             }}
