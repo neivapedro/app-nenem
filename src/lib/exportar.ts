@@ -1,13 +1,16 @@
 // Exportar tudo: um .zip com todos os dados desde o início (JSON e planilhas)
 // e os arquivos guardados (documentos, comprovantes do cofrinho e fotos).
 import { strToU8, Zip, ZipDeflate, ZipPassThrough } from 'fflate';
+import { MARCOS_CADERNETA } from './conteudo';
 import { NOME_CATEGORIA } from './documentos';
 import { chaveDia, horaCurta } from './datas';
 import { descrever, NOMES_TIPO } from './registros';
 import type { ContaCofrinho, Documento, Marco, MovimentoCofrinho, Registro } from './tipos';
 
 export const celula = (v: unknown) => {
-  const s = v === null || v === undefined ? '' : String(v);
+  const bruto = v === null || v === undefined ? '' : String(v);
+  // Texto que começa com = + @ (ou - sem número) viraria fórmula no Excel: entra como texto
+  const s = /^[=+@\t]|^-(?!\d)/.test(bruto) ? `'${bruto}` : bruto;
   return /[;"\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 /** BOM para o Excel abrir com acentos */
@@ -101,7 +104,7 @@ function nomesUnicos() {
 }
 
 const ordenarDocs = (documentos: Documento[]) =>
-  [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR'));
+  [...documentos].sort((a, b) => a.categoria.localeCompare(b.categoria) || a.titulo.localeCompare(b.titulo, 'pt-BR', { numeric: true }));
 
 /**
  * Os arquivos dos documentos com o nome que o documento tem no app, numa pasta
@@ -167,7 +170,12 @@ export function planejarArquivos(documentos: Documento[], movimentos: MovimentoC
       });
   for (const m of [...marcos].sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''))) {
     if (!m.foto) continue;
-    const nome = m.titulo?.trim() || (m.tipo === 'mes' ? 'Foto do mês' : m.marco_id?.replace(/-/g, ' ') || 'Primeira vez');
+    // Foto do mês: o número do mês no nome (senão ficavam todas "Foto do mês (7)")
+    const n = Number(m.marco_id?.replace('mes-', ''));
+    const nome =
+      m.tipo === 'mes' && Number.isFinite(n)
+        ? `Foto do mês ${String(n).padStart(2, '0')}${m.titulo?.trim() ? ` - ${m.titulo.trim()}` : ''}`
+        : m.titulo?.trim() || (m.tipo === 'caderneta' ? (MARCOS_CADERNETA.find((c) => c.id === m.marco_id)?.descricao ?? 'Marco') : 'Primeira vez');
     lista.push({ caminho: m.foto, destino: unico('fotos', limpar(`${m.data ?? 'sem data'} ${nome}`), extensao({ caminho: m.foto })), balde: 'fotos' });
   }
   return lista;

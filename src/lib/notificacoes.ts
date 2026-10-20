@@ -22,15 +22,22 @@ export function instaladoComoApp(): boolean {
  * Quando a versão nova assume, dispara o evento "nova-versao" (o App mostra o aviso).
  */
 export async function registrarServiceWorker(): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) return null;
+  if (!('serviceWorker' in navigator) || import.meta.env.DEV) return null;
   try {
     const tinhaControle = !!navigator.serviceWorker.controller;
     const reg = await navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { updateViaCache: 'none' });
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (tinhaControle) {
-        (window as { novaVersao?: boolean }).novaVersao = true;
-        window.dispatchEvent(new Event('nova-versao'));
-      }
+      if (!tinhaControle) return;
+      // Só avisa se esta página for mesmo de uma versão antiga (depois de tocar em Atualizar, a página já é a nova)
+      fetch(`${import.meta.env.BASE_URL}versao.json?t=${Date.now()}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((v: { versao?: string } | null) => {
+          if (v?.versao && v.versao !== __VERSAO_APP__) {
+            (window as { novaVersao?: boolean }).novaVersao = true;
+            window.dispatchEvent(new Event('nova-versao'));
+          }
+        })
+        .catch(() => undefined);
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') reg.update().catch(() => undefined);

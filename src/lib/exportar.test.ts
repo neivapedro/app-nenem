@@ -26,7 +26,7 @@ describe('exportar tudo', () => {
         'documentos/Família/CNH-Pedro.pdf',
         'documentos/Saúde/Cartão do SUS.pdf',
         'cofrinho/comprovantes/2026-11-20 Caixinha Vovó.jpg',
-        'fotos/2026-12-10 1 mês.jpg',
+        'fotos/2026-12-10 Foto do mês 01 - 1 mês.jpg',
       ].sort(),
     );
     expect(l.find((a) => a.caminho === 'f.jpg')?.balde).toBe('fotos');

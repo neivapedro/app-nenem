@@ -186,10 +186,18 @@ export const FONTES_CHEGADA = [
   { nome: 'OMS – Amamentação', url: 'https://www.who.int/health-topics/breastfeeding' },
 ];
 
+/** Artigo e pronome do bebê pelo sexo ("do Heitor"/"da Maria", "ele"/"ela"). Sem sexo e sem nome: "o bebê". */
+export function generoBebe(sexo: 'M' | 'F' | null | undefined, temNome = true): { o: string; do: string; ele: string } {
+  if (sexo === 'F') return { o: 'a', do: 'da', ele: 'ela' };
+  if (sexo === 'M' || !temNome) return { o: 'o', do: 'do', ele: 'ele' };
+  return { o: 'o(a)', do: 'do(a)', ele: 'o bebê' };
+}
+
 /** Texto para mandar no grupo da família (o que cada um precisa tomar) */
-export function textoParaFamilia(nomeBebe: string): string {
+export function textoParaFamilia(nomeBebe: string, sexo?: 'M' | 'F' | null): string {
+  const g = generoBebe(sexo);
   const linhas = [
-    `💛 A chegada do ${nomeBebe}: vamos proteger ele com as vacinas em dia!`,
+    `💛 A chegada ${g.do} ${nomeBebe}: vamos proteger ${g.ele} com as vacinas em dia!`,
     '',
     'O recém-nascido só começa a ser vacinado aos poucos (coqueluche aos 2 meses, gripe aos 6, sarampo aos 12). Até lá, a proteção vem de quem está em volta. Por favor, confiram com a caderneta, de preferência até 2 semanas antes do nascimento:',
     '',

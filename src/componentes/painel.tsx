@@ -130,9 +130,9 @@ export function ColunasEmpilhadas({
 
   return (
     <div className="painel-grafico">
-      {series.length > 1 && (
+      {(series.length > 1 || (media !== undefined && media !== null && media > 0)) && (
         <ul className="legenda" aria-label="Legenda">
-          {series.map((s) => (
+          {(series.length > 1 ? series : []).map((s) => (
             <li key={s.id}>
               <span className="chave-caixa" style={{ background: s.cor }} />
               {s.nome}

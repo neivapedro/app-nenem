@@ -46,11 +46,24 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
   if (req.mode === 'navigate') {
-    // Páginas: rede primeiro, sem cópia do navegador (senão o app reabre na versão antiga); cache se estiver offline
+    // Páginas: rede primeiro, sem cópia do navegador (senão o app reabre na versão antiga).
+    // Sem internet, servidor com erro ou sinal fraco que não responde em 4 s: abre a cópia guardada.
     e.respondWith(
-      fetch(req, { cache: 'no-store' })
-        .then((r) => guardar(BASE, r))
-        .catch(() => caches.match(BASE)),
+      (async () => {
+        const rede = fetch(req, { cache: 'no-store' }).then((r) => {
+          if (r.ok && (r.headers.get('content-type') || '').includes('text/html')) guardar(BASE, r);
+          return r;
+        });
+        const copia = await caches.match(BASE);
+        if (!copia) return rede;
+        const limite = new Promise((ok) => setTimeout(() => ok(copia), 4000));
+        try {
+          const r = await Promise.race([rede, limite]);
+          return r.status >= 500 ? copia : r;
+        } catch {
+          return copia;
+        }
+      })(),
     );
     return;
   }

@@ -1,7 +1,7 @@
 // Séries por dia para os gráficos de padrão e o relatório do pediatra.
 import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import { inicioDoDia, somarDiasLocal } from './datas';
-import { duracaoPorLado, ordenarRecentes, resumoDia, type ResumoDia } from './registros';
+import { duracaoPorLado, ordenarRecentes, registrosPorDia, resumoDia, type ResumoDia } from './registros';
 import type { Registro } from './tipos';
 
 export interface DiaResumo extends ResumoDia {
@@ -117,7 +117,8 @@ export function diasDoPeriodo(registros: Registro[], de: string, ate: string, ag
     const t = new Date(r.inicio).getTime();
     return t >= ini && t < fim;
   });
-  for (let dia = de; dia <= ate && dias.length < 4000; dia = somarDiasLocal(dia, 1)) dias.push({ dia, ...resumoDia(perto, dia, agora) });
+  const doDia = registrosPorDia(perto);
+  for (let dia = de; dia <= ate && dias.length < 4000; dia = somarDiasLocal(dia, 1)) dias.push({ dia, ...resumoDia(doDia(dia), dia, agora) });
   return dias;
 }
 

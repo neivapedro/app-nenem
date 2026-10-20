@@ -19,27 +19,34 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
   const [obs, setObs] = useState(inicial?.observacao ?? '');
   const [msg, setMsg] = useState<string | null>(null);
   if (!bebe || !membro) return null;
+
+  /** Grava o que está no formulário; `ativo` muda só ao encerrar/reativar */
+  function salvar(ativo: boolean, aviso: string) {
+    if (!bebe || !membro) return;
+    if (!nome.trim()) return setMsg('Informe o nome do remédio.');
+    const r: Remedio = {
+      id: inicial?.id ?? crypto.randomUUID(),
+      familia_id: membro.familia_id,
+      bebe_id: bebe.id,
+      criado_por: inicial?.criado_por ?? usuario?.id ?? null,
+      nome: nome.trim(),
+      dose: dose.trim() || null,
+      intervalo_h: intervalo ? Number(intervalo) : null,
+      ativo,
+      observacao: obs.trim() || null,
+    };
+    gravar({ tipo: 'colecao', colecao: 'remedios', dado: r });
+    mostrarAviso({ texto: aviso });
+    aoFechar();
+  }
+
   return (
     <Folha titulo={inicial ? 'Remédio' : 'Novo remédio'} aoFechar={aoFechar}>
       <form
         className="pilha"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!nome.trim()) return setMsg('Informe o nome do remédio.');
-          const r: Remedio = {
-            id: inicial?.id ?? crypto.randomUUID(),
-            familia_id: membro.familia_id,
-            bebe_id: bebe.id,
-            criado_por: inicial?.criado_por ?? usuario?.id ?? null,
-            nome: nome.trim(),
-            dose: dose.trim() || null,
-            intervalo_h: intervalo ? Number(intervalo) : null,
-            ativo: inicial?.ativo ?? true,
-            observacao: obs.trim() || null,
-          };
-          gravar({ tipo: 'colecao', colecao: 'remedios', dado: r });
-          mostrarAviso({ texto: inicial ? 'Remédio atualizado' : 'Remédio salvo' });
-          aoFechar();
+          salvar(inicial?.ativo ?? true, inicial ? 'Remédio atualizado' : 'Remédio salvo');
         }}
       >
         <Campo rotulo="Remédio">
@@ -70,11 +77,7 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
           <button
             type="button"
             className="botao"
-            onClick={() => {
-              gravar({ tipo: 'colecao', colecao: 'remedios', dado: { ...inicial, ativo: !inicial.ativo } });
-              mostrarAviso({ texto: inicial.ativo ? 'Remédio encerrado' : 'Remédio reativado' });
-              aoFechar();
-            }}
+            onClick={() => salvar(!inicial.ativo, inicial.ativo ? 'Remédio encerrado' : 'Remédio reativado')}
           >
             {inicial.ativo ? 'Encerrar (parou de tomar)' : 'Voltar a usar'}
           </button>

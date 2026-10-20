@@ -4,6 +4,7 @@ import { Protecao } from './componentes/Protecao';
 import { Icone, Marca } from './componentes/ui';
 import { useAgora, useDados } from './dados/contexto';
 import { idadeBebe, semanasGestacao } from './lib/datas';
+import { limparConvite } from './lib/convite';
 import { Agenda } from './paginas/Agenda';
 import { Configurar } from './paginas/Configurar';
 import { SincronizarDocumentos } from './componentes/doc-offline';
@@ -109,7 +110,9 @@ function AvisoRapido() {
 
 function Cabecalho() {
   const { bebe, hoje } = useDados();
-  const { pathname } = useLocation();
+  const { pathname: bruto } = useLocation();
+  // "/historico/" é a mesma tela que "/historico"
+  const pathname = bruto.replace(/\/+$/, '') || '/';
   const agora = useAgora(60_000);
   const aba = ABAS.find((a) => a.para === pathname);
   const secao = pathname.startsWith('/mais/') ? SECOES_MAIS.find((s) => pathname === `/mais/${s.id}`) : null;
@@ -133,7 +136,7 @@ function Cabecalho() {
           <Marca classe="marca-mini" />
         )}
         <div style={{ minWidth: 0 }}>
-          <h1>{pathname === '/' ? nome : (secao?.titulo ?? aba?.rotulo)}</h1>
+          <h1>{pathname === '/' ? nome : (secao?.titulo ?? aba?.rotulo ?? 'Mais')}</h1>
           {pathname === '/' && sub && <div className="sub">{sub}</div>}
         </div>
       </div>
@@ -217,6 +220,11 @@ function SemConexao() {
 
 export function App() {
   const { usuario, carregando, membro, erro, semConexao, recuperandoSenha, falhouCarregar, recarregar } = useDados();
+  // Já está numa família: um convite guardado (ex.: abriu o próprio link) não serve mais
+  const temFamilia = !!membro;
+  useEffect(() => {
+    if (temFamilia) limparConvite();
+  }, [temFamilia]);
   if (recuperandoSenha) return <NovaSenha />;
   if (semConexao) return <SemConexao />;
   if (carregando && !membro) {
@@ -245,7 +253,7 @@ export function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <Routes>
-        <Route path="/noite" element={<Noite />} />
+        <Route path="/noite" element={<Protecao chave="noite"><Noite /></Protecao>} />
         <Route path="*" element={<Estrutura />} />
       </Routes>
     </BrowserRouter>

@@ -176,11 +176,13 @@ export function resumoDia(registros: Registro[], dia: string, agora: Date): Resu
   const r: ResumoDia = { mamadas: 0, peitoMs: 0, mamadeiras: 0, ml: 0, fraldas: 0, xixi: 0, coco: 0, sonoMs: 0, alimentacoes: 0 };
   const ini = inicioDoDia(dia).getTime();
   const fimDia = inicioDoDia(somarDiasLocal(dia, 1)).getTime();
+  // Sonos que se sobrepõem (ex.: os dois celulares marcaram "Dormiu") contam uma vez só
+  const sonos: [number, number][] = [];
   for (const x of registros) {
     if (x.tipo === 'sono') {
       const a = Math.max(ms(x.inicio), ini);
       const b = Math.min(x.fim ? ms(x.fim) : agora.getTime(), fimDia);
-      if (b > a) r.sonoMs += b - a;
+      if (b > a) sonos.push([a, b]);
       continue;
     }
     if (chaveDia(x.inicio) !== dia) continue;
@@ -196,8 +198,49 @@ export function resumoDia(registros: Registro[], dia: string, agora: Date): Resu
       if (x.dados.coco) r.coco++;
     }
   }
+  sonos.sort((x, y) => x[0] - y[0]);
+  let fimAte = -Infinity;
+  for (const [a, b] of sonos) {
+    const de = Math.max(a, fimAte);
+    if (b > de) r.sonoMs += b - de;
+    fimAte = Math.max(fimAte, b);
+  }
   r.alimentacoes = r.mamadas + r.mamadeiras;
   return r;
+}
+
+/**
+ * Para resumir muitos dias sem varrer todos os registros em cada dia: devolve,
+ * para um dia, os registros que podem tocá-lo (os do dia, os da véspera — sono
+ * que passa da meia-noite — e os longos ou ainda abertos).
+ */
+export function registrosPorDia(registros: Registro[]): (dia: string) => Registro[] {
+  const porDia = new Map<string, Registro[]>();
+  const longos: Registro[] = [];
+  for (const r of registros) {
+    const k = chaveDia(r.inicio);
+    const lista = porDia.get(k);
+    if (lista) lista.push(r);
+    else porDia.set(k, [r]);
+    if (!r.fim || chaveDia(r.fim) > somarDiasLocal(k, 1)) longos.push(r);
+  }
+  return (dia) => {
+    const vespera = somarDiasLocal(dia, -1);
+    const base = [...(porDia.get(vespera) ?? []), ...(porDia.get(dia) ?? [])];
+    return [...base, ...longos.filter((r) => chaveDia(r.inicio) < vespera)];
+  };
+}
+
+/** Junta intervalos que se sobrepõem (ex.: os dois celulares marcaram o mesmo sono) */
+export function juntarIntervalos(lista: [number, number][]): [number, number][] {
+  const ord = lista.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  const out: [number, number][] = [];
+  for (const [a, b] of ord) {
+    const ult = out[out.length - 1];
+    if (ult && a <= ult[1]) ult[1] = Math.max(ult[1], b);
+    else out.push([a, b]);
+  }
+  return out;
 }
 
 /** Registros agrupados por dia (mais recente primeiro) */
@@ -219,16 +262,20 @@ export function textoFralda(d: { xixi: boolean; coco: boolean }): string {
   return 'seca';
 }
 
+/** Hora; com o dia junto quando não é hoje (ex.: cronômetro esquecido aberto) */
+const quando = (iso: string, agora: Date) => (chaveDia(iso) === chaveDia(agora) ? horaCurta(iso) : `${chaveDia(iso).slice(8, 10)}/${chaveDia(iso).slice(5, 7)} ${horaCurta(iso)}`);
+
 export function descrever(r: Registro, agora: Date): { titulo: string; detalhe: string } {
   if (r.tipo === 'mamada') {
     const d = duracaoPorLado(r, agora);
-    const lados = (['E', 'D'] as Lado[]).filter((l) => d[l] > 0).map((l) => `${l} ${textoDuracao(d[l])}`);
+    // Menos de 1 minuto aparece em segundos (e não "0 min")
+    const lados = (['E', 'D'] as Lado[]).filter((l) => d[l] > 0).map((l) => `${l} ${textoDuracao(d[l], true)}`);
     const ativo = ladoAtivo(r);
     return {
-      titulo: `Mamada · ${textoDuracao(d.total)}`,
+      titulo: `Mamada · ${textoDuracao(d.total, true)}`,
       detalhe: r.fim
         ? `${horaCurta(r.inicio)} · ${lados.join(' · ') || 'peito'}`
-        : `${horaCurta(r.inicio)} · em andamento${ativo ? ` (peito ${ativo})` : ' (pausada)'}`,
+        : `${quando(r.inicio, agora)} · em andamento${ativo ? ` (peito ${ativo})` : ' (pausada)'}`,
     };
   }
   if (r.tipo === 'mamadeira') {
@@ -262,7 +309,7 @@ export function descrever(r: Registro, agora: Date): { titulo: string; detalhe: 
   const dur = (r.fim ? ms(r.fim) : agora.getTime()) - ms(r.inicio);
   return {
     titulo: `Sono · ${textoDuracao(dur)}`,
-    detalhe: r.fim ? `${horaCurta(r.inicio)} – ${horaCurta(r.fim)}` : `${horaCurta(r.inicio)} · dormindo`,
+    detalhe: r.fim ? `${horaCurta(r.inicio)} – ${horaCurta(r.fim)}` : `${quando(r.inicio, agora)} · dormindo`,
   };
 }
 
@@ -271,12 +318,16 @@ export function validarRegistro(r: Registro, agora: Date): string | null {
   if (Number.isNaN(ms(r.inicio))) return 'Informe a hora.';
   if (ms(r.inicio) > agora.getTime() + 5 * 60_000) return 'A hora está no futuro.';
   if (r.fim && ms(r.fim) < ms(r.inicio)) return 'O fim está antes do início.';
+  if (r.fim && ms(r.fim) > agora.getTime() + 5 * 60_000) return 'O fim está no futuro.';
+  if ((r.tipo === 'mamada' || r.tipo === 'sono') && r.fim && ms(r.fim) - ms(r.inicio) > 24 * 3_600_000) return 'Duração acima de 24 h: confira as horas.';
+  if (r.tipo === 'sono' && r.fim && ms(r.fim) - ms(r.inicio) < 60_000) return 'O sono precisa ter pelo menos 1 minuto.';
   if (r.tipo === 'mamadeira' && !(r.dados.ml > 0 && r.dados.ml <= 500)) return 'Informe a quantidade (até 500 ml).';
   if (r.tipo === 'mamada' && r.fim && duracaoPorLado(r, agora).total <= 0) return 'Informe os minutos em pelo menos um peito.';
   if (r.tipo === 'fralda' && !r.dados.xixi && !r.dados.coco) return 'Marque xixi, cocô ou os dois.';
   if (r.tipo === 'remedio' && !r.dados.nome.trim()) return 'Informe o remédio.';
   if (r.tipo === 'temperatura' && !(r.dados.graus >= 30 && r.dados.graus <= 44)) return 'Temperatura entre 30 e 44 °C (ex.: 36,8).';
   if (r.tipo === 'extracao' && !((r.dados.ml_e || 0) + (r.dados.ml_d || 0) > 0)) return 'Informe os ml de pelo menos um peito.';
+  if (r.tipo === 'extracao' && ((r.dados.ml_e || 0) > 500 || (r.dados.ml_d || 0) > 500)) return 'Até 500 ml por peito.';
   if (r.tipo === 'refeicao' && !r.dados.alimentos.length) return 'Informe pelo menos um alimento.';
   return null;
 }

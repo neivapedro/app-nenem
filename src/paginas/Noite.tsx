@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgora, useDados } from '../dados/contexto';
 import { agoraIso, haQuanto, horaCurta, relogio, textoDuracao } from '../lib/datas';
+import { useUmToque } from '../componentes/ui';
 import {
   duracaoPorLado,
   emAndamento,
@@ -17,6 +18,7 @@ import {
   trocarLado,
   ultimaAlimentacao,
   ultimoDoTipo,
+  ultimoLado,
 } from '../lib/registros';
 import type { Lado, Registro, RegistroDe } from '../lib/tipos';
 
@@ -34,6 +36,8 @@ export function Noite() {
   const sono = andamento.sono;
   const alimentacao = ultimaAlimentacao(registros);
   const fralda = ultimoDoTipo(registros, 'fralda');
+  // Um toque por vez: a grade muda depois do toque e o 2º cairia em outro botão
+  const toque = useUmToque();
 
   useEffect(() => {
     if (!aviso) return;
@@ -70,7 +74,8 @@ export function Noite() {
 
   const d = m ? duracaoPorLado(m, agora) : null;
   const ativo = m ? ladoAtivo(m) : null;
-  const ultimo = alimentacao?.tipo === 'mamada' ? ladoFinal(alimentacao) : null;
+  // Lado em que terminou a última mamada no peito (mesmo que depois tenha vindo uma mamadeira)
+  const ultimo = ultimoLado(registros);
 
   return (
     <div className="noite" role="main" aria-label="Modo noite">
@@ -109,38 +114,38 @@ export function Noite() {
       <div className="noite-grade">
         {m ? (
           <>
-            <button className="ativo" onClick={() => salvar(trocarLado(m, new Date(), ativo ? outroLado(ativo) : outroLado(ladoFinal(m) ?? 'D')), 'Trocou de peito', m)}>
+            <button className="ativo" onClick={toque(() => salvar(trocarLado(m, new Date(), ativo ? outroLado(ativo) : outroLado(ladoFinal(m) ?? 'D')), 'Trocou de peito', m))}>
               Trocar para o {ativo ? outroLado(ativo) : outroLado(ladoFinal(m) ?? 'D')}
               <small>
                 E {relogio(d!.E)} · D {relogio(d!.D)}
               </small>
             </button>
-            <button onClick={() => salvar(ativo ? pausarMamada(m, new Date()) : trocarLado(m, new Date(), ladoFinal(m) ?? 'E'), ativo ? 'Pausado' : 'Continuando', m)}>
+            <button onClick={toque(() => salvar(ativo ? pausarMamada(m, new Date()) : trocarLado(m, new Date(), ladoFinal(m) ?? 'E'), ativo ? 'Pausado' : 'Continuando', m))}>
               {ativo ? 'Pausar' : 'Continuar'}
             </button>
-            <button style={{ gridColumn: '1 / -1' }} onClick={() => salvar(finalizarMamada(m, new Date()), `Mamada salva (${textoDuracao(duracaoPorLado(finalizarMamada(m, new Date()), new Date()).total)})`, m)}>
+            <button style={{ gridColumn: '1 / -1' }} onClick={toque(() => salvar(finalizarMamada(m, new Date()), `Mamada salva (${textoDuracao(duracaoPorLado(finalizarMamada(m, new Date()), new Date()).total, true)})`, m))}>
               Finalizar mamada
             </button>
           </>
         ) : (
           <>
-            <button onClick={() => comecar('E')}>
+            <button onClick={toque(() => comecar('E'))}>
               Peito E{ultimo === 'E' && <small>terminou aqui</small>}
             </button>
-            <button onClick={() => comecar('D')}>
+            <button onClick={toque(() => comecar('D'))}>
               Peito D{ultimo === 'D' && <small>terminou aqui</small>}
             </button>
           </>
         )}
-        <button onClick={() => fraldaAgora(true, false)}>💧 Xixi</button>
-        <button onClick={() => fraldaAgora(false, true)}>💩 Cocô</button>
-        <button onClick={() => fraldaAgora(true, true)}>Xixi e cocô</button>
+        <button onClick={toque(() => fraldaAgora(true, false))}>💧 Xixi</button>
+        <button onClick={toque(() => fraldaAgora(false, true))}>💩 Cocô</button>
+        <button onClick={toque(() => fraldaAgora(true, true))}>Xixi e cocô</button>
         {sono ? (
-          <button className="ativo" onClick={() => salvar(finalizarSono(sono, new Date()), 'Acordou: sono salvo', sono)}>
+          <button className="ativo" onClick={toque(() => salvar(finalizarSono(sono, new Date()), 'Acordou: sono salvo', sono))}>
             Acordou
           </button>
         ) : (
-          <button onClick={() => salvar(iniciarSono(baseRegistro(), new Date()), 'Dormiu', null)}>Dormiu</button>
+          <button onClick={toque(() => salvar(iniciarSono(baseRegistro(), new Date()), 'Dormiu', null))}>Dormiu</button>
         )}
       </div>
     </div>

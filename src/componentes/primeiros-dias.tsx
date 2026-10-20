@@ -19,13 +19,14 @@ function FolhaTarefa({ inicial, padrao, aoFechar }: { inicial: Tarefa; padrao: T
   const { gravar, mostrarAviso, tarefas, nomeDe } = useDados();
   const existe = tarefas.some((t) => t.id === inicial.id);
   const [t, setT] = useState(inicial);
+  const [msg, setMsg] = useState<string | null>(null);
   return (
     <Folha titulo={padrao?.titulo ?? (existe ? 'Tarefa' : 'Nova tarefa')} aoFechar={aoFechar}>
       <form
         className="pilha"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!padrao && !t.titulo?.trim()) return;
+          if (!padrao && !t.titulo?.trim()) return setMsg('Escreva o que precisa ser feito.');
           gravar({ tipo: 'colecao', colecao: 'tarefas', dado: { ...t, titulo: t.titulo?.trim() || null, observacao: t.observacao?.trim() || null } });
           mostrarAviso({ texto: 'Salvo' });
           aoFechar();
@@ -34,7 +35,15 @@ function FolhaTarefa({ inicial, padrao, aoFechar }: { inicial: Tarefa; padrao: T
         {padrao ? <p className="texto-2">{padrao.detalhe}</p> : null}
         {!padrao && (
           <Campo rotulo="O quê">
-            <input value={t.titulo ?? ''} maxLength={200} onChange={(e) => setT({ ...t, titulo: e.target.value })} autoCapitalize="sentences" />
+            <input
+              value={t.titulo ?? ''}
+              maxLength={200}
+              onChange={(e) => {
+                setT({ ...t, titulo: e.target.value });
+                setMsg(null);
+              }}
+              autoCapitalize="sentences"
+            />
           </Campo>
         )}
         {!padrao && (
@@ -49,6 +58,11 @@ function FolhaTarefa({ inicial, padrao, aoFechar }: { inicial: Tarefa; padrao: T
         <Campo rotulo="Anotação (opcional)">
           <textarea value={t.observacao ?? ''} maxLength={2000} onChange={(e) => setT({ ...t, observacao: e.target.value })} placeholder="Ex.: resultado, protocolo, número do cartão" />
         </Campo>
+        {msg && (
+          <div className="alerta erro" role="alert">
+            {msg}
+          </div>
+        )}
         <button className="botao primario">Salvar</button>
         {existe && inicial.criado_por && <p className="mudo">Por {nomeDe(inicial.criado_por)}</p>}
         {existe && !padrao && (

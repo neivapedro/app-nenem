@@ -87,7 +87,7 @@ function CartaoBebe() {
 }
 
 function CartaoFamilia() {
-  const { membros, usuario, repo, bebe } = useDados();
+  const { membros, usuario, repo, bebe, recarregar } = useDados();
   const [convite, setConvite] = useState<Convite | null>(null);
   const [gerando, setGerando] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -101,6 +101,43 @@ function CartaoFamilia() {
       setMsg(traduzirErro(e));
     } finally {
       setGerando(false);
+    }
+  }
+
+  const eu = membros.find((m) => m.user_id === usuario?.id);
+  // Quem entrou antes pode tirar quem entrou depois (ex.: alguém que recebeu o convite por engano)
+  const podeRemover = (m: (typeof membros)[number]) => !!eu?.criado_em && !!m.criado_em && m.user_id !== eu.user_id && Date.parse(m.criado_em) > Date.parse(eu.criado_em);
+
+  async function remover(m: (typeof membros)[number]) {
+    if (!confirm(`Tirar ${m.nome || 'esta pessoa'} da família? Ela deixa de ver e registrar tudo do bebê.`)) return;
+    setMsg(null);
+    try {
+      await repo.removerMembro(m.user_id);
+      await recarregar();
+      setMsg(`${m.nome || 'A pessoa'} saiu da família.`);
+    } catch (e) {
+      setMsg(traduzirErro(e));
+    }
+  }
+
+  async function cancelarConvite() {
+    setMsg(null);
+    try {
+      await repo.cancelarConvite();
+      setConvite(null);
+      setMsg('Convite cancelado: o código não funciona mais.');
+    } catch (e) {
+      setMsg(traduzirErro(e));
+    }
+  }
+
+  async function sair() {
+    if (!confirm('Sair desta família? Você deixa de ver os dados do bebê neste app (os dados continuam com o outro responsável).')) return;
+    try {
+      await repo.sairFamilia();
+      await recarregar();
+    } catch (e) {
+      setMsg(traduzirErro(e));
     }
   }
 
@@ -122,6 +159,11 @@ function CartaoFamilia() {
               <div className="titulo">{m.nome || 'Sem nome'}</div>
               {m.user_id === usuario?.id && <div className="detalhe">você · {usuario.email}</div>}
             </div>
+            {podeRemover(m) && (
+              <button className="botao pequeno" onClick={() => void remover(m)}>
+                Remover
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -147,7 +189,15 @@ function CartaoFamilia() {
           >
             <Icone nome="compartilhar" /> Enviar convite
           </button>
+          <button className="botao texto pequeno" onClick={() => void cancelarConvite()}>
+            Cancelar este convite
+          </button>
         </div>
+      )}
+      {membros.length > 1 && (
+        <button className="botao texto pequeno" onClick={() => void sair()}>
+          Sair desta família
+        </button>
       )}
       {msg && <div className="alerta info">{msg}</div>}
       {repo.modo === 'local' && <div className="alerta info">Modo demonstração: o convite não funciona sem a nuvem.</div>}
@@ -286,7 +336,7 @@ function CartaoAvisos() {
 }
 
 function CartaoConta() {
-  const { usuario, membro, executar, sair } = useDados();
+  const { usuario, membro, executar, sair, pendentes } = useDados();
   const [nome, setNome] = useState(membro?.nome ?? '');
   const [msg, setMsg] = useState<string | null>(null);
   return (
@@ -310,7 +360,7 @@ function CartaoConta() {
         <button className="botao">Salvar</button>
       </form>
       {msg && <div className="alerta info">{msg}</div>}
-      <button className="botao perigo" onClick={() => confirm('Sair da conta neste aparelho?') && void sair()}>
+      <button className="botao perigo" onClick={() => confirm(pendentes ? `Há ${pendentes} ${pendentes === 1 ? 'registro' : 'registros'} ainda não enviado(s) (sem internet). Se sair agora, eles só serão enviados quando você entrar de novo neste aparelho. Sair mesmo assim?` : 'Sair da conta neste aparelho?') && void sair()}>
         Sair
       </button>
     </section>

@@ -1,6 +1,7 @@
 // Cofrinho do Heitor: saldo, rendimento, quem contribuiu, projeção e o Pix da
 // conta. Tudo em centavos (inteiros) e sem dependências: testado no vitest.
 import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
+import { idFixo } from './ids';
 import type { ContaCofrinho, MovimentoCofrinho, OcasiaoCofrinho, TipoContaCofrinho } from './tipos';
 
 export const TIPOS_CONTA: { id: TipoContaCofrinho; nome: string }[] = [
@@ -44,19 +45,23 @@ export function reais(centavos: number, opcoes: { compacto?: boolean; sinal?: bo
   const v = centavos / 100;
   let txt: string;
   if (opcoes.compacto && Math.abs(v) >= 1000) {
-    const [n, suf] = Math.abs(v) >= 1_000_000 ? [v / 1_000_000, 'mi'] : [v / 1000, 'mil'];
-    txt = `R$ ${n.toLocaleString('pt-BR', { maximumFractionDigits: Math.abs(n) >= 100 ? 0 : 1 })} ${suf}`;
+    const casas = (n: number) => (Math.abs(n) >= 100 ? 0 : 1);
+    const arredondado = (n: number) => Math.round(Math.abs(n) * 10 ** casas(n)) / 10 ** casas(n);
+    // 999.950 reais arredondaria para "1.000 mil": aí já é "1 mi"
+    const [n, suf] = Math.abs(v) >= 1_000_000 || arredondado(v / 1000) >= 1000 ? [v / 1_000_000, 'mi'] : [v / 1000, 'mil'];
+    txt = `R$ ${n.toLocaleString('pt-BR', { maximumFractionDigits: casas(n) })} ${suf}`;
   } else txt = BRL.format(v).replace(/ /g, ' ');
   return opcoes.sinal && centavos > 0 ? `+${txt}` : txt;
 }
 
-/** "1.234,56", "1234,5", "R$ 50" ou "1234.56" → centavos (null = não é valor) */
+/** "1.234,56", "1234,5", "R$ 50" ou "1234.56" → centavos (null = não é valor; "12,345" é ambíguo e não vale) */
 export function lerReais(texto: string): number | null {
   let t = texto.replace(/[R$\s]/g, '');
   if (!t) return null;
   if (/,\d{1,2}$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
   else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
-  else t = t.replace(/,/g, '');
+  else if (/^\d{1,3}(,\d{3})+\.\d{1,2}$/.test(t)) t = t.replace(/,/g, '');
+  else if (t.includes(',')) return null;
   if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
   return Math.round(Number(t) * 100);
 }
@@ -64,6 +69,8 @@ export function lerReais(texto: string): number | null {
 // ---------- Saldo ----------
 
 const ordemTipo = { deposito: 0, retirada: 0, saldo: 1 } as const;
+/** Ordem de cálculo: por data; no mesmo dia, depósitos e retiradas antes do saldo; empate pelo id (sempre o mesmo resultado) */
+const ordemCalculo = (a: MovimentoCofrinho, b: MovimentoCofrinho) => a.data.localeCompare(b.data) || ordemTipo[a.tipo] - ordemTipo[b.tipo] || a.id.localeCompare(b.id);
 
 /**
  * Saldo de uma conta até a data: depósitos somam, retiradas tiram e o saldo do
@@ -74,7 +81,7 @@ export function saldoConta(movs: MovimentoCofrinho[], ate?: string): { saldo: nu
   let saldo = 0;
   let aportado = 0;
   let ultimoExtrato: string | null = null;
-  const lista = movs.filter((m) => !ate || m.data <= ate).sort((a, b) => a.data.localeCompare(b.data) || ordemTipo[a.tipo] - ordemTipo[b.tipo]);
+  const lista = movs.filter((m) => !ate || m.data <= ate).sort(ordemCalculo);
   for (const m of lista) {
     if (m.tipo === 'deposito') {
       saldo += m.valor_centavos;
@@ -148,12 +155,15 @@ export function depositosPorMes(movs: MovimentoCofrinho[], hoje: string, n = 12)
   return meses.map((mes) => ({ mes, centavos: movs.filter((m) => m.tipo === 'deposito' && m.data.startsWith(mes)).reduce((s, m) => s + m.valor_centavos, 0) }));
 }
 
+/** Depósito sem "quem mandou" (não conta como pessoa em "N pessoas contribuíram") */
+export const SEM_NOME = 'Sem nome';
+
 /** Quem colocou quanto (depósitos), do maior para o menor */
 export function porQuem(movs: MovimentoCofrinho[]): { de: string; centavos: number; vezes: number }[] {
   const mapa = new Map<string, { de: string; centavos: number; vezes: number }>();
   for (const m of movs) {
     if (m.tipo !== 'deposito') continue;
-    const nome = m.de?.trim() || 'Sem nome';
+    const nome = m.de?.trim() || SEM_NOME;
     const chave = nome.toLocaleLowerCase('pt-BR');
     const atual = mapa.get(chave) ?? { de: nome, centavos: 0, vezes: 0 };
     atual.centavos += m.valor_centavos;
@@ -263,7 +273,8 @@ export function lerChavePix(chave: string, tipo?: TipoChavePix): { tipo: TipoCha
   if (!t) return null;
   const digitos = t.replace(/\D/g, '');
   const aleatoria = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t);
-  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) && t.length <= 77;
+  // Só ASCII: no BR Code o tamanho do campo conta bytes (e os bancos não aceitam e-mail com acento)
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) && /^[\x21-\x7e]+$/.test(t) && t.length <= 77;
   const qual = tipo ?? (aleatoria ? 'aleatoria' : email ? 'email' : t.startsWith('+') ? 'telefone' : digitos.length === 14 ? 'cnpj' : 'cpf');
   switch (qual) {
     case 'aleatoria':
@@ -300,7 +311,10 @@ export function payloadPix({ chave, nome, cidade, valorCentavos, mensagem }: { c
   const lida = lerChavePix(chave);
   if (!lida) throw new Error('Chave Pix inválida.');
   const msg = mensagem ? semAcento(mensagem).trim().slice(0, 40) : '';
-  const conta = campo('00', 'br.gov.bcb.pix') + campo('01', lida.chave) + (msg ? campo('02', msg) : '');
+  const base = campo('00', 'br.gov.bcb.pix') + campo('01', lida.chave);
+  // O campo 26 tem no máximo 99 caracteres: com chave longa (e-mail), a mensagem opcional fica de fora
+  const conta = msg && (base + campo('02', msg)).length <= 99 ? base + campo('02', msg) : base;
+  if (conta.length > 99) throw new Error('Chave Pix longa demais.');
   const corpo =
     campo('00', '01') +
     campo('26', conta) +
@@ -341,7 +355,7 @@ export interface AtualizacaoSaldo {
 
 /** Cada saldo anotado de uma conta, do mais recente para o mais antigo, com quanto rendeu no período */
 export function atualizacoesSaldo(movs: MovimentoCofrinho[]): AtualizacaoSaldo[] {
-  const lista = [...movs].sort((a, b) => a.data.localeCompare(b.data) || ordemTipo[a.tipo] - ordemTipo[b.tipo]);
+  const lista = [...movs].sort(ordemCalculo);
   const saida: AtualizacaoSaldo[] = [];
   let saldo = 0;
   let colocado = 0;
@@ -366,4 +380,25 @@ export function atualizacoesSaldo(movs: MovimentoCofrinho[]): AtualizacaoSaldo[]
 /** A atualização de saldo mais recente entre as contas (null = nunca anotaram) */
 export function ultimaAtualizacao(movs: MovimentoCofrinho[]): MovimentoCofrinho | null {
   return movs.filter((m) => m.tipo === 'saldo').sort((a, b) => b.data.localeCompare(a.data))[0] ?? null;
+}
+
+/**
+ * Id do "saldo do extrato" de uma conta num dia: um só por conta e dia. Reaproveita
+ * o que já existe; senão usa um id fixo (os dois celulares chegam ao mesmo id e não
+ * duplicam). Se o id fixo já estiver em outro lançamento (um saldo que mudou de
+ * data), usa `novoId`.
+ */
+export function idDoSaldo(movs: MovimentoCofrinho[], contaId: string, data: string, novoId: () => string = () => crypto.randomUUID()): string {
+  const ja = movs.filter((m) => m.conta_id === contaId && m.tipo === 'saldo' && m.data === data).sort((a, b) => b.id.localeCompare(a.id))[0];
+  if (ja) return ja.id;
+  const fixo = idFixo(`${contaId}:saldo:${data}`);
+  return movs.some((m) => m.id === fixo) ? novoId() : fixo;
+}
+
+/**
+ * Saldos do extrato anotados na conta naquele dia, com `delta` somado (para um
+ * depósito/retirada feito DEPOIS de anotar o saldo do dia). Nunca fica negativo.
+ */
+export function saldosDoDiaAjustados(movs: MovimentoCofrinho[], contaId: string, data: string, delta: number): MovimentoCofrinho[] {
+  return movs.filter((m) => m.conta_id === contaId && m.tipo === 'saldo' && m.data === data).map((m) => ({ ...m, valor_centavos: Math.max(0, m.valor_centavos + delta) }));
 }

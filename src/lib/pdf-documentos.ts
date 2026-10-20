@@ -6,6 +6,8 @@ export interface ArquivoParaPdf {
   nome: string;
   tipo: string;
   bytes: ArrayBuffer;
+  /** O arquivo não pôde ser lido (ex.: sem internet): entra uma página de aviso com este motivo */
+  erro?: string;
 }
 
 export interface DocParaPdf {
@@ -76,6 +78,30 @@ function cortar(texto: string, fonte: PDFFont, tamanho: number, largura: number)
   return `${t}...`;
 }
 
+/**
+ * PDF protegido (senha de dono: abre, mas o pdf-lib não copia as páginas, que
+ * sairiam em branco): desenha cada folha como imagem (JPEG). Com senha de abrir,
+ * falha e o arquivo vira página de aviso.
+ */
+async function folhasComoImagem(bytes: ArrayBuffer): Promise<ArrayBuffer[]> {
+  if (typeof document === 'undefined') throw new Error('Sem navegador para desenhar o PDF.');
+  const { desenharPdf } = await import('./pdf-render');
+  const urls: string[] = [];
+  try {
+    // Cópia: o pdf.js pode ficar com os bytes que recebe
+    await desenharPdf(
+      bytes.slice(0),
+      1400,
+      (url) => urls.push(url),
+      () => false,
+    );
+    if (!urls.length) throw new Error('PDF sem páginas.');
+    return await Promise.all(urls.map(async (u) => (await fetch(u)).arrayBuffer()));
+  } finally {
+    for (const u of urls) URL.revokeObjectURL(u);
+  }
+}
+
 function detalhes(d: DocParaPdf): string {
   return [d.numero && `Nº ${d.numero}`, d.data && `Data: ${d.data}`, d.validade && `Validade: ${d.validade}`].filter(Boolean).join('   ·   ');
 }
@@ -123,10 +149,21 @@ export async function montarPdfDocumentos(docs: DocParaPdf[], capa: Capa | null)
       n++;
       const rotulo = `${d.titulo}${total > 1 ? `  (${n} de ${total})` : ''}${extra ? `   ·   ${extra}` : ''}`;
       try {
+        if (a.erro) throw new Error(a.erro);
         if (a.tipo === 'application/pdf') {
           const origem = await PDFDocument.load(a.bytes, { ignoreEncryption: true });
-          const paginas = await pdf.copyPages(origem, origem.getPageIndices());
-          for (const p of paginas) pdf.addPage(p);
+          if (origem.isEncrypted) {
+            for (const jpg of await folhasComoImagem(a.bytes)) {
+              const img = await pdf.embedJpg(jpg);
+              // Folha do tamanho do original (proporção), com o lado maior de um A4
+              const k = A4[1] / Math.max(img.width, img.height);
+              const p = pdf.addPage([img.width * k, img.height * k]);
+              p.drawImage(img, { x: 0, y: 0, width: img.width * k, height: img.height * k });
+            }
+          } else {
+            const paginas = await pdf.copyPages(origem, origem.getPageIndices());
+            for (const p of paginas) pdf.addPage(p);
+          }
         } else {
           const img = a.tipo === 'image/png' ? await pdf.embedPng(a.bytes) : await pdf.embedJpg(a.bytes);
           // Foto deitada vai numa página deitada
@@ -142,8 +179,12 @@ export async function montarPdfDocumentos(docs: DocParaPdf[], capa: Capa | null)
           p.drawText(cortar(limpo(rotulo), fonte, 8, caixaW), { x: MARGEM, y: tam[1] - 22, size: 8, font: fonte, color: CINZA });
         }
       } catch {
-        avisos.push(`${d.titulo}: o arquivo "${a.nome}" não pôde entrar no PDF (pode estar protegido por senha ou danificado).`);
-        const p = paginaDeAviso(d.titulo, [`O arquivo "${a.nome}" não pôde ser incluído aqui (pode estar protegido por senha ou danificado).`, 'Abra o documento no app Heitor para ver o original.']);
+        const motivo = a.erro ?? 'pode estar protegido por senha ou danificado';
+        avisos.push(`${d.titulo}: o arquivo "${a.nome}" não pôde entrar no PDF (${motivo}).`);
+        const p = paginaDeAviso(d.titulo, [
+          `O arquivo "${a.nome}" não pôde ser incluído aqui (${motivo}).`,
+          'Abra o documento no app Heitor para ver o original.',
+        ]);
         cabecalho(p, rotulo);
       }
     }
@@ -199,10 +240,15 @@ export async function montarCopiaTamanhoReal(imagens: ArquivoParaPdf[], formato:
   const limpo = limpador(fonte);
   const embutidas = [];
   for (const a of imagens) {
-    if (a.tipo === 'application/pdf') continue;
+    if (a.tipo === 'application/pdf' || a.erro) continue;
     embutidas.push(a.tipo === 'image/png' ? await pdf.embedPng(a.bytes) : await pdf.embedJpg(a.bytes));
   }
-  if (!embutidas.length) throw new Error('A cópia em tamanho real é feita a partir de fotos.');
+  if (!embutidas.length)
+    throw new Error(
+      imagens.some((a) => a.erro)
+        ? 'Não deu para baixar as fotos: sem internet, só abrem as que já estão guardadas no celular.'
+        : 'A cópia em tamanho real é feita a partir de fotos.',
+    );
 
   if (formato === 'folha') {
     for (const img of embutidas) {
@@ -264,7 +310,23 @@ export interface CarteiraVacinacaoPdf {
 /** Tabela simples: cabeçalho e linhas, quebrando de página quando precisa */
 function tabela(pdf: PDFDocument, estado: { p: PDFPage; y: number }, fontes: { n: PDFFont; b: PDFFont }, colunas: { titulo: string; largura: number }[], linhas: string[][], limpo: (s: string) => string) {
   const x0 = MARGEM;
-  const alturaLinha = 15;
+  // Uma linha de texto por célula ocupa 15 pt (11 de texto + 4 de espaço); o texto longo quebra em várias
+  const alturaTexto = 11;
+  const espaco = 4;
+  const celula = (v: string, largura: number) =>
+    quebrar(limpo(v), fontes.n, 9, largura).flatMap((linha) => {
+      // Palavra maior que a coluna (ex.: lote sem espaços) é partida
+      const partes: string[] = [];
+      let resto = linha;
+      while (resto.length > 1 && fontes.n.widthOfTextAtSize(resto, 9) > largura) {
+        let k = resto.length - 1;
+        while (k > 1 && fontes.n.widthOfTextAtSize(resto.slice(0, k), 9) > largura) k--;
+        partes.push(resto.slice(0, k));
+        resto = resto.slice(k);
+      }
+      partes.push(resto);
+      return partes;
+    });
   const cab = () => {
     let x = x0;
     for (const c of colunas) {
@@ -277,17 +339,20 @@ function tabela(pdf: PDFDocument, estado: { p: PDFPage; y: number }, fontes: { n
   };
   cab();
   for (const l of linhas) {
-    if (estado.y < MARGEM + 20) {
+    const celulas = l.map((v, i) => celula(v, colunas[i].largura - 6));
+    const altura = Math.max(1, ...celulas.map((c) => c.length));
+    // A linha inteira (todas as linhas de texto) precisa caber acima da margem de baixo
+    if (estado.y - (altura - 1) * alturaTexto < MARGEM + 20) {
       estado.p = pdf.addPage(A4);
       estado.y = A4[1] - MARGEM - 10;
       cab();
     }
     let x = x0;
-    l.forEach((v, i) => {
-      estado.p.drawText(cortar(limpo(v), fontes.n, 9, colunas[i].largura - 6), { x, y: estado.y, size: 9, font: fontes.n, color: ESCURO });
+    celulas.forEach((textos, i) => {
+      textos.forEach((t, k) => estado.p.drawText(t, { x, y: estado.y - k * alturaTexto, size: 9, font: fontes.n, color: ESCURO }));
       x += colunas[i].largura;
     });
-    estado.y -= alturaLinha;
+    estado.y -= altura * alturaTexto + espaco;
   }
 }
 
@@ -313,7 +378,7 @@ export async function montarCarteiraVacinacao(m: CarteiraVacinacaoPdf): Promise<
     { titulo: 'Data', largura: largura * 0.14 },
     { titulo: 'Vacina', largura: largura * 0.44 },
     { titulo: 'Dose', largura: largura * 0.18 },
-    { titulo: 'Rede · local · lote', largura: largura * 0.24 },
+    { titulo: 'Lote · rede · local', largura: largura * 0.24 },
   ];
   estado.p.drawText(limpo(`Doses aplicadas (${m.aplicadas.length})`), { x: MARGEM, y: estado.y, size: 12, font: b, color: ESCURO });
   estado.y -= 18;
@@ -357,7 +422,10 @@ export async function montarExtratoCofrinho(e: ExtratoCofrinhoPdf): Promise<Uint
   const pdf = await PDFDocument.create();
   const n = await pdf.embedFont(StandardFonts.Helvetica);
   const b = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const limpo = limpador(n);
+  const limpoFonte = limpador(n);
+  // Emoji (💛, 🕊️, 🎁…) não existe na fonte do PDF: sai do texto em vez de virar "??"
+  const limpo = (s: string) =>
+    limpoFonte(s.replace(/[\p{Extended_Pictographic}\p{Regional_Indicator}\u{1F3FB}-\u{1F3FF}\u{FE0E}\u{FE0F}\u{200D}\u{20E3}]/gu, '').replace(/[^\S\n]{2,}/g, ' ')).trim();
   const largura = A4[0] - MARGEM * 2;
   const estado = { p: pdf.addPage(A4), y: A4[1] - MARGEM - 14 };
   const titulo = (t: string) => {
@@ -404,7 +472,8 @@ export async function montarExtratoCofrinho(e: ExtratoCofrinhoPdf): Promise<Uint
   if (e.recados.length) {
     titulo('Mural de recados');
     for (const [data, de, recado] of e.recados) {
-      const linhas = quebrar(limpo(`"${recado}"`), n, 10, largura);
+      // Quebra de linha do recado é mantida (limpa cada linha separado)
+      const linhas = quebrar(`"${recado.split(/\r?\n/).map(limpo).join('\n')}"`, n, 10, largura);
       if (estado.y - linhas.length * 13 - 14 < MARGEM) {
         estado.p = pdf.addPage(A4);
         estado.y = A4[1] - MARGEM - 10;

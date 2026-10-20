@@ -61,8 +61,17 @@ describe('avisos da agenda', () => {
     const dia = { ...c, hora: null, avisar_min: 0 };
     expect(avisosAgenda(membro, [dia], t('2026-11-21T07:55'), SITE)).toEqual([]);
     expect(avisosAgenda(membro, [dia], t('2026-11-21T08:02'), SITE)[0].corpo).toBe('Hoje (dia inteiro) · UBS Centro');
-    const naHora = { ...c, avisar_min: 30 };
-    expect(avisosAgenda(membro, [naHora], t('2026-11-21T09:01'), SITE)).toEqual([]);
+    const meiaHora = { ...c, avisar_min: 30 };
+    expect(avisosAgenda(membro, [meiaHora], t('2026-11-21T09:01'), SITE)).toEqual([]);
+  });
+
+  it('aviso "na hora" chega logo depois do início, mas não muito depois', () => {
+    const naHora = { ...c, avisar_min: 0 };
+    expect(avisosAgenda(membro, [naHora], t('2026-11-21T08:58'), SITE)).toEqual([]);
+    const avisos = avisosAgenda(membro, [naHora], t('2026-11-21T09:02'), SITE);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0].corpo).toBe('Hoje às 09:00 · UBS Centro');
+    expect(avisosAgenda(membro, [naHora], t('2026-11-21T09:20'), SITE)).toEqual([]);
   });
 
   it('sem aviso ou desligado não avisa', () => {

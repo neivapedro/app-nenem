@@ -117,6 +117,7 @@ export class RepositorioLocal implements Repositorio {
       familia_id: b.familiaId!,
       user_id: uid,
       nome,
+      criado_em: new Date().toISOString(),
       fuso_horario: 'America/Sao_Paulo',
       lembrete_mamada: false,
       lembrete_mamada_min: 180,
@@ -151,6 +152,23 @@ export class RepositorioLocal implements Repositorio {
 
   async criarConvite(): Promise<Convite> {
     return { codigo: 'DEMO42', expira_em: new Date(Date.now() + 7 * 86_400_000).toISOString() };
+  }
+
+  async cancelarConvite() {}
+
+  async removerMembro(userId: string) {
+    const b = ler();
+    b.membros = b.membros.filter((m) => m.user_id !== userId);
+    gravar(b);
+  }
+
+  async sairFamilia() {
+    const b = ler();
+    if (b.membros.length < 2) throw new Error('Você é o único responsável desta família.');
+    const uid = this.exigir(b);
+    b.membros = b.membros.filter((m) => m.user_id !== uid);
+    b.familiaId = null;
+    gravar(b);
   }
 
   async entrarFamilia(_codigo: string, nome: string) {

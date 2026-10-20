@@ -137,3 +137,26 @@ describe('textos e validação', () => {
     expect(validarRegistro(fralda('f', '14:00', false, false), t('15:00'))).toMatch(/xixi/);
   });
 });
+
+describe('correções da verificação geral', () => {
+  const sono = (id: string, de: string, ate: string | null): RegistroDe<'sono'> => ({ ...base, id, tipo: 'sono', inicio: t(de).toISOString(), fim: ate ? t(ate).toISOString() : null, observacao: null, dados: {} });
+
+  it('sonos sobrepostos (os dois celulares marcaram) contam uma vez só', () => {
+    const r = resumoDia([sono('a', '10:00', '12:00'), sono('b', '11:00', '13:00'), sono('c', '15:00', '15:30')], '2026-11-15', t('20:00'));
+    expect(r.sonoMs).toBe(3.5 * 3_600_000);
+  });
+
+  it('não aceita fim no futuro, nem mais de 24 h, nem sono de 0 min', () => {
+    expect(validarRegistro(sono('a', '10:00', '23:00'), t('12:00'))).toMatch(/futuro/);
+    const longo = { ...sono('a', '10:00', '11:00'), fim: t('11:00', '2026-11-16').toISOString() };
+    expect(validarRegistro(longo, t('12:00', '2026-11-16'))).toMatch(/24 h/);
+    expect(validarRegistro(sono('a', '10:00', '10:00'), t('12:00'))).toMatch(/1 minuto/);
+    expect(validarRegistro(sono('a', '10:00', '11:00'), t('12:00'))).toBeNull();
+  });
+
+  it('mamada curta aparece em segundos e cronômetro antigo mostra o dia', () => {
+    const m = finalizarMamada(iniciarMamada(base, 'E', t('10:00')), new Date(t('10:00').getTime() + 40_000));
+    expect(descrever(m, t('11:00')).titulo).toBe('Mamada · 40 s');
+    expect(descrever(sono('s', '22:00', null), t('08:00', '2026-11-17')).detalhe).toBe('15/11 22:00 · dormindo');
+  });
+});

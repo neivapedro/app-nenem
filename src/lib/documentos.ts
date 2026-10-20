@@ -182,6 +182,8 @@ export function montarKit(kit: Kit, docs: Documento[]): KitMontado {
   const documentos: Documento[] = [];
   const faltam: ModeloDocumento[] = [];
   let incluiVacinacao = false;
+  // Tipos citados no kit: esses entram pelo próprio item, não como "recentes"
+  const doKit = new Set(kit.itens.flatMap((i) => ('modelo' in i ? [i.modelo] : [])));
   for (const item of kit.itens) {
     if ('gerado' in item) incluiVacinacao = true;
     else if ('modelo' in item) {
@@ -195,7 +197,7 @@ export function montarKit(kit: Kit, docs: Documento[]): KitMontado {
       }
     } else {
       const recentes = docs
-        .filter((d) => d.categoria === item.categoria && !d.modelo_id && guardado(d))
+        .filter((d) => d.categoria === item.categoria && !(d.modelo_id && doKit.has(d.modelo_id)) && guardado(d))
         .sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''))
         .slice(0, item.ultimos);
       for (const d of recentes) if (!usados.has(d.id)) (usados.add(d.id), documentos.push(d));

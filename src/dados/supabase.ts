@@ -59,6 +59,7 @@ function paraMembro(d: any): Membro {
     lembrete_documento: d.lembrete_documento !== false,
     lembrete_cofrinho: d.lembrete_cofrinho !== false,
     token_calendario: d.token_calendario ?? null,
+    criado_em: d.criado_em ?? undefined,
   };
 }
 
@@ -140,7 +141,8 @@ export class RepositorioSupabase implements Repositorio {
   private abertoParaRecuperar = /type=recovery/.test(location.hash + location.search);
 
   constructor(url: string, chave: string) {
-    this.sb = createClient(url, chave, { auth: { persistSession: true, autoRefreshToken: true } });
+    // Sem novas tentativas automáticas (1+2+4 s por consulta): o app já tem a fila e a cópia guardada para ficar sem internet
+    this.sb = createClient(url, chave, { auth: { persistSession: true, autoRefreshToken: true }, db: { retry: false } });
     this.chaveSessao = `sb-${new URL(url).hostname.split('.')[0]}-auth-token`;
   }
 
@@ -260,13 +262,30 @@ export class RepositorioSupabase implements Repositorio {
     return { codigo: linha.codigo, expira_em: linha.expira_em };
   }
 
+  async cancelarConvite() {
+    erro(await this.sb.rpc('nenem_cancelar_convite'));
+  }
+
+  async removerMembro(userId: string) {
+    erro(await this.sb.rpc('nenem_remover_membro', { p_user: userId }));
+  }
+
+  async sairFamilia() {
+    erro(await this.sb.rpc('nenem_sair_familia'));
+  }
+
   async entrarFamilia(codigo: string, nome: string) {
     erro(await this.sb.rpc('nenem_entrar_familia', { p_codigo: codigo, p_nome: nome, p_fuso: fusoDoAparelho() }));
   }
 
   async infoConvite(codigo: string) {
-    const { data, error } = await this.sb.rpc('nenem_info_convite', { p_codigo: codigo });
-    if (error) return null;
+    const { data, error, status } = await this.sb.rpc('nenem_info_convite', { p_codigo: codigo });
+    if (error) {
+      // Sem internet não é "convite vencido": deixa a tela tentar de novo
+      const e = new ErroServidor(error.message, status, error.code);
+      if (ehErroDeRede(e)) throw e;
+      return null;
+    }
     const linha = Array.isArray(data) ? data[0] : data;
     return linha?.convidou ? { convidou: String(linha.convidou), bebe: String(linha.bebe) } : null;
   }
@@ -284,10 +303,17 @@ export class RepositorioSupabase implements Repositorio {
 
   async listarColecao<K extends NomeColecao>(nome: K): Promise<Colecoes[K][]> {
     const { tabela, ordem } = TABELAS[nome];
-    const r = await this.sb.from(tabela).select('*').order(ordem);
-    // Tabela da Fase 2 que ainda não existe no banco: lista vazia (o resto do app segue)
-    if (r.error && /does not exist|Could not find|schema cache/i.test(r.error.message)) return [];
-    return (erro(r) ?? []).map((d) => paraItem(nome, d));
+    // Paginado: o servidor devolve no máximo 1.000 linhas por pedido (ex.: potes de leite de meses)
+    const todos: Colecoes[K][] = [];
+    for (let de = 0; ; de += 1000) {
+      const r = await this.sb.from(tabela).select('*').order(ordem).order('id').range(de, de + 999);
+      // Tabela da Fase 2 que ainda não existe no banco: lista vazia (o resto do app segue)
+      if (r.error && /does not exist|Could not find|schema cache/i.test(r.error.message)) return [];
+      const d = erro(r) ?? [];
+      todos.push(...d.map((x) => paraItem(nome, x)));
+      if (d.length < 1000) break;
+    }
+    return todos;
   }
 
   async salvarColecao<K extends NomeColecao>(nome: K, item: Colecoes[K]) {
@@ -384,8 +410,13 @@ export class RepositorioSupabase implements Repositorio {
   }
 
   async listarCompromissos(): Promise<Compromisso[]> {
-    const d = erro(await this.sb.from('nenem_compromissos').select('*').order('data').order('hora', { nullsFirst: true }));
-    return (d ?? []).map(paraCompromisso);
+    const todos: Compromisso[] = [];
+    for (let de = 0; ; de += 1000) {
+      const d = erro(await this.sb.from('nenem_compromissos').select('*').order('data').order('hora', { nullsFirst: true }).order('id').range(de, de + 999)) ?? [];
+      todos.push(...d.map(paraCompromisso));
+      if (d.length < 1000) break;
+    }
+    return todos;
   }
 
   async salvarCompromisso(c: Compromisso) {

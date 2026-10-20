@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { Protecao } from './componentes/Protecao';
 import { ProvedorDados } from './dados/contexto';
 import { capturarConviteDaUrl } from './lib/convite';
 import { registrarServiceWorker, vigiarVersaoNova } from './lib/notificacoes';
@@ -28,7 +29,9 @@ window.addEventListener('load', () => setTimeout(() => sessionStorage.removeItem
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ProvedorDados>
-      <App />
+      <Protecao>
+        <App />
+      </Protecao>
     </ProvedorDados>
   </StrictMode>,
 );

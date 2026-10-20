@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escoreZ, lmsNaIdade, percentilDoZ, textoPercentil, valorNoPercentil } from './crescimento';
+import { diasPrematuridade, escoreZ, idadeParaOms, lmsNaIdade, percentilDoZ, textoPercentil, valorNoPercentil } from './crescimento';
 
 describe('curvas da OMS', () => {
   it('mediana ao nascer confere com a tabela da OMS', () => {
@@ -42,5 +42,24 @@ describe('curvas da OMS', () => {
   it('fora da faixa da tabela não calcula', () => {
     expect(escoreZ('peso', 'M', -1, 3)).toBeNull();
     expect(escoreZ('peso', 'M', 2000, 15)).toBeNull();
+  });
+});
+
+describe('idade corrigida (prematuros)', () => {
+  it('só conta como prematuro com 3 semanas ou mais antes da data prevista', () => {
+    expect(diasPrematuridade('2026-02-15', null)).toBe(0);
+    expect(diasPrematuridade('2026-02-15', '2026-03-07')).toBe(0); // 20 dias
+    expect(diasPrematuridade('2026-02-15', '2026-03-08')).toBe(21);
+    expect(diasPrematuridade('2026-02-15', '2026-04-12')).toBe(56); // 8 semanas, atravessa o fim do horário de verão
+    expect(diasPrematuridade('2026-02-15', '2026-02-01')).toBe(0); // nasceu depois da data prevista
+  });
+
+  it('desconta a prematuridade até 2 anos e não compara antes da data prevista', () => {
+    expect(idadeParaOms(100, 0)).toEqual({ dia: 100, corrigida: false });
+    expect(idadeParaOms(100, 56)).toEqual({ dia: 44, corrigida: true });
+    expect(idadeParaOms(56, 56)).toEqual({ dia: 0, corrigida: true });
+    expect(idadeParaOms(30, 56)).toBeNull();
+    expect(idadeParaOms(730, 56)).toEqual({ dia: 674, corrigida: true });
+    expect(idadeParaOms(731, 56)).toEqual({ dia: 731, corrigida: false });
   });
 });

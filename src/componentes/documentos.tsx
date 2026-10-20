@@ -42,7 +42,7 @@ function ordenar(docs: Documento[]): Documento[] {
       (ordemCat.get(a.categoria) ?? 9) - (ordemCat.get(b.categoria) ?? 9) ||
       (ordemModelo.get(a.modelo_id ?? '') ?? 99) - (ordemModelo.get(b.modelo_id ?? '') ?? 99) ||
       (b.data ?? '').localeCompare(a.data ?? '') ||
-      a.titulo.localeCompare(b.titulo, 'pt-BR'),
+      a.titulo.localeCompare(b.titulo, 'pt-BR', { numeric: true }),
   );
 }
 
@@ -184,7 +184,7 @@ function StatusOffline() {
 type Ajuste = { tipo: 'nova'; foto: File } | { tipo: 'existente'; indice: number; foto: Blob };
 
 function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento; novo: boolean; aoFechar: () => void; aoSalvar: (d: Documento) => void }) {
-  const { repo, gravar, mostrarAviso, setErro } = useDados();
+  const { repo, gravar, mostrarAviso, setErro, documentos } = useDados();
   const [d, setD] = useState<Documento>(inicial);
   const [enviando, setEnviando] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -271,11 +271,23 @@ function FolhaEditar({ inicial, novo, aoFechar, aoSalvar }: { inicial: Documento
     const titulo = d.titulo.trim();
     if (!titulo) return setMsg('Dê um nome ao documento.');
     if (enviando) return setMsg('Espere terminar o envio dos arquivos.');
-    const final: Documento = { ...d, titulo, numero: d.numero?.trim() || null, observacao: d.observacao?.trim() || null };
+    // Junta o que o outro membro mudou nos arquivos enquanto a folha estava aberta:
+    // os que ele acrescentou entram; os que ele tirou não voltam
+    const agora = novo ? undefined : documentos.find((x) => x.id === d.id);
+    const eraAntes = new Set(inicial.arquivos.map((a) => a.caminho));
+    const nesta = new Set(d.arquivos.map((a) => a.caminho));
+    let arquivos = d.arquivos;
+    if (agora) {
+      const existem = new Set(agora.arquivos.map((a) => a.caminho));
+      arquivos = [
+        ...d.arquivos.filter((a) => !eraAntes.has(a.caminho) || existem.has(a.caminho)),
+        ...agora.arquivos.filter((a) => !eraAntes.has(a.caminho) && !nesta.has(a.caminho)),
+      ];
+    }
+    const final: Documento = { ...d, titulo, numero: d.numero?.trim() || null, observacao: d.observacao?.trim() || null, arquivos };
     gravar({ tipo: 'colecao', colecao: 'documentos', dado: final });
-    // Arquivos tirados ou trocados na edição saem do servidor
-    const ficam = new Set(final.arquivos.map((a) => a.caminho));
-    const sairam = inicial.arquivos.filter((a) => !ficam.has(a.caminho)).map((a) => a.caminho);
+    // Arquivos tirados ou trocados nesta edição saem do servidor
+    const sairam = inicial.arquivos.filter((a) => !nesta.has(a.caminho)).map((a) => a.caminho);
     if (sairam.length) void repo.excluirArquivos(sairam).catch((err) => setErro(traduzirErro(err)));
     mostrarAviso({ texto: novo ? 'Documento guardado 📁' : 'Documento atualizado' });
     aoSalvar(final);
@@ -716,7 +728,7 @@ function FolhaExportar({ docs, kit, aoFechar, aoGuardar }: { docs: Documento[]; 
             {montado.faltam.map((m) => (
               <div key={m.id} className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
                 <span className="texto-2">{m.titulo}</span>
-                <button type="button" className="botao pequeno" onClick={() => aoGuardar(m)}>
+                <button type="button" className="botao pequeno" style={{ flex: 'none', whiteSpace: 'nowrap' }} onClick={() => aoGuardar(m)}>
                   Guardar
                 </button>
               </div>

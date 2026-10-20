@@ -38,6 +38,8 @@ export interface Aviso {
 export const JANELA_MAMADA_MIN = 180;
 /** O aviso da agenda ainda sai até esta janela depois do horário (servidor parado, atraso do agendador). */
 export const JANELA_AGENDA_MIN = 360;
+/** O aviso "na hora" ainda sai até estes minutos depois do início (o agendador roda a cada 5 min). */
+export const TOLERANCIA_NA_HORA_MIN = 15;
 
 function textoDuracao(min: number): string {
   const h = Math.floor(min / 60);
@@ -100,8 +102,12 @@ export function avisosAgenda(m: MembroAviso, compromissos: CompromissoIcs[], ago
     if (!inst) continue;
     const atraso = (agora.getTime() - inst.getTime()) / 60_000;
     if (atraso < 0 || atraso > JANELA_AGENDA_MIN) continue;
-    // Compromisso com hora que já começou: não avisa mais
-    if (c.hora && agora.getTime() >= localParaUtc(c.data, c.hora.slice(0, 5), fuso).getTime()) continue;
+    // Compromisso com hora que já começou: não avisa mais. O aviso "na hora"
+    // (avisar_min 0) é o próprio início: vale até alguns minutos depois.
+    if (c.hora) {
+      const tolerancia = c.avisar_min === 0 ? TOLERANCIA_NA_HORA_MIN * 60_000 : 0;
+      if (agora.getTime() >= localParaUtc(c.data, c.hora.slice(0, 5), fuso).getTime() + tolerancia) continue;
+    }
     const local = c.local?.trim() ? ` · ${c.local.trim()}` : '';
     avisos.push({
       chave: `agenda:${c.id}:${c.data}T${c.hora ?? 'dia'}:${c.avisar_min}:${m.user_id}`,

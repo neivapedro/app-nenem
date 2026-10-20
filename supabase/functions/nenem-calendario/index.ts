@@ -5,7 +5,10 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { eventosCofrinho, eventosDocumentos, eventosTarefas, eventosVacinas, montarIcs, type CompromissoIcs, type DocumentoIcs, type EventoDia } from '../_shared/ics.ts';
-import { dataNoFuso, somarDias } from '../_shared/tempo.ts';
+import { dataNoFuso, fusoValido, somarDias } from '../_shared/tempo.ts';
+
+/** Falha passageira do banco: melhor o iPhone tentar de novo do que receber uma agenda vazia (e apagar os eventos) */
+const tenteDepois = () => new Response('Tente mais tarde', { status: 503, headers: { 'Retry-After': '600' } });
 
 const SITE = 'https://neivapedro.github.io/app-nenem/';
 const url = Deno.env.get('SUPABASE_URL')!;
@@ -16,14 +19,15 @@ Deno.serve(async (req) => {
   if (!/^[a-f0-9]{32,}$/.test(token)) return new Response('Calendário não encontrado', { status: 404 });
 
   const db = createClient(url, serviceKey, { auth: { persistSession: false } });
-  const { data: membro } = await db.from('nenem_membros').select('familia_id, fuso_horario').eq('token_calendario', token).maybeSingle();
+  const { data: membro, error: erroMembro } = await db.from('nenem_membros').select('familia_id, fuso_horario').eq('token_calendario', token).maybeSingle();
+  if (erroMembro) return tenteDepois();
   if (!membro) return new Response('Calendário não encontrado', { status: 404 });
 
-  const fuso = membro.fuso_horario || 'America/Sao_Paulo';
+  const fuso = fusoValido(membro.fuso_horario);
   const agora = new Date();
   // Últimos 12 meses e tudo o que vem pela frente
   const desde = somarDias(dataNoFuso(agora, fuso), -365);
-  const [{ data: comp }, { data: bebes }] = await Promise.all([
+  const primeiras = await Promise.all([
     db
       .from('nenem_compromissos')
       .select('id, tipo, titulo, data, hora, duracao_min, local, observacao, avisar_min')
@@ -32,12 +36,14 @@ Deno.serve(async (req) => {
       .order('data'),
     db.from('nenem_bebes').select('id, nome, nascimento').eq('familia_id', membro.familia_id),
   ]);
+  if (primeiras.some((r) => r.error)) return tenteDepois();
+  const [{ data: comp }, { data: bebes }] = primeiras;
   const compromissos = (comp ?? []).map((c) => ({ ...c, hora: c.hora ? String(c.hora).slice(0, 5) : null })) as CompromissoIcs[];
 
   // Vacinas e prazos dos primeiros dias (tabelas da Fase 2; vazias se ainda não existirem)
   const hoje = dataNoFuso(agora, fuso);
   const inicioMes = `${hoje.slice(0, 7)}-01`;
-  const [{ data: bebesCompletos }, { data: vac }, { data: tar }, { data: docs }, { data: planos }, { data: depMes }] = await Promise.all([
+  const segundas = await Promise.all([
     db.from('nenem_bebes').select('*').eq('familia_id', membro.familia_id).order('criado_em'),
     db.from('nenem_vacinas').select('bebe_id, dose_id, status, data').eq('familia_id', membro.familia_id),
     db.from('nenem_tarefas').select('id, item_id, titulo, data, feito_em').eq('familia_id', membro.familia_id),
@@ -46,6 +52,8 @@ Deno.serve(async (req) => {
     db.from('nenem_cofrinho_planos').select('dia_aporte, aporte_mensal_centavos').eq('familia_id', membro.familia_id),
     db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', membro.familia_id).eq('tipo', 'deposito').gte('data', inicioMes).limit(1),
   ]);
+  if (segundas.some((r) => r.error)) return tenteDepois();
+  const [{ data: bebesCompletos }, { data: vac }, { data: tar }, { data: docs }, { data: planos }, { data: depMes }] = segundas;
   const eventos: EventoDia[] = [];
   let nascimentoFamilia: string | null = null;
   for (const b of bebesCompletos ?? []) {

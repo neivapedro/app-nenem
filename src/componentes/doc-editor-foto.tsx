@@ -1,7 +1,7 @@
 // Ajustar a foto do documento: arraste os 4 cantos até as pontas do papel, gire
 // se precisar e escolha o realce. O app endireita (tira a mesa e o ângulo).
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cantosIniciais, cantosValidos, endireitar, tamanhoSaida, type Cantos, type Filtro } from '../lib/perspectiva';
+import { cantosIniciais, cantosValidos, endireitar, ordenarCantos, tamanhoSaida, type Cantos, type Filtro } from '../lib/perspectiva';
 import { Icone } from './ui';
 
 /** Lado maior da foto de trabalho (e da foto final) */
@@ -20,7 +20,11 @@ async function carregar(blob: Blob): Promise<HTMLCanvasElement> {
     const c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k);
     c.height = Math.round(img.naturalHeight * k);
-    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+    const ctx = c.getContext('2d')!;
+    // Fundo branco: PNG transparente não vira quadro preto
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
     return c;
   } finally {
     URL.revokeObjectURL(url);
@@ -43,6 +47,8 @@ const paraBlob = (c: HTMLCanvasElement, q = 0.88) =>
 
 export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: Blob; aoPronto: (b: Blob) => void; aoCancelar: () => void; textoPular?: string }) {
   const [fonte, setFonte] = useState<HTMLCanvasElement | null>(null);
+  // Foto como abriu (sem giro): "usar como está" só reaproveita o arquivo original se não girou
+  const [original, setOriginal] = useState<HTMLCanvasElement | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [cantos, setCantos] = useState<Cantos | null>(null);
   const [filtro, setFiltro] = useState<Filtro>('realcar');
@@ -55,7 +61,7 @@ export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: B
   useEffect(() => {
     let vivo = true;
     carregar(foto)
-      .then((c) => vivo && (setFonte(c), setCantos(cantosIniciais(c.width, c.height, 0.05))))
+      .then((c) => vivo && (setFonte(c), setOriginal(c), setCantos(cantosIniciais(c.width, c.height, 0.05))))
       .catch((e) => vivo && setErro((e as Error).message));
     return () => {
       vivo = false;
@@ -100,7 +106,9 @@ export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: B
   }, []);
 
   const escala = fonte && caixa.w ? fonte.width / caixa.w : 1;
-  const valido = useMemo(() => !!cantos && cantosValidos(cantos), [cantos]);
+  // Cantos na ordem certa, seja qual for a bolinha levada a cada ponta (não espelha)
+  const ordenados = useMemo(() => (cantos ? ordenarCantos(cantos) : null), [cantos]);
+  const valido = useMemo(() => !!ordenados && cantosValidos(ordenados), [ordenados]);
 
   function mover(e: React.PointerEvent<SVGSVGElement>) {
     const i = arrastando.current;
@@ -121,25 +129,37 @@ export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: B
   }
 
   async function concluir() {
-    if (!fonte || !cantos) return;
-    if (!valido) return setErro('Os cantos se cruzaram. Arraste cada bolinha para a ponta certa do documento.');
+    if (!fonte || !ordenados) return;
+    if (!valido) return setErro('Os cantos não formam o documento. Arraste cada bolinha para uma ponta do papel.');
     setProcessando(true);
     setErro(null);
     // Deixa a tela mostrar "Endireitando…" antes do cálculo
     await new Promise((r) => setTimeout(r, 30));
     try {
-      const { w, h } = tamanhoSaida(cantos, MAX);
+      const { w, h } = tamanhoSaida(ordenados, MAX);
       const origem = fonte.getContext('2d')!.getImageData(0, 0, fonte.width, fonte.height);
       const saida = document.createElement('canvas');
       saida.width = w;
       saida.height = h;
       const ctx = saida.getContext('2d')!;
       const destino = ctx.createImageData(w, h);
-      endireitar(origem, cantos, destino, filtro);
+      endireitar(origem, ordenados, destino, filtro);
       ctx.putImageData(destino, 0, 0);
       aoPronto(await paraBlob(saida));
     } catch (e) {
       setErro((e as Error).message || 'Não foi possível ajustar a foto.');
+      setProcessando(false);
+    }
+  }
+
+  /** Sem recorte: a foto como está, mas com o giro feito aqui */
+  async function usarComoEsta() {
+    if (!fonte || fonte === original) return aoPronto(foto);
+    setProcessando(true);
+    try {
+      aoPronto(await paraBlob(fonte));
+    } catch (e) {
+      setErro((e as Error).message || 'Não foi possível preparar a foto.');
       setProcessando(false);
     }
   }
@@ -157,7 +177,7 @@ export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: B
         </div>
       </div>
       <div ref={area} className="editor-area">
-        {url && cantos && fonte && caixa.w > 0 && (
+        {url && cantos && ordenados && fonte && caixa.w > 0 && (
           <div className="editor-caixa" style={{ width: caixa.w, height: caixa.h }}>
             <img src={url} alt="Foto do documento" draggable={false} />
             <svg
@@ -168,11 +188,15 @@ export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: B
               onPointerCancel={() => (arrastando.current = null)}
             >
               <path
-                d={`M0,0H${fonte.width}V${fonte.height}H0Z M${cantos.map((c) => `${c.x},${c.y}`).join(' L')} Z`}
+                d={`M0,0H${fonte.width}V${fonte.height}H0Z M${ordenados.map((c) => `${c.x},${c.y}`).join(' L')} Z`}
                 fillRule="evenodd"
                 className="editor-sombra"
               />
-              <polygon points={cantos.map((c) => `${c.x},${c.y}`).join(' ')} className={`editor-borda ${valido ? '' : 'ruim'}`} style={{ strokeWidth: 3 * escala }} />
+              <polygon
+                points={ordenados.map((c) => `${c.x},${c.y}`).join(' ')}
+                className={`editor-borda ${valido ? '' : 'ruim'}`}
+                style={{ strokeWidth: 3 * escala }}
+              />
               {cantos.map((c, i) => (
                 <circle
                   key={i}
@@ -224,7 +248,7 @@ export function EditorFoto({ foto, aoPronto, aoCancelar, textoPular }: { foto: B
           </button>
         </div>
         {textoPular && (
-          <button className="vis-botao texto" disabled={processando} onClick={() => aoPronto(foto)}>
+          <button className="vis-botao texto" disabled={processando} onClick={() => void usarComoEsta()}>
             {textoPular}
           </button>
         )}

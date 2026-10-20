@@ -41,7 +41,13 @@ export const HORA_AVISO_DIA_INTEIRO = '08:00';
 export const MESES_MESVERSARIO = 24;
 
 export function escaparIcs(t: string): string {
-  return t.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  // CR sozinho também é quebra de linha; outros caracteres de controle saem (não podem injetar propriedades)
+  return t
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r\n|\r|\n/g, '\\n')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '');
 }
 
 /** Dobra linhas em 75 octetos (RFC 5545), sem quebrar caracteres UTF-8. */

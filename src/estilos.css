@@ -134,6 +134,9 @@ a { color: var(--destaque); }
 }
 .cartao > h2 { margin-bottom: 12px; }
 .cartao-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+/* Botão do cabeçalho do cartão não quebra no meio ("Edit/ar") */
+.cartao-cab > .botao, .cartao-cab > button { flex: none; white-space: nowrap; overflow-wrap: normal; }
+.cartao-cab > .linha { flex-wrap: nowrap; min-width: 0; }
 
 .rotulo { color: var(--texto-2); font-size: 0.8rem; }
 .mudo { color: var(--texto-3); font-size: 0.85rem; }
@@ -147,7 +150,7 @@ a { color: var(--destaque); }
 .grade { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grade-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .bloco { background: var(--superficie-2); border-radius: 12px; padding: 10px 12px; min-width: 0; }
-.bloco .rotulo { font-size: 0.75rem; }
+.bloco .rotulo { font-size: 0.75rem; overflow-wrap: normal; word-break: normal; hyphens: auto; }
 .bloco .valor { font-weight: 650; font-size: 1.1rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .bloco .valor small { font-size: 0.75rem; font-weight: 500; color: var(--texto-2); }
 @media (max-width: 370px) { .grade-3 .bloco { padding: 9px 8px; } .grade-3 .bloco .valor { font-size: 1rem; } }
@@ -195,8 +198,9 @@ a { color: var(--destaque); }
 .escolhas button.ativo { background: var(--destaque); color: var(--destaque-texto); border-color: transparent; font-weight: 600; }
 
 .abas { display: flex; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 14px; }
-.abas button { flex: 1; min-height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); font-weight: 600; cursor: pointer; font-size: 0.88rem; }
+.abas button { flex: 1 1 auto; min-width: 0; padding: 0 4px; white-space: nowrap; min-height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); font-weight: 600; cursor: pointer; font-size: 0.88rem; }
 .abas button.ativo { background: var(--superficie-2); color: var(--texto); }
+@media (max-width: 359px) { .abas button { font-size: 0.78rem; } }
 
 .alerta {
   display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
@@ -292,7 +296,7 @@ a { color: var(--destaque); }
 }
 .aviso-rapido button { border: 0; background: none; color: inherit; font-weight: 700; padding: 8px 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
-.centro { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.centro { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: max(24px, calc(env(safe-area-inset-top) + 12px)) 16px max(24px, calc(env(safe-area-inset-bottom) + 12px)); }
 .entrada { width: 100%; max-width: 420px; }
 .marca-heroi { width: 96px; height: 96px; border-radius: 26px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.3); }
 .nome-app { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-3); }
@@ -303,7 +307,7 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .marcar input { width: 22px; height: 22px; flex: none; margin: 1px 0 0; accent-color: var(--destaque); }
 
 .dia-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.dia-cab h2 { text-transform: capitalize; }
+.dia-cab h2::first-letter { text-transform: uppercase; }
 .resumo-linha { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
 .resumo-linha span { white-space: nowrap; }
 
@@ -340,7 +344,7 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .grupo-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
 .tabela-simples { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .tabela-simples th, .tabela-simples td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--borda); white-space: nowrap; }
-.tabela-simples th:first-child, .tabela-simples td:first-child { text-align: left; }
+.tabela-simples th:first-child, .tabela-simples td:first-child { text-align: left; white-space: normal; }
 .tabela-simples th { color: var(--texto-2); font-weight: 600; font-size: 0.75rem; }
 .tabela-simples tr.clicavel { cursor: pointer; }
 .chips-rolagem { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
@@ -420,9 +424,9 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .doc-numero:first-of-type { border-top: 0; }
 .doc-numero .valor { font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .etiqueta { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--superficie-2); color: var(--texto-2); white-space: nowrap; }
-.etiqueta.ruim { background: color-mix(in srgb, var(--ruim) 14%, transparent); color: var(--ruim); }
+.etiqueta.ruim { background: color-mix(in srgb, var(--ruim) 14%, transparent); color: color-mix(in srgb, var(--ruim) 70%, var(--texto)); }
 .etiqueta.aviso { background: color-mix(in srgb, var(--aviso) 18%, transparent); color: color-mix(in srgb, var(--aviso) 70%, var(--texto)); }
-.etiqueta.bom { background: color-mix(in srgb, var(--c-agenda) 14%, transparent); color: var(--c-agenda); }
+.etiqueta.bom { background: color-mix(in srgb, var(--c-agenda) 14%, transparent); color: color-mix(in srgb, var(--c-agenda) 70%, var(--texto)); }
 .progresso { height: 6px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
 .progresso > span { display: block; height: 100%; background: var(--c-agenda); border-radius: inherit; }
 .marcar { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--borda); cursor: pointer; }

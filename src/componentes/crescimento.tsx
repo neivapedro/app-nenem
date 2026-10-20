@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useDados } from '../dados/contexto';
-import { escoreZ, faixaPercentil, ganhoPorDia, NOMES_INDICADOR, textoPercentil, UNIDADE_INDICADOR, valorMedida, type Indicador } from '../lib/crescimento';
+import { diasPrematuridade, escoreZ, faixaPercentil, ganhoPorDia, idadeParaOms, NOMES_INDICADOR, textoPercentil, UNIDADE_INDICADOR, valorMedida, type Indicador } from '../lib/crescimento';
 import { chaveDia, dataBr, diasEntre, hojeLocal } from '../lib/datas';
 import type { Medida } from '../lib/tipos';
 import { GraficoCrescimento, type PontoCrescimento } from './grafico-crescimento';
@@ -18,6 +18,7 @@ function FolhaMedida({ inicial, aoFechar }: { inicial: Medida | null; aoFechar: 
   const [obs, setObs] = useState(inicial?.observacao ?? '');
   const [msg, setMsg] = useState<string | null>(null);
   if (!bebe || !membro) return null;
+  const nasc = bebe.nascimento ? chaveDia(bebe.nascimento) : null;
 
   function salvar() {
     if (!bebe || !membro) return;
@@ -30,7 +31,7 @@ function FolhaMedida({ inicial, aoFechar }: { inicial: Medida | null; aoFechar: 
     if (g !== null && !(g >= 300 && g <= 40000)) return setMsg('Peso em kg (ex.: 4,250).');
     if (c !== null && !(c >= 20 && c <= 130)) return setMsg('Comprimento em cm (ex.: 54,5).');
     if (p !== null && !(p >= 18 && p <= 60)) return setMsg('Perímetro cefálico em cm (ex.: 37).');
-    if (!data || data > hojeLocal()) return setMsg('Informe a data (não pode ser no futuro).');
+    if (!data || data > hojeLocal() || (nasc && data < nasc)) return setMsg('Informe a data (não pode ser no futuro nem antes do nascimento).');
     const m: Medida = {
       id: inicial?.id ?? crypto.randomUUID(),
       familia_id: membro.familia_id,
@@ -60,7 +61,7 @@ function FolhaMedida({ inicial, aoFechar }: { inicial: Medida | null; aoFechar: 
         }}
       >
         <Campo rotulo="Data">
-          <input type="date" value={data} max={hojeLocal()} onChange={(e) => setData(e.target.value)} />
+          <input type="date" value={data} min={nasc ?? undefined} max={hojeLocal()} onChange={(e) => setData(e.target.value)} />
         </Campo>
         <div className="grade grade-3">
           <Campo rotulo="Peso (kg)">
@@ -120,7 +121,16 @@ export function SecaoCrescimento() {
 
   const nasc = bebe?.nascimento ? chaveDia(bebe.nascimento) : null;
   const linhas: Linha[] = useMemo(() => {
-    const l: Linha[] = medidas.map((m) => ({ id: m.id, data: m.data, peso_g: m.peso_g, comprimento_cm: m.comprimento_cm, pc_cm: m.pc_cm, medida: m }));
+    // Medida no dia do nascimento: completa o que ficou em branco com os dados do nascimento do bebê
+    const doNascer = (m: Medida) => nasc && bebe && m.data === nasc;
+    const l: Linha[] = medidas.map((m) => ({
+      id: m.id,
+      data: m.data,
+      peso_g: m.peso_g ?? (doNascer(m) ? bebe!.peso_nascer_g : null),
+      comprimento_cm: m.comprimento_cm ?? (doNascer(m) ? bebe!.altura_nascer_cm : null),
+      pc_cm: m.pc_cm ?? (doNascer(m) ? bebe!.pc_nascer_cm : null),
+      medida: m,
+    }));
     if (nasc && bebe && (bebe.peso_nascer_g || bebe.altura_nascer_cm || bebe.pc_nascer_cm) && !medidas.some((m) => m.data === nasc)) {
       l.push({ id: 'nascimento', data: nasc, peso_g: bebe.peso_nascer_g, comprimento_cm: bebe.altura_nascer_cm, pc_cm: bebe.pc_nascer_cm, medida: null });
     }
@@ -129,14 +139,17 @@ export function SecaoCrescimento() {
 
   if (!bebe) return null;
   const sexo = bebe.sexo;
+  // Prematuros (3 semanas ou mais antes da data prevista): compara com a OMS pela idade corrigida até 2 anos
+  const prematuridade = nasc ? diasPrematuridade(nasc, bebe.data_prevista) : 0;
   const pontos: PontoCrescimento[] =
     nasc && sexo
       ? linhas
-          .map((l) => {
+          .map((l): PontoCrescimento | null => {
             const valor = valorMedida(l, ind);
-            const dia = diasEntre(nasc, l.data);
-            const z = valor !== null ? escoreZ(ind, sexo, dia, valor) : null;
-            return valor !== null && z !== null ? { id: l.id, dia, data: dataBr(l.data), valor, percentil: textoPercentil(z) } : null;
+            const idade = idadeParaOms(diasEntre(nasc, l.data), prematuridade);
+            if (valor === null || !idade) return null;
+            const z = escoreZ(ind, sexo, idade.dia, valor);
+            return z !== null ? { id: l.id, dia: idade.dia, data: dataBr(l.data), valor, percentil: textoPercentil(z), corrigida: idade.corrigida } : null;
           })
           .filter((p): p is PontoCrescimento => !!p)
       : [];
@@ -171,7 +184,7 @@ export function SecaoCrescimento() {
                 </div>
               </div>
               <div className="bloco">
-                <div className="rotulo">Percentil OMS</div>
+                <div className="rotulo">Percentil OMS{ultimo.corrigida ? ' (idade corrigida)' : ''}</div>
                 <div className="valor">{ultimo.percentil}</div>
               </div>
               {ind === 'peso' && ganho !== null && (
@@ -193,7 +206,12 @@ export function SecaoCrescimento() {
               <span>A última medida ficou fora da faixa do P3 ao P97. Vale mostrar ao pediatra (conferir também se a medida foi digitada certo).</span>
             </div>
           )}
-          <GraficoCrescimento indicador={ind} sexo={sexo} pontos={pontos} />
+          {prematuridade > 0 && (
+            <p className="mudo">
+              Nasceu {Math.floor(prematuridade / 7)} semanas{prematuridade % 7 ? ` e ${prematuridade % 7} ${prematuridade % 7 === 1 ? 'dia' : 'dias'}` : ''} antes da data prevista: até os 2 anos, a comparação com a OMS usa a idade corrigida (descontando essas semanas). Medidas de antes da data prevista ficam fora das curvas.
+            </p>
+          )}
+          <GraficoCrescimento indicador={ind} sexo={sexo} pontos={pontos} idadeCorrigida={prematuridade > 0} />
         </section>
       )}
       {linhas.length > 0 && (

@@ -105,10 +105,15 @@ export async function paraPdf(repo: Repositorio, docs: Documento[], aoProgredir?
   let feito = 0;
   const saida: DocParaPdf[] = [];
   for (const d of docs) {
-    const arquivos = [];
+    const arquivos: DocParaPdf['arquivos'] = [];
     for (const a of d.arquivos) {
-      const blob = await obterArquivo(repo, a.caminho);
-      arquivos.push({ nome: a.nome, tipo: a.tipo, bytes: await blob.arrayBuffer() });
+      try {
+        const blob = await obterArquivo(repo, a.caminho);
+        arquivos.push({ nome: a.nome, tipo: a.tipo, bytes: await blob.arrayBuffer() });
+      } catch {
+        // Sem internet e sem cópia no celular: o PDF sai assim mesmo, com uma página de aviso no lugar
+        arquivos.push({ nome: a.nome, tipo: a.tipo, bytes: new ArrayBuffer(0), erro: 'não deu para baixar: sem internet e sem cópia guardada no celular' });
+      }
       aoProgredir?.(++feito, total);
     }
     saida.push({

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Campo, Escolhas, Folha, Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import {
+  compromissoJaPassou,
   compromissosAnteriores,
   compromissoVazio,
   EMOJI_TIPO,
@@ -26,6 +27,7 @@ function FolhaCompromisso({ inicial, novo, aoFechar }: { inicial: Compromisso; n
     const final = { ...c, titulo: c.titulo.trim(), local: c.local?.trim() || null, observacao: c.observacao?.trim() || null };
     const problema = validarCompromisso(final);
     if (problema) return setMsg(problema);
+    if (novo && compromissoJaPassou(final, new Date()) && !confirm('Essa data/hora já passou. Salvar mesmo assim?')) return;
     gravar({ tipo: 'compromisso', dado: final });
     mostrarAviso({ texto: novo ? 'Compromisso salvo na agenda' : 'Compromisso atualizado' });
     aoFechar();

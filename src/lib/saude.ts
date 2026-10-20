@@ -21,8 +21,12 @@ export function proximaDose(remedio: Remedio, registros: Registro[]): string | n
   return u ? new Date(ms(u.inicio) + remedio.intervalo_h * 3_600_000).toISOString() : null;
 }
 
-/** Validade do pote: 12 h na geladeira, 15 dias no freezer (Ministério da Saúde) */
+/**
+ * Validade do pote: 12 h na geladeira, 15 dias no freezer (Ministério da Saúde).
+ * Descongelado (saiu do freezer para a geladeira): 12 h a partir do descongelamento.
+ */
 export function validadeLeite(p: PoteLeite): string {
+  if (p.local === 'geladeira' && p.descongelado_em) return new Date(ms(p.descongelado_em) + VALIDADE_LEITE_HORAS.geladeira * 3_600_000).toISOString();
   return new Date(ms(p.extraido_em) + VALIDADE_LEITE_HORAS[p.local] * 3_600_000).toISOString();
 }
 

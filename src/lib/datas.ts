@@ -89,9 +89,12 @@ export function idadeBebe(nascimentoIso: string, agora: Date): string {
   const nasc = inicioDoDia(chaveDia(nascimentoIso));
   const hoje = inicioDoDia(chaveDia(agora));
   const dias = Math.round((hoje.getTime() - nasc.getTime()) / 86_400_000);
-  if (dias <= 0) return 'Nasceu hoje';
+  if (dias < 0) return 'Ainda não nasceu';
+  if (dias === 0) return 'Nasceu hoje';
   let meses = (hoje.getFullYear() - nasc.getFullYear()) * 12 + (hoje.getMonth() - nasc.getMonth());
-  if (hoje.getDate() < nasc.getDate()) meses--;
+  // Nascido dia 31: em fevereiro o mesversário é o último dia do mês
+  const ultimoDoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+  if (hoje.getDate() < Math.min(nasc.getDate(), ultimoDoMes)) meses--;
   if (meses < 1) {
     if (dias < 14) return dias === 1 ? '1 dia' : `${dias} dias`;
     const sem = Math.floor(dias / 7);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDados } from '../dados/contexto';
-import { CUIDADOS, FONTES_CHEGADA, itemFamilia, PESSOAS, RECOMENDACOES, textoParaFamilia, TOTAL_ITENS, VACINAS, type Pessoa, type VacinaFamilia } from '../lib/chegada';
+import { CUIDADOS, FONTES_CHEGADA, generoBebe, itemFamilia, PESSOAS, RECOMENDACOES, textoParaFamilia, TOTAL_ITENS, VACINAS, type Pessoa, type VacinaFamilia } from '../lib/chegada';
 import { idFixo } from '../lib/ids';
 import type { Tarefa } from '../lib/tipos';
 import { Icone } from './ui';
@@ -17,6 +17,7 @@ export function SecaoChegada() {
   const [msg, setMsg] = useState<string | null>(null);
   const { feitas, total } = useProgressoFamilia();
   const nomeBebe = bebe?.nome?.trim().split(' ')[0] || 'bebê';
+  const g = generoBebe(bebe?.sexo, !!bebe?.nome?.trim());
   const porItem = new Map(tarefas.filter((t) => t.item_id).map((t) => [t.item_id!, t]));
   if (!membro) return null;
 
@@ -34,7 +35,7 @@ export function SecaoChegada() {
 
   async function enviar() {
     setMsg(null);
-    const texto = textoParaFamilia(nomeBebe);
+    const texto = textoParaFamilia(nomeBebe, bebe?.sexo);
     try {
       if (navigator.share) await navigator.share({ text: texto });
       else {
@@ -58,9 +59,9 @@ export function SecaoChegada() {
         <span className="cofrinho-emoji" aria-hidden="true">
           🛡️
         </span>
-        <h2>{bebe?.nascimento ? `Os primeiros meses do ${nomeBebe}` : `Antes de o ${nomeBebe} chegar`}</h2>
+        <h2>{bebe?.nascimento ? `Os primeiros meses ${g.do} ${nomeBebe}` : `Antes de ${g.o} ${nomeBebe} chegar`}</h2>
         <p className="texto-2">
-          O recém-nascido começa a ser vacinado aos poucos: coqueluche aos 2 meses, gripe aos 6, sarampo aos 12. Até lá, a proteção vem da mãe (na gestação) e de quem convive com ele. É a <strong>estratégia casulo</strong>: todo mundo em volta vacinado, de preferência até 2 semanas antes do nascimento.
+          O recém-nascido começa a ser vacinado aos poucos: coqueluche aos 2 meses, gripe aos 6, sarampo aos 12. Até lá, a proteção vem da mãe (na gestação) e de quem convive com {g.ele}. É a <strong>estratégia casulo</strong>: todo mundo em volta vacinado, de preferência até 2 semanas antes do nascimento.
         </p>
         <div className="linha" style={{ justifyContent: 'space-between' }}>
           <span className="texto-2">
@@ -121,7 +122,7 @@ export function SecaoChegada() {
       })}
 
       <details className="cartao ajuda">
-        <summary>Por que cada vacina importa para o {nomeBebe}</summary>
+        <summary>Por que cada vacina importa para {g.o} {nomeBebe}</summary>
         <div className="pilha-p" style={{ marginTop: 10 }}>
           {Object.values(VACINAS).map((v) => (
             <p key={v.id} className="texto-2" style={{ margin: 0 }}>

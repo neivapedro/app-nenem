@@ -67,6 +67,40 @@ describe('documentos', () => {
     expect(avisos[0]).toContain('x.pdf');
   });
 
+  it('PDF protegido que não dá para desenhar e arquivo que não baixou viram página de aviso (não saem em branco)', async () => {
+    // PDF marcado como criptografado (o pdf-lib copiaria as páginas em branco)
+    const d = await PDFDocument.create();
+    d.addPage();
+    d.addPage();
+    d.context.trailerInfo.Encrypt = d.context.obj({ Filter: 'Standard', V: 2, R: 3, Length: 128 });
+    const b = await d.save({ useObjectStreams: false });
+    const cifrado = b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
+    expect((await PDFDocument.load(cifrado, { ignoreEncryption: true })).isEncrypted).toBe(true);
+    const { bytes, avisos } = await montarPdfDocumentos(
+      [
+        { titulo: 'Conta de luz', categoria: 'Família', numero: null, data: null, validade: null, observacao: null, arquivos: [{ nome: 'conta.pdf', tipo: 'application/pdf', bytes: cifrado }] },
+        {
+          titulo: 'Receita',
+          categoria: 'Saúde',
+          numero: null,
+          data: null,
+          validade: null,
+          observacao: null,
+          arquivos: [
+            { nome: 'foto.jpg', tipo: 'image/jpeg', bytes: JPEG },
+            { nome: 'verso.jpg', tipo: 'image/jpeg', bytes: new ArrayBuffer(0), erro: 'não deu para baixar: sem internet' },
+          ],
+        },
+      ],
+      null,
+    );
+    // aviso da conta + foto + aviso do verso
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(3);
+    expect(avisos).toHaveLength(2);
+    expect(avisos[0]).toContain('conta.pdf');
+    expect(avisos[1]).toContain('sem internet');
+  });
+
   it('índice com muitos documentos ocupa mais de uma página', async () => {
     const muitos = Array.from({ length: 30 }, (_, i) => ({ titulo: `Doc ${i}`, categoria: 'Outros', numero: null, data: null, validade: null, observacao: null, arquivos: [] }));
     const { bytes } = await montarPdfDocumentos(muitos, { titulo: 'Documentos', subtitulo: '', geradoEm: 'hoje' });

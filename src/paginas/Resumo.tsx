@@ -41,7 +41,7 @@ export function Resumo() {
   const dias = useMemo(() => diasPainel(regs, de, hoje, agora), [regs, de, hoje, agora]);
   const anteriores = useMemo(() => diasPainel(regs, deAnterior, ateAnterior, agora), [regs, deAnterior, ateAnterior, agora]);
   // Dias antes do nascimento (ou do primeiro registro) não entram nas médias
-  const inicioDados = useMemo(() => inicioDosDados(bebe?.nascimento ? chaveDia(bebe.nascimento) : null, regs), [bebe?.nascimento, regs]);
+  const inicioDados = useMemo(() => inicioDosDados(bebe?.nascimento ? chaveDia(bebe.nascimento) : null, regs, hoje), [bebe?.nascimento, regs, hoje]);
   const atual = mediasPeriodo(dias, hoje, inicioDados);
   const antes = mediasPeriodo(anteriores, hoje, inicioDados);
   const temAnterior = periodoCoberto(deAnterior, inicioDados) && anteriores.some((d) => d.alimentacoes || d.fraldas || d.sonoMs);
@@ -282,6 +282,7 @@ export function Resumo() {
 
       <details className="ajuda cartao">
         <summary>Ver em tabela</summary>
+        <div style={{ overflowX: 'auto' }}>
         <table className="tabela-simples">
           <thead>
             <tr>
@@ -308,6 +309,7 @@ export function Resumo() {
             ))}
           </tbody>
         </table>
+        </div>
       </details>
 
       <RelatorioPediatra />
