@@ -10,7 +10,7 @@ import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, textoDuracao } from '../lib/datas';
 import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
-import { emEstoque, proximaDose, situacaoPote } from '../lib/saude';
+import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
 import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 
@@ -72,7 +72,7 @@ function Pendencias() {
       });
     }
   }
-  for (const m of remedios.filter((x) => x.ativo && x.intervalo_h)) {
+  for (const m of remedios.filter((x) => remedioEmUso(x, hoje) && x.intervalo_h)) {
     const p = proximaDose(m, registros);
     if (!p) continue;
     const falta = new Date(p).getTime() - agora.getTime();
