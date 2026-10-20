@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useAgora, useDados } from '../dados/contexto';
 import { agoraIso, chaveDia, dataBr, deCampoDataHora, horaCurta, paraCampoDataHora, relogio, textoDuracao } from '../lib/datas';
 import {
@@ -84,9 +84,20 @@ export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
   const salvar = useSalvar();
   const ultimo = ultimoLado(registros);
   const [manual, setManual] = useState(false);
-  const [inicio, setInicio] = useState(() => paraCampoDataHora(new Date(Date.now() - 15 * 60_000).toISOString()));
+  const [inicio, setInicioCampo] = useState(() => paraCampoDataHora(new Date(Date.now() - 15 * 60_000).toISOString()));
+  // Enquanto a pessoa não mexe na hora, o início acompanha os minutos digitados (a mamada termina agora)
+  const [mexeuInicio, setMexeuInicio] = useState(false);
+  const setInicio = (v: string) => {
+    setMexeuInicio(true);
+    setInicioCampo(v);
+  };
   const [min, setMin] = useState<{ E: string; D: string }>({ E: '', D: '' });
   const [primeiro, setPrimeiro] = useState<Lado>(ultimo ? outroLado(ultimo) : 'E');
+  useEffect(() => {
+    if (mexeuInicio) return;
+    const total = ((Number(min.E) || 0) + (Number(min.D) || 0)) * 60_000;
+    setInicioCampo(paraCampoDataHora(new Date(Date.now() - (total || 15 * 60_000)).toISOString()));
+  }, [min, mexeuInicio]);
   const [obs, setObs] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -102,8 +113,10 @@ export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
   }
 
   function salvarManual() {
-    const ini = deCampoDataHora(inicio);
+    const totalMs = ((Number(min.E) || 0) + (Number(min.D) || 0)) * 60_000;
+    const ini = mexeuInicio ? deCampoDataHora(inicio) : new Date(Date.now() - Math.max(totalMs, 60_000)).toISOString();
     if (!ini) return setMsg('Informe a hora do início.');
+    if (new Date(ini).getTime() + totalMs > Date.now() + 5 * 60_000) return setMsg('Com esses minutos, a mamada terminaria depois de agora: ajuste a hora em que começou.');
     const r = { ...mamadaManual(baseRegistro(), ini, { E: Number(min.E) || 0, D: Number(min.D) || 0 }, primeiro), observacao: obs.trim() || null };
     const problema = validarRegistro(r, new Date());
     if (problema) return setMsg(problema);
@@ -619,7 +632,8 @@ function EditarMamada({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<Registro
         const novo = mudou
           ? { ...mamadaManual(r, ini, { E: Number(min.E) || 0, D: Number(min.D) || 0 }, primeiro), observacao: obs.trim() || null }
           : { ...r, observacao: obs.trim() || null };
-        const problema = validarRegistro(novo, new Date());
+        // Só a observação mudou: não barra um registro antigo (ex.: cronômetro esquecido de 27 h)
+        const problema = mudou ? validarRegistro(novo, new Date()) : null;
         if (problema) return setMsg(problema);
         aoSalvar(novo);
       }}
@@ -703,9 +717,11 @@ function EditarSono({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<RegistroDe
         e.preventDefault();
         const ini = deCampoDataHora(inicio);
         if (!ini) return setMsg('Informe quando dormiu.');
-        const novo: RegistroDe<'sono'> = { ...r, inicio: ini, fim: deCampoDataHora(fim), observacao: obs.trim() || null };
+        // Horas iguais às de quando abriu: mantém as originais (com segundos) e não revalida (cronômetro esquecido)
+        const mesmasHoras = inicio === paraCampoDataHora(r.inicio) && fim === (r.fim ? paraCampoDataHora(r.fim) : '');
+        const novo: RegistroDe<'sono'> = mesmasHoras ? { ...r, observacao: obs.trim() || null } : { ...r, inicio: ini, fim: deCampoDataHora(fim), observacao: obs.trim() || null };
         if (!novo.fim && registros.some((x) => x.tipo === 'sono' && !x.fim && x.id !== r.id)) return setMsg('Já tem outro sono sendo contado. Informe quando acordou.');
-        const problema = validarRegistro(novo, new Date());
+        const problema = mesmasHoras ? null : validarRegistro(novo, new Date());
         if (problema) return setMsg(problema);
         aoSalvar(novo);
       }}

@@ -52,7 +52,10 @@ export function gravarFila(usuario: string, fila: ItemFila[]) {
 export function enfileirar(fila: ItemFila[], op: Operacao, versao: number): ItemFila[] {
   const chave = chaveDe(op);
   const i = fila.findIndex((x) => x.chave === chave);
-  if (i < 0 || op.tipo === 'excluir') return [...fila.filter((x) => x.chave !== chave), { ...op, chave, versao }];
+  // Passou a apontar para uma conta que está mais adiante na fila (ex.: depósito movido para uma conta nova): vai para o fim
+  const ref = op.tipo === 'colecao' ? (op.dado as { conta_id?: string }).conta_id : undefined;
+  const depoisDaConta = !!ref && fila.findIndex((x) => x.chave === `cofrinho_contas:${ref}`) > i;
+  if (i < 0 || op.tipo === 'excluir' || depoisDaConta) return [...fila.filter((x) => x.chave !== chave), { ...op, chave, versao }];
   const nova = [...fila];
   nova[i] = { ...op, chave, versao };
   return nova;

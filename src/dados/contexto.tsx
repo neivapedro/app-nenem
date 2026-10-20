@@ -159,6 +159,8 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
       const familia = await repositorio.obterFamilia();
       if (!familia) {
         base = VAZIO;
+        // Saiu ou foi tirado da família: a cópia guardada dela não pode reaparecer na próxima abertura
+        if (repositorio.modo === 'nuvem') apagarDadosLocais(u.id);
       } else {
         const desde = inicioDoDia(somarDiasLocal(hojeLocal(), -diasRef.current)).toISOString();
         const [registros, compromissos, ...listas] = await Promise.all([
