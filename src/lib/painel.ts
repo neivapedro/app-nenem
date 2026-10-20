@@ -2,7 +2,7 @@
 // mapa de horários e linha do tempo. Sem dependências: testado no vitest.
 import { chaveDia, inicioDoDia, somarDiasLocal } from './datas';
 import { media } from './padroes';
-import { duracaoPorLado, resumoDia, type ResumoDia } from './registros';
+import { duracaoPorLado, juntarIntervalos, registrosPorDia, resumoDia, type ResumoDia } from './registros';
 import type { Registro } from './tipos';
 
 /** Noite = das 19h às 7h (o resto é sono de dia: as sonecas) */
@@ -45,22 +45,26 @@ export function diasPainel(registros: Registro[], de: string, ate: string, agora
     const t = ms(r.inicio);
     return t >= ini && t < fim;
   });
-  const sonos = perto.filter((r) => r.tipo === 'sono');
+  // Cada dia olha só os registros que podem tocá-lo (com 2 anos de dados, varrer tudo em cada dia travava a tela)
+  const doDia = registrosPorDia(perto);
   const dias: DiaPainel[] = [];
   for (let dia = de; dia <= ate && dias.length < 4000; dia = somarDiasLocal(dia, 1)) {
-    const base = resumoDia(perto, dia, agora);
+    const lista = doDia(dia);
+    const base = resumoDia(lista, dia, agora);
     const z = inicioDoDia(dia).getTime();
     const z1 = inicioDoDia(somarDiasLocal(dia, 1)).getTime();
-    let noite = 0;
     let maior = 0;
-    for (const s of sonos) {
+    const trechos: [number, number][] = [];
+    for (const s of lista) {
+      if (s.tipo !== 'sono') continue;
       const a = ms(s.inicio);
       const b = s.fim ? ms(s.fim) : agora.getTime();
-      const x = Math.max(a, z);
-      const y = Math.min(b, z1);
-      if (y > x) noite += partesNoite(x, y);
+      trechos.push([Math.max(a, z), Math.min(b, z1)]);
       if (a >= z && a < z1) maior = Math.max(maior, b - a);
     }
+    // Sonos sobrepostos (os dois celulares) contam uma vez só, igual ao total do dia
+    let noite = 0;
+    for (const [x, y] of juntarIntervalos(trechos)) noite += partesNoite(x, y);
     dias.push({ ...base, dia, sonoNoiteMs: noite, sonoDiaMs: Math.max(0, base.sonoMs - noite), maiorSonoMs: maior, semCoco: base.fraldas - base.coco });
   }
   return dias;
@@ -98,8 +102,9 @@ export function mediasPeriodo(dias: DiaPainel[], hoje: string, desde?: string | 
  * Primeiro dia com dados: o nascimento ou, sem ele, o dia do registro mais antigo.
  * Sem nada, null (todos os dias contam).
  */
-export function inicioDosDados(nascimentoDia: string | null, registros: Registro[]): string | null {
-  if (nascimentoDia) return nascimentoDia;
+export function inicioDosDados(nascimentoDia: string | null, registros: Registro[], hoje?: string): string | null {
+  // O dia do nascimento é só um pedaço de dia: com outros dias inteiros depois dele, as médias começam no dia seguinte
+  if (nascimentoDia) return hoje && hoje > somarDiasLocal(nascimentoDia, 1) ? somarDiasLocal(nascimentoDia, 1) : nascimentoDia;
   let primeiro: string | null = null;
   for (const r of registros) {
     const d = chaveDia(r.inicio);
@@ -125,20 +130,25 @@ export type MetricaMapa = 'alimentacoes' | 'sono' | 'fraldas';
 export function mapaHorarios(registros: Registro[], dias: string[], metrica: MetricaMapa, agora: Date): number[][] {
   const linhas = dias.map(() => Array<number>(24).fill(0));
   const indice = new Map(dias.map((d, i) => [d, i]));
-  for (const r of registros) {
-    if (metrica === 'sono') {
-      if (r.tipo !== 'sono') continue;
-      const a = ms(r.inicio);
-      const b = r.fim ? ms(r.fim) : agora.getTime();
-      // Hora a hora (limita a 3 dias por registro, para um sono esquecido não travar)
-      for (let h = Math.floor(a / HORA) * HORA, n = 0; h < b && n < 72; h += HORA, n++) {
+  if (metrica === 'sono') {
+    // Sonos sobrepostos contam uma vez só; cada um no máximo 3 dias (um cronômetro esquecido não trava)
+    const sonos = juntarIntervalos(
+      registros.filter((r) => r.tipo === 'sono').map((r) => {
+        const a = ms(r.inicio);
+        return [a, Math.min(r.fim ? ms(r.fim) : agora.getTime(), a + 72 * HORA)] as [number, number];
+      }),
+    );
+    for (const [a, b] of sonos) {
+      for (let h = Math.floor(a / HORA) * HORA, n = 0; h < b && n < 72 * 3; h += HORA, n++) {
         const d = new Date(h);
         const i = indice.get(chaveDia(d));
         if (i === undefined) continue;
         linhas[i][d.getHours()] += Math.max(0, Math.min(b, h + HORA) - Math.max(a, h)) / 60_000;
       }
-      continue;
     }
+    return linhas;
+  }
+  for (const r of registros) {
     const conta = metrica === 'alimentacoes' ? r.tipo === 'mamada' || r.tipo === 'mamadeira' : r.tipo === 'fralda';
     if (!conta) continue;
     const d = new Date(r.inicio);

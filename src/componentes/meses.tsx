@@ -35,7 +35,9 @@ export function GraficosMeses() {
     if (!precisaAntigos) return registros;
     if (!antigos) return null;
     // Dias já carregados vêm do app (com as mudanças ao vivo); os anteriores, da busca
-    return [...antigos.filter((r) => chaveDia(r.inicio) < carregadoDesde), ...registros];
+    // (um registro antigo ainda em andamento vem nas duas listas: entra uma vez só)
+    const noApp = new Set(registros.map((r) => r.id));
+    return [...antigos.filter((r) => chaveDia(r.inicio) < carregadoDesde && !noApp.has(r.id)), ...registros];
   }, [precisaAntigos, antigos, registros, carregadoDesde]);
 
   const meses = useMemo(() => (todos && nasc ? mesesDeVida(todos, nasc, hoje, agora) : []), [todos, nasc, hoje, agora]);
@@ -144,7 +146,7 @@ export function GraficosMeses() {
                 <td>
                   {m.mes}º mês
                   <div className="mudo" style={{ fontSize: '0.75rem' }}>
-                    {dataBr(m.inicio).slice(0, 5)} a {dataBr(m.fim).slice(0, 5)}
+                    {dataBr(m.inicio).slice(0, 5)} a {m.mes > 10 ? dataBr(m.fim) : dataBr(m.fim).slice(0, 5)}
                   </div>
                 </td>
                 <td>{um(m.alimentacoes)}</td>

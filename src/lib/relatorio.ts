@@ -299,15 +299,40 @@ function desenharPainel(doc: jsPDF, pn: PainelPdf, margem: number, y0: number): 
   return y;
 }
 
-export function gerarRelatorioPdf(m: ModeloRelatorio): Blob {
+/**
+ * A fonte do PDF (Helvetica) só tem os caracteres do português e alguns símbolos:
+ * emoji e setas viravam lixo ("Ø=Üv"). Troca os símbolos comuns e tira o resto.
+ */
+const TROCAS: Record<string, string> = { '≥': '>=', '≤': '<=', '→': '->', '←': '<-', '✓': 'v', '✔': 'v', '×': 'x', '…': '...' };
+export function textoParaPdf(s: string): string {
+  return s
+    .replace(/[≥≤→←✓✔×…]/g, (c) => TROCAS[c])
+    .replace(/[^\n\x20-\x7E\xA0-\xFF€‚ƒ„†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/gu, '')
+    .replace(/ {2,}/g, ' ');
+}
+
+/** Aplica textoParaPdf em todos os textos do modelo (números, cores e funções ficam como estão) */
+function limparTextos<T>(v: T): T {
+  if (typeof v === 'string') return textoParaPdf(v) as T;
+  if (Array.isArray(v)) return v.map(limparTextos) as T;
+  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, limparTextos(x)])) as T;
+  }
+  return v;
+}
+
+export function gerarRelatorioPdf(modelo: ModeloRelatorio): Blob {
+  const m = limparTextos(modelo);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const margem = 14;
   let y = 16;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(m.titulo, margem, y);
-  y += 6;
+  // Nome longo do bebê: quebra em mais de uma linha em vez de passar da borda
+  const linhasTitulo = doc.splitTextToSize(m.titulo, LARGURA) as string[];
+  doc.text(linhasTitulo, margem, y);
+  y += 6 + (linhasTitulo.length - 1) * 6.5;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(...CINZA);
@@ -363,8 +388,10 @@ export function gerarRelatorioPdf(m: ModeloRelatorio): Blob {
       head: [cabecalho],
       body: linhas,
       theme: 'grid',
-      styles: { fontSize: 8.5, cellPadding: 1.6, lineColor: [220, 220, 224], lineWidth: 0.2 },
+      styles: { fontSize: 8.5, cellPadding: 1.6, lineColor: [220, 220, 224], lineWidth: 0.2, overflow: 'linebreak' },
       headStyles: { fillColor: [244, 243, 241], textColor: [40, 40, 45], fontStyle: 'bold' },
+      // Largura fixa nas colunas de data e de nome: uma observação enorme (ex.: um link) não espreme as outras
+      columnStyles: ['Quando', 'Data', 'A partir de'].includes(cabecalho[0]) ? { 0: { cellWidth: 30 }, ...(cabecalho.length === 3 ? { 1: { cellWidth: 45 } } : {}) } : {},
       margin: { left: margem, right: margem },
     });
   };

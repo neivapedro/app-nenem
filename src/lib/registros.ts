@@ -209,6 +209,40 @@ export function resumoDia(registros: Registro[], dia: string, agora: Date): Resu
   return r;
 }
 
+/**
+ * Para resumir muitos dias sem varrer todos os registros em cada dia: devolve,
+ * para um dia, os registros que podem tocá-lo (os do dia, os da véspera — sono
+ * que passa da meia-noite — e os longos ou ainda abertos).
+ */
+export function registrosPorDia(registros: Registro[]): (dia: string) => Registro[] {
+  const porDia = new Map<string, Registro[]>();
+  const longos: Registro[] = [];
+  for (const r of registros) {
+    const k = chaveDia(r.inicio);
+    const lista = porDia.get(k);
+    if (lista) lista.push(r);
+    else porDia.set(k, [r]);
+    if (!r.fim || chaveDia(r.fim) > somarDiasLocal(k, 1)) longos.push(r);
+  }
+  return (dia) => {
+    const vespera = somarDiasLocal(dia, -1);
+    const base = [...(porDia.get(vespera) ?? []), ...(porDia.get(dia) ?? [])];
+    return [...base, ...longos.filter((r) => chaveDia(r.inicio) < vespera)];
+  };
+}
+
+/** Junta intervalos que se sobrepõem (ex.: os dois celulares marcaram o mesmo sono) */
+export function juntarIntervalos(lista: [number, number][]): [number, number][] {
+  const ord = lista.filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  const out: [number, number][] = [];
+  for (const [a, b] of ord) {
+    const ult = out[out.length - 1];
+    if (ult && a <= ult[1]) ult[1] = Math.max(ult[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
 /** Registros agrupados por dia (mais recente primeiro) */
 export function agruparPorDia(registros: Registro[]): { dia: string; itens: Registro[] }[] {
   const grupos = new Map<string, Registro[]>();
