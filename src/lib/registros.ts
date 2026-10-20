@@ -107,6 +107,33 @@ export function finalizarMamada(r: RegistroDe<'mamada'>, agora: Date): RegistroD
   return { ...r, fim: new Date(ultimoFim).toISOString(), dados: { segmentos: segs } };
 }
 
+/** Finaliza numa hora do passado (cronômetro esquecido): o que veio depois dessa hora é cortado. */
+export function finalizarMamadaEm(r: RegistroDe<'mamada'>, quando: Date): RegistroDe<'mamada'> {
+  const t = Math.max(quando.getTime(), ms(r.inicio));
+  const segmentos = r.dados.segmentos.filter((s) => ms(s.inicio) < t).map((s) => ({ ...s, fim: new Date(Math.min(s.fim ? ms(s.fim) : t, t)).toISOString() }));
+  return { ...r, fim: new Date(t).toISOString(), dados: { segmentos } };
+}
+
+/**
+ * Finaliza na hora escolhida na folha "Esqueceu o cronômetro?". O campo tem só
+ * minutos: se a hora é "agora" ou (mamada pausada) a hora da pausa, mantém os
+ * trechos como estão, sem perder os segundos.
+ */
+export function finalizarMamadaNaHora(r: RegistroDe<'mamada'>, quando: Date, agora = new Date()): RegistroDe<'mamada'> {
+  if (agora.getTime() - quando.getTime() < 60_000) return finalizarMamada(r, agora);
+  const pausada = r.dados.segmentos.every((s) => s.fim);
+  const ultimoFim = Math.max(ms(r.inicio), ...r.dados.segmentos.map((s) => (s.fim ? ms(s.fim) : 0)));
+  if (pausada && quando.getTime() >= ultimoFim - 60_000) return finalizarMamada(r, quando);
+  return finalizarMamadaEm(r, quando);
+}
+
+/** Cronômetro aberto há tempo demais (provavelmente esquecido): mamada > 3 h, sono > 14 h */
+export const LIMITE_ESQUECIDO_MS = { mamada: 3 * 3_600_000, sono: 14 * 3_600_000 } as const;
+export function cronometroEsquecido(r: Registro, agora: Date): boolean {
+  if (r.fim || (r.tipo !== 'mamada' && r.tipo !== 'sono')) return false;
+  return agora.getTime() - ms(r.inicio) > LIMITE_ESQUECIDO_MS[r.tipo];
+}
+
 /** Mamada registrada depois: minutos em cada peito, um depois do outro, a partir do início. */
 export function mamadaManual(base: Base, inicioIso: string, minutos: { E: number; D: number }, primeiro: Lado): RegistroDe<'mamada'> {
   const ordem: Lado[] = [primeiro, outroLado(primeiro)];

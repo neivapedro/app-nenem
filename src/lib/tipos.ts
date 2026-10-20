@@ -184,6 +184,8 @@ export interface Remedio extends Item {
   intervalo_h: number | null;
   ativo: boolean;
   observacao: string | null;
+  /** Último dia do tratamento (AAAA-MM-DD); depois dele o remédio encerra sozinho. Vazio = sem prazo */
+  termina_em?: string | null;
 }
 
 export interface PoteLeite extends Item {
@@ -277,6 +279,8 @@ export interface MovimentoCofrinho extends Item {
   recado: string | null;
   observacao: string | null;
   comprovante: ArquivoDocumento | null;
+  /** Transferência entre contas: a retirada de uma e o depósito na outra têm o mesmo id aqui */
+  transferencia_id?: string | null;
 }
 
 export interface MetaCofrinho extends Item {

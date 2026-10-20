@@ -13,18 +13,24 @@ import {
   CENARIOS,
   chaveFormatada,
   depositosPorMes,
+  ehDeposito,
+  ehTransferencia,
   evolucaoMensal,
+  exclusaoDeConta,
   idDoSaldo,
   lerChavePix,
   lerReais,
   mesesAteIdade,
   mesesParaChegar,
   mesesSeguidos,
+  montarTransferencia,
   NOME_CHAVE,
   NOME_TIPO_CONTA,
   OCASIAO,
   OCASIOES,
+  outraPonta,
   payloadPix,
+  pontasTransferencia,
   porQuem,
   projetar,
   reais,
@@ -92,7 +98,7 @@ const paraTexto = (centavos: number | null | undefined) => (centavos === null ||
 // ---------- Folhas ----------
 
 function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo: boolean; aoFechar: () => void }) {
-  const { gravar, mostrarAviso, cofrinho_movimentos, hoje, usuario } = useDados();
+  const { gravar, mostrarAviso, cofrinho_movimentos, hoje, usuario, repo } = useDados();
   const [c, setC] = useState(inicial);
   const lida = c.chave_pix ? lerChavePix(c.chave_pix) : null;
   const [tipoChave, setTipoChave] = useState<TipoChavePix>(lida?.tipo ?? 'cpf');
@@ -129,7 +135,7 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
       if (resta !== 0) {
         const texto =
           resta > 0
-            ? `A conta ainda tem ${reais(resta)} no app. Para encerrar, o app registra hoje uma retirada de ${reais(resta)} e ela sai do total.\n\nSe o dinheiro foi para outra conta do cofrinho, depois registre um depósito nela.\n\nEncerrar a conta?`
+            ? `A conta ainda tem ${reais(resta)} no app. Para encerrar, o app registra hoje uma retirada de ${reais(resta)} e ela sai do total.\n\nSe o dinheiro foi para outra conta do cofrinho, cancele e registre antes uma transferência (Depósito → Transferir): assim ele não sai do total.\n\nEncerrar a conta?`
             : `O saldo desta conta no app está negativo (${reais(resta)}). Para encerrar, o app anota o saldo de hoje como R$ 0,00.\n\nEncerrar a conta?`;
         if (!window.confirm(texto)) return;
         if (resta > 0) {
@@ -169,6 +175,26 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
     }
     gravar({ tipo: 'colecao', colecao: 'cofrinho_contas', dado: final }, ...extras.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })));
     mostrarAviso({ texto: novo ? 'Conta criada 🐷' : !final.ativa && inicial.ativa ? 'Conta encerrada' : 'Conta atualizada' });
+    aoFechar();
+  }
+
+  /** Conta criada por engano: sai com os lançamentos e os comprovantes (metas e plano são do bebê, não da conta) */
+  function excluirConta() {
+    const { excluir, soltar, caminhos } = exclusaoDeConta(cofrinho_movimentos, inicial);
+    const n = excluir.length;
+    const transf = soltar.length;
+    const texto =
+      `Excluir a conta “${inicial.nome}”${n ? ` e ${n === 1 ? 'o lançamento dela' : `os ${n} lançamentos dela`}` : ''}? Isso não pode ser desfeito.` +
+      (transf ? `\n\n${transf === 1 ? 'A transferência com outra conta vira um lançamento comum' : `As ${transf} transferências com outras contas viram lançamentos comuns`} na outra conta (o saldo dela não muda).` : '');
+    if (!window.confirm(texto)) return;
+    // Ordem da fila: os lançamentos antes da conta (chave estrangeira)
+    gravar(
+      ...soltar.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })),
+      ...excluir.map((x) => ({ tipo: 'excluir' as const, dado: { alvo: 'cofrinho_movimentos' as const, id: x.id } })),
+      { tipo: 'excluir', dado: { alvo: 'cofrinho_contas', id: inicial.id } },
+    );
+    if (caminhos.length) void repo.excluirArquivos(caminhos).catch(() => undefined);
+    mostrarAviso({ texto: 'Conta excluída' });
     aoFechar();
   }
 
@@ -249,6 +275,12 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
           </div>
         )}
         <button className="botao primario">Salvar</button>
+        {!novo && (
+          <button type="button" className="botao perigo" onClick={excluirConta}>
+            <Icone nome="lixeira" /> Excluir conta
+          </button>
+        )}
+        {!novo && <p className="mudo">Excluir é para conta criada por engano: apaga a conta e todos os lançamentos dela. Conta que existiu de verdade, marque como encerrada.</p>}
       </form>
     </Folha>
   );
@@ -256,13 +288,18 @@ function FolhaConta({ inicial, novo, aoFechar }: { inicial: ContaCofrinho; novo:
 
 function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: MovimentoCofrinho; novo: boolean; contas: ContaCofrinho[]; aoFechar: () => void }) {
   const { gravar, mostrarAviso, repo, membros, cofrinho_movimentos } = useDados();
-  const [m, setM] = useState(inicial);
+  // Transferência: o formulário mostra a ponta da origem (a retirada), seja qual for a ponta tocada
+  const [pontas] = useState(() => (inicial.transferencia_id ? pontasTransferencia(cofrinho_movimentos, inicial.transferencia_id) : null));
+  const [m, setM] = useState(pontas?.origem ?? inicial);
+  const [transferir, setTransferir] = useState(!!pontas);
+  const [destino, setDestino] = useState(pontas?.destino.conta_id ?? contas.find((c) => c.id !== inicial.conta_id)?.id ?? '');
   // Lançamento novo sem valor sugerido começa vazio (não "0,00")
   const [valor, setValor] = useState(novo && !inicial.valor_centavos ? '' : paraTexto(inicial.valor_centavos));
   const [enviando, setEnviando] = useState(false);
   const [vendo, setVendo] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const deposito = m.tipo === 'deposito';
+  const deposito = m.tipo === 'deposito' && !transferir;
+  const nomeConta = (id: string) => contas.find((c) => c.id === id)?.nome ?? 'outra conta';
   // Quem já mandou antes vem primeiro; depois os responsáveis e a família
   const nomes = useMemo(() => {
     const vistos = new Map<string, string>();
@@ -288,9 +325,10 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
   function salvar(e: React.FormEvent) {
     e.preventDefault();
     const centavos = lerReais(valor);
-    if (centavos === null || (centavos <= 0 && m.tipo !== 'saldo')) return setMsg('Informe o valor (ex.: 150 ou 1.234,56).');
+    if (centavos === null || (centavos <= 0 && (m.tipo !== 'saldo' || transferir))) return setMsg('Informe o valor (ex.: 150 ou 1.234,56).');
     if (!m.conta_id) return setMsg('Escolha a conta.');
     if (enviando) return setMsg('Espere o comprovante terminar de enviar.');
+    if (transferir) return salvarTransferencia(centavos);
     // Os outros lançamentos da conta (sem este, se for edição)
     const outros = cofrinho_movimentos.filter((x) => x.id !== inicial.id);
     const daConta = outros.filter((x) => x.conta_id === m.conta_id);
@@ -324,6 +362,8 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
       ocasiao: deposito ? m.ocasiao : null,
       recado: deposito ? m.recado?.trim() || null : null,
       observacao: m.observacao?.trim() || null,
+      // Ponta de uma transferência cuja outra ponta sumiu: vira lançamento comum
+      ...(m.transferencia_id ? { transferencia_id: null } : {}),
     };
     // Trocando um saldo que já existia: desfazer volta o anterior em vez de apagar
     const anterior = novo ? cofrinho_movimentos.find((x) => x.id === id) : undefined;
@@ -347,30 +387,142 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
     aoFechar();
   }
 
-  function excluir() {
-    if (!window.confirm('Excluir este lançamento?')) return;
-    gravar({ tipo: 'excluir', dado: { alvo: 'cofrinho_movimentos', id: inicial.id } });
-    if (inicial.comprovante) void repo.excluirArquivos([inicial.comprovante.caminho]).catch(() => undefined);
-    mostrarAviso({ texto: 'Lançamento excluído' });
+  /** Transferência: grava as duas pontas juntas (retirada na origem, depósito no destino, mesmo transferencia_id) */
+  function salvarTransferencia(centavos: number) {
+    if (!destino || destino === m.conta_id) return setMsg('Escolha duas contas diferentes: de onde o dinheiro sai e para onde vai.');
+    const ids = new Set([inicial.id, ...(pontas ? [pontas.origem.id, pontas.destino.id] : [])]);
+    const outros = cofrinho_movimentos.filter((x) => !ids.has(x.id));
+    const disponivel = saldoConta(
+      outros.filter((x) => x.conta_id === m.conta_id),
+      m.data,
+    ).saldo;
+    if (centavos > disponivel && !window.confirm(`A transferência (${reais(centavos)}) é maior que o saldo de ${nomeConta(m.conta_id)} em ${dataBr(m.data)} (${reais(Math.max(0, disponivel))}). Salvar mesmo assim?`)) return;
+    // Saldo do banco já anotado no dia numa das contas: vale por cima da transferência, então pergunta se já a inclui
+    const ajustados: MovimentoCofrinho[] = [];
+    if (novo)
+      for (const [contaId, delta] of [
+        [m.conta_id, -centavos],
+        [destino, centavos],
+      ] as [string, number][]) {
+        const doDia = outros.filter((x) => x.conta_id === contaId && x.tipo === 'saldo' && x.data === m.data);
+        if (!doDia.length) continue;
+        const jaInclui = window.confirm(
+          `Já tem um saldo do banco anotado em ${dataBr(m.data)} em ${nomeConta(contaId)} (${reais(doDia[0].valor_centavos)}).\n\nEsse saldo já inclui a transferência de ${reais(centavos)}?\n\nOK = já inclui (o saldo fica igual)\nCancelar = não inclui (o app ${delta > 0 ? 'soma ao' : 'tira do'} saldo anotado)`,
+        );
+        if (!jaInclui) ajustados.push(...saldosDoDiaAjustados(outros, contaId, m.data, delta));
+      }
+    const t = montarTransferencia({
+      transferenciaId: pontas?.origem.transferencia_id ?? crypto.randomUUID(),
+      idOrigem: pontas?.origem.id ?? m.id,
+      idDestino: pontas?.destino.id ?? crypto.randomUUID(),
+      familiaId: m.familia_id,
+      criadoPor: m.criado_por,
+      contaOrigem: m.conta_id,
+      contaDestino: destino,
+      data: m.data,
+      valor: centavos,
+      observacao: m.observacao,
+      comprovante: m.comprovante,
+    });
+    gravar(
+      { tipo: 'colecao', colecao: 'cofrinho_movimentos', dado: t.origem },
+      { tipo: 'colecao', colecao: 'cofrinho_movimentos', dado: t.destino },
+      ...ajustados.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })),
+    );
+    const antigos = (pontas ? [pontas.origem, pontas.destino] : [inicial]).flatMap((x) => (x.comprovante && x.comprovante.caminho !== t.origem.comprovante?.caminho ? [x.comprovante.caminho] : []));
+    if (antigos.length) void repo.excluirArquivos(antigos).catch(() => undefined);
+    const restaurar = outros.filter((x) => ajustados.some((a) => a.id === x.id));
+    mostrarAviso({
+      texto: novo ? `${reais(centavos)} de ${nomeConta(t.origem.conta_id)} para ${nomeConta(t.destino.conta_id)}` : 'Transferência atualizada',
+      desfazer: novo
+        ? () =>
+            gravar(
+              { tipo: 'excluir', dado: { alvo: 'cofrinho_movimentos', id: t.origem.id } },
+              { tipo: 'excluir', dado: { alvo: 'cofrinho_movimentos', id: t.destino.id } },
+              ...restaurar.map((dado) => ({ tipo: 'colecao' as const, colecao: 'cofrinho_movimentos' as const, dado })),
+            )
+        : undefined,
+    });
     aoFechar();
   }
 
-  const titulo = novo ? (m.tipo === 'saldo' ? 'Atualizar saldo' : m.tipo === 'retirada' ? 'Nova retirada' : 'Novo depósito') : 'Editar lançamento';
+  function excluir() {
+    // Transferência: as duas pontas saem juntas
+    const lista = pontas ? [pontas.origem, pontas.destino] : [inicial];
+    if (!window.confirm(pontas ? `Excluir esta transferência? Ela sai das duas contas (${nomeConta(pontas.origem.conta_id)} e ${nomeConta(pontas.destino.conta_id)}).` : 'Excluir este lançamento?')) return;
+    gravar(...lista.map((x) => ({ tipo: 'excluir' as const, dado: { alvo: 'cofrinho_movimentos' as const, id: x.id } })));
+    const caminhos = lista.flatMap((x) => (x.comprovante ? [x.comprovante.caminho] : []));
+    if (caminhos.length) void repo.excluirArquivos(caminhos).catch(() => undefined);
+    mostrarAviso({ texto: pontas ? 'Transferência excluída' : 'Lançamento excluído' });
+    aoFechar();
+  }
+
+  const titulo = transferir
+    ? novo
+      ? 'Nova transferência'
+      : 'Editar transferência'
+    : novo
+      ? m.tipo === 'saldo'
+        ? 'Atualizar saldo'
+        : m.tipo === 'retirada'
+          ? 'Nova retirada'
+          : 'Novo depósito'
+      : 'Editar lançamento';
   return (
     <Folha titulo={titulo} aoFechar={aoFechar}>
       <form className="pilha" onSubmit={salvar}>
-        <Escolhas
-          opcoes={[
-            { valor: 'deposito' as const, rotulo: 'Depósito' },
-            { valor: 'saldo' as const, rotulo: 'Saldo do extrato' },
-            { valor: 'retirada' as const, rotulo: 'Retirada' },
-          ]}
-          valor={m.tipo}
-          aoMudar={(tipo) => setM({ ...m, tipo })}
-          rotulo="Tipo"
-        />
-        {m.tipo === 'saldo' && <p className="texto-2">Olhe o saldo no app do banco e anote aqui: a diferença entre o saldo e o que vocês colocaram é o rendimento.</p>}
-        {contas.length > 1 && (
+        {!pontas && (
+          <Escolhas
+            opcoes={[
+              { valor: 'deposito' as const, rotulo: 'Depósito' },
+              { valor: 'saldo' as const, rotulo: 'Saldo do extrato' },
+              { valor: 'retirada' as const, rotulo: 'Retirada' },
+              // Transferir: só num lançamento novo e com duas contas ou mais
+              ...(novo && contas.length > 1 ? [{ valor: 'transferencia' as const, rotulo: 'Transferir' }] : []),
+            ]}
+            valor={transferir ? 'transferencia' : m.tipo}
+            aoMudar={(tipo) => {
+              setTransferir(tipo === 'transferencia');
+              // Transferência não é o depósito do mês: o valor do plano não vem preenchido
+              if (tipo === 'transferencia' && novo) setValor('');
+              if (tipo !== 'transferencia') setM({ ...m, tipo });
+              else if (destino === m.conta_id || !destino) setDestino(contas.find((c) => c.id !== m.conta_id)?.id ?? '');
+            }}
+            rotulo="Tipo"
+          />
+        )}
+        {m.tipo === 'saldo' && !transferir && <p className="texto-2">Olhe o saldo no app do banco e anote aqui: a diferença entre o saldo e o que vocês colocaram é o rendimento.</p>}
+        {transferir && <p className="texto-2">Dinheiro que passou de uma conta do cofrinho para outra: muda o saldo das duas, mas não é depósito novo (o total colocado fica igual).</p>}
+        {transferir ? (
+          <>
+            <Campo rotulo="De (sai desta conta)">
+              <select
+                value={m.conta_id}
+                onChange={(e) => {
+                  setM({ ...m, conta_id: e.target.value });
+                  if (e.target.value === destino) setDestino(contas.find((c) => c.id !== e.target.value)?.id ?? '');
+                }}
+              >
+                {contas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </Campo>
+            <Campo rotulo="Para (entra nesta conta)">
+              <select value={destino} onChange={(e) => setDestino(e.target.value)}>
+                {contas
+                  .filter((c) => c.id !== m.conta_id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+              </select>
+            </Campo>
+          </>
+        ) : contas.length > 1 && (
           <Campo rotulo="Conta">
             <select value={m.conta_id} onChange={(e) => setM({ ...m, conta_id: e.target.value })}>
               {contas.map((c) => (
@@ -382,7 +534,7 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
           </Campo>
         )}
         <div className="grade">
-          <CampoReais rotulo={m.tipo === 'saldo' ? 'Saldo na data' : 'Valor'} valor={valor} aoMudar={setValor} />
+          <CampoReais rotulo={m.tipo === 'saldo' && !transferir ? 'Saldo na data' : 'Valor'} valor={valor} aoMudar={setValor} />
           <Campo rotulo="Data">
             <input type="date" value={m.data} max={hojeLocal()} onChange={(e) => setM({ ...m, data: e.target.value || m.data })} />
           </Campo>
@@ -800,8 +952,20 @@ function FolhaContaVer({ conta, aoFechar, aoEditar, aoLancamento }: { conta: Con
   );
 }
 
+/** Nome do lançamento no extrato (transferência: "Para X" / "De Y", com "Transferência" logo abaixo; a palavra inteira no título quebraria no meio em 320 px) */
+function tituloMovimento(m: MovimentoCofrinho, todos: MovimentoCofrinho[], nomeConta: (id: string) => string | undefined): string {
+  if (ehTransferencia(m)) {
+    const outra = outraPonta(todos, m);
+    const nome = outra ? nomeConta(outra.conta_id) : undefined;
+    return `${m.tipo === 'deposito' ? 'De' : 'Para'} ${nome ?? 'outra conta'}`;
+  }
+  return m.tipo === 'deposito' ? m.de || 'Depósito' : m.tipo === 'saldo' ? 'Saldo do extrato' : 'Retirada';
+}
+
 function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCofrinho[]; contas: ContaCofrinho[]; aoAbrir: (m: MovimentoCofrinho) => void; limite?: number }) {
-  const nomeConta = new Map(contas.map((c) => [c.id, c.nome]));
+  // A outra ponta de uma transferência pode ser de uma conta fora desta lista (extrato de uma conta só)
+  const { cofrinho_movimentos, cofrinho_contas } = useDados();
+  const nomeConta = new Map(cofrinho_contas.map((c) => [c.id, c.nome]));
   const lista = limite ? movs.slice(0, limite) : movs;
   if (!lista.length) return <p className="texto-2">Nenhum lançamento ainda.</p>;
   return (
@@ -809,18 +973,20 @@ function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCof
       {lista.map((m) => (
         <button key={m.id} type="button" className="doc-linha" onClick={() => aoAbrir(m)}>
           <span className={`mov-icone ${m.tipo}`} aria-hidden="true">
-            {m.tipo === 'deposito' ? (m.ocasiao ? OCASIAO[m.ocasiao].emoji : '🐷') : m.tipo === 'saldo' ? '🧾' : '↩︎'}
+            {ehTransferencia(m) ? '🔁' : m.tipo === 'deposito' ? (m.ocasiao ? OCASIAO[m.ocasiao].emoji : '🐷') : m.tipo === 'saldo' ? '🧾' : '↩︎'}
           </span>
           <span className="cresce">
-            <span className="doc-titulo">{m.tipo === 'deposito' ? m.de || 'Depósito' : m.tipo === 'saldo' ? 'Saldo do extrato' : 'Retirada'}</span>
+            <span className="doc-titulo">{tituloMovimento(m, cofrinho_movimentos, (id) => nomeConta.get(id))}</span>
             <span className="texto-2">
+              {ehTransferencia(m) && 'Transferência · '}
               {dataBr(m.data)}
               {contas.length > 1 && ` · ${nomeConta.get(m.conta_id) ?? ''}`}
               {m.ocasiao && ` · ${OCASIAO[m.ocasiao].nome}`}
               {m.comprovante && ' · 📎'}
             </span>
           </span>
-          <strong className={`mov-valor ${m.tipo}`}>{m.tipo === 'retirada' ? `−${reais(m.valor_centavos)}` : m.tipo === 'saldo' ? reais(m.valor_centavos) : `+${reais(m.valor_centavos)}`}</strong>
+          {/* Transferência não é ganho nem perda: valor sem cor */}
+          <strong className={`mov-valor ${ehTransferencia(m) ? 'transferencia' : m.tipo}`}>{m.tipo === 'retirada' ? `−${reais(m.valor_centavos)}` : m.tipo === 'saldo' ? reais(m.valor_centavos) : `+${reais(m.valor_centavos)}`}</strong>
         </button>
       ))}
     </div>
@@ -948,7 +1114,8 @@ function ListaAtualizacoes({ contas, movs, oculto, limite }: { contas: ContaCofr
                     {colocado > 0 ? '+' : '−'}
                     {reais(Math.abs(colocado))}
                   </span>{' '}
-                  depositado
+                  {/* "colocado": inclui transferências entre contas (o rendeu da conta já desconta) */}
+                  colocado
                 </>
               )}
             </span>
@@ -1021,7 +1188,7 @@ export function Cofrinho() {
   const quem = useMemo(() => porQuem(movs), [movs]);
   const pessoas = quem.filter((q) => q.de !== SEM_NOME).length;
   const seguidos = mesesSeguidos(movs, hoje);
-  const recados = movs.filter((m) => m.tipo === 'deposito' && m.recado);
+  const recados = movs.filter((m) => ehDeposito(m) && m.recado);
   const $ = (c: number, o?: Parameters<typeof reais>[1]) => (oculto ? 'R$ •••' : reais(c, o));
   const $eixo = (c: number) => (oculto ? '•••' : reais(c, { compacto: true }).replace('R$ ', ''));
 
@@ -1040,7 +1207,7 @@ export function Cofrinho() {
   const final = escolhido.serie[escolhido.serie.length - 1];
   const com50 = projetar(r.saldo, aporte + 5000, escolhido.taxa, mesesProj).at(-1)! - final;
   const mesAtual = hoje.slice(0, 7);
-  const depositouMes = movs.some((m) => m.tipo === 'deposito' && m.data.startsWith(mesAtual));
+  const depositouMes = movs.some((m) => ehDeposito(m) && m.data.startsWith(mesAtual));
   const contasAtivas = contas.filter((c) => c.ativa);
 
   function novoMovimento(tipo: MovimentoCofrinho['tipo'] = 'deposito') {
@@ -1100,6 +1267,7 @@ export function Cofrinho() {
       setPreparando('Montando o extrato…');
       const { montarExtratoCofrinho } = await import('../lib/pdf-documentos');
       const nomeConta = new Map(contas.map((c) => [c.id, c.nome]));
+      const nomeOutra = (m: MovimentoCofrinho) => nomeConta.get(outraPonta(movs, m)?.conta_id ?? '') ?? 'outra conta';
       const bytes = await montarExtratoCofrinho({
         titulo: `Cofrinho do ${bebe?.nome?.split(' ')[0] || 'bebê'}`,
         geradoEm: new Date().toLocaleString('pt-BR'),
@@ -1113,7 +1281,14 @@ export function Cofrinho() {
         quem: quem.map((q) => [q.de, `${q.vezes}×`, reais(q.centavos)]),
         movimentos: [...movs]
           .reverse()
-          .map((m) => [dataBr(m.data), m.tipo === 'deposito' ? 'Depósito' : m.tipo === 'saldo' ? 'Saldo (extrato)' : 'Retirada', nomeConta.get(m.conta_id) ?? '', m.de ?? '', m.tipo === 'retirada' ? `-${reais(m.valor_centavos)}` : reais(m.valor_centavos)]),
+          .map((m) => [
+            dataBr(m.data),
+            ehTransferencia(m) ? 'Transferência' : m.tipo === 'deposito' ? 'Depósito' : m.tipo === 'saldo' ? 'Saldo (extrato)' : 'Retirada',
+            nomeConta.get(m.conta_id) ?? '',
+            // Transferência: na coluna "Quem", a outra conta
+            ehTransferencia(m) ? `${m.tipo === 'deposito' ? 'de' : 'para'} ${nomeOutra(m)}` : (m.de ?? ''),
+            m.tipo === 'retirada' ? `-${reais(m.valor_centavos)}` : reais(m.valor_centavos),
+          ]),
         recados: recados.map((m) => [dataBr(m.data), m.de ?? '', m.recado ?? '']),
       });
       setPreparando(null);
@@ -1131,8 +1306,13 @@ export function Cofrinho() {
       return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const linhas = [['data', 'tipo', 'conta', 'valor', 'quem', 'ocasiao', 'recado', 'observacao'].join(';')];
-    for (const m of [...movs].reverse())
-      linhas.push([m.data, m.tipo, nomeConta.get(m.conta_id), (m.valor_centavos / 100).toFixed(2).replace('.', ','), m.de, m.ocasiao ? OCASIAO[m.ocasiao].nome : '', m.recado, m.observacao].map(csv).join(';'));
+    for (const m of [...movs].reverse()) {
+      // Transferência: tipo próprio e, em "quem", a outra conta
+      const outra = outraPonta(movs, m);
+      const tipo = ehTransferencia(m) ? (m.tipo === 'deposito' ? 'transferencia_entrada' : 'transferencia_saida') : m.tipo;
+      const quem = ehTransferencia(m) ? `${m.tipo === 'deposito' ? 'de' : 'para'} ${nomeConta.get(outra?.conta_id ?? '') ?? 'outra conta'}` : m.de;
+      linhas.push([m.data, tipo, nomeConta.get(m.conta_id), (m.valor_centavos / 100).toFixed(2).replace('.', ','), quem, m.ocasiao ? OCASIAO[m.ocasiao].nome : '', m.recado, m.observacao].map(csv).join(';'));
+    }
     void compartilhar([new File(['﻿' + linhas.join('\n')], `cofrinho-${hoje}.csv`, { type: 'text/csv' })], 'Cofrinho');
   }
 

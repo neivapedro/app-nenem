@@ -171,13 +171,14 @@ const primeiroNome = (v: string) => v.split(' (')[0].split(' /')[0];
 /**
  * Vacinas no calendário: as aplicadas (✓, sem aviso) e as pendentes agrupadas por
  * dia, com aviso na véspera às 8h. Dose atrasada aparece hoje, marcada "atrasada".
+ * Dose que passou da idade máxima fica fora (sem alarme diário): só no app, para falar com o pediatra.
  */
 export function eventosVacinas(bebeId: string, nascimento: string, cal: Calendario, aplicacoes: AplicacaoVacina[], hoje: string): EventoDia[] {
   const lista = calendarioDoBebe(nascimento, cal, aplicacoes, hoje);
   const eventos: EventoDia[] = [];
   const pendentes = new Map<string, { nomes: string[]; atrasada: boolean }>();
   for (const d of lista) {
-    if (d.situacao === 'pulada') continue;
+    if (d.situacao === 'pulada' || d.situacao === 'passou') continue;
     if (d.situacao === 'aplicada') {
       if (d.aplicacao?.data) {
         eventos.push({ uid: `vacina-${bebeId}-${d.dose.id}`, inicio: d.aplicacao.data, titulo: `✓ 💉 ${primeiroNome(d.dose.vacina)} (${d.dose.dose})`, descricao: 'Aplicada.' });

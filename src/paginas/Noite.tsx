@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgora, useDados } from '../dados/contexto';
 import { agoraIso, haQuanto, horaCurta, relogio, textoDuracao } from '../lib/datas';
+import { FolhaQueHorasTerminou } from '../componentes/registrar';
 import { useUmToque } from '../componentes/ui';
 import {
   duracaoPorLado,
   emAndamento,
+  cronometroEsquecido,
   finalizarMamada,
+  finalizarMamadaNaHora,
   finalizarSono,
   iniciarMamada,
   iniciarSono,
@@ -44,6 +47,45 @@ export function Noite() {
     const t = setTimeout(() => setAviso(null), 6000);
     return () => clearTimeout(t);
   }, [aviso]);
+
+  // Tela acesa enquanto o modo noite está aberto (o iPhone não apaga no meio da mamada)
+  useEffect(() => {
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } };
+    if (!nav.wakeLock) return;
+    let trava: { release: () => Promise<void> } | null = null;
+    let vivo = true;
+    const pedir = () => {
+      if (document.visibilityState !== 'visible') return;
+      nav.wakeLock!.request('screen').then((t) => {
+          if (vivo) trava = t;
+          else void t.release();
+        }).catch(() => undefined);
+    };
+    pedir();
+    // O iPhone solta a trava quando o app vai para o fundo: pede de novo ao voltar
+    document.addEventListener('visibilitychange', pedir);
+    return () => {
+      vivo = false;
+      document.removeEventListener('visibilitychange', pedir);
+      trava?.release().catch(() => undefined);
+    };
+  }, []);
+
+  // Cronômetro esquecido: pergunta a hora antes de salvar
+  const [perguntar, setPerguntar] = useState<'mamada' | 'sono' | null>(null);
+  function finalizarMamadaAgora(quando?: Date) {
+    if (!m) return;
+    if (!quando && cronometroEsquecido(m, new Date())) return setPerguntar('mamada');
+    setPerguntar(null);
+    const fim = quando ? finalizarMamadaNaHora(m, quando) : finalizarMamada(m, new Date());
+    salvar(fim, `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, m);
+  }
+  function acordouAgora(quando?: Date) {
+    if (!sono) return;
+    if (!quando && cronometroEsquecido(sono, new Date())) return setPerguntar('sono');
+    setPerguntar(null);
+    salvar(finalizarSono(sono, quando ?? new Date()), 'Acordou: sono salvo', sono);
+  }
 
   // Deixa a barra do sistema escura enquanto estiver aqui
   useEffect(() => {
@@ -123,7 +165,7 @@ export function Noite() {
             <button onClick={toque(() => salvar(ativo ? pausarMamada(m, new Date()) : trocarLado(m, new Date(), ladoFinal(m) ?? 'E'), ativo ? 'Pausado' : 'Continuando', m))}>
               {ativo ? 'Pausar' : 'Continuar'}
             </button>
-            <button style={{ gridColumn: '1 / -1' }} onClick={toque(() => salvar(finalizarMamada(m, new Date()), `Mamada salva (${textoDuracao(duracaoPorLado(finalizarMamada(m, new Date()), new Date()).total, true)})`, m))}>
+            <button style={{ gridColumn: '1 / -1' }} onClick={toque(() => finalizarMamadaAgora())}>
               Finalizar mamada
             </button>
           </>
@@ -141,13 +183,15 @@ export function Noite() {
         <button onClick={toque(() => fraldaAgora(false, true))}>💩 Cocô</button>
         <button onClick={toque(() => fraldaAgora(true, true))}>Xixi e cocô</button>
         {sono ? (
-          <button className="ativo" onClick={toque(() => salvar(finalizarSono(sono, new Date()), 'Acordou: sono salvo', sono))}>
+          <button className="ativo" onClick={toque(() => acordouAgora())}>
             Acordou
           </button>
         ) : (
           <button onClick={toque(() => salvar(iniciarSono(baseRegistro(), new Date()), 'Dormiu', null))}>Dormiu</button>
         )}
       </div>
+      {perguntar === 'mamada' && m && <FolhaQueHorasTerminou r={m} aoFechar={() => setPerguntar(null)} aoSalvar={(q) => finalizarMamadaAgora(q)} />}
+      {perguntar === 'sono' && sono && <FolhaQueHorasTerminou r={sono} aoFechar={() => setPerguntar(null)} aoSalvar={(q) => acordouAgora(q)} />}
     </div>
   );
 }

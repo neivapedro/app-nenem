@@ -1,29 +1,50 @@
 import { useState } from 'react';
 import { useAgora, useDados } from '../dados/contexto';
 import { avaliarTemperatura, FONTE_FEBRE } from '../lib/conteudo';
-import { agoraIso, chaveDia, diasEntre, haQuanto, horaCurta, nomeDia, textoDuracao } from '../lib/datas';
+import { agoraIso, chaveDia, dataBr, diasEntre, haQuanto, horaCurta, nomeDia, textoDuracao } from '../lib/datas';
 import { descrever, ordenarRecentes } from '../lib/registros';
-import { proximaDose, ultimaDose } from '../lib/saude';
+import { doseRecente, prazoAcabou, proximaDose, remedioEmUso, ultimaDose, ultimoDiaTratamento } from '../lib/saude';
 import type { RegistroDe, Remedio } from '../lib/tipos';
 import { FolhaRegistroMais } from './registrar-mais';
 import { FolhaEditar } from './registrar';
-import { Campo, Folha, Icone, Selo } from './ui';
+import { Campo, Escolhas, Folha, Icone, Selo } from './ui';
 
-const INTERVALOS = [4, 6, 8, 12, 24];
+const INTERVALOS = [3, 4, 6, 8, 12, 24, 48];
+/** Atalhos de duração do tratamento (dias, contando hoje) */
+const DURACOES = [5, 7, 10, 14];
+
+function textoIntervalo(h: number): string {
+  if (h === 24) return '1 vez por dia';
+  if (h === 48) return 'Dia sim, dia não (48 h)';
+  return `De ${h} em ${h} horas`;
+}
+
+/** "até 25/10 (faltam 3 dias)" no cartão do remédio */
+function textoPrazo(termina: string, hoje: string): string {
+  const n = diasEntre(hoje, termina);
+  if (n <= 0) return 'hoje é o último dia';
+  return `até ${dataBr(termina).slice(0, 5)} (${n === 1 ? 'falta 1 dia' : `faltam ${n} dias`})`;
+}
 
 function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar: () => void }) {
-  const { bebe, membro, usuario, gravar, mostrarAviso } = useDados();
+  const { bebe, membro, usuario, gravar, mostrarAviso, hoje } = useDados();
   const [nome, setNome] = useState(inicial?.nome ?? '');
   const [dose, setDose] = useState(inicial?.dose ?? '');
   const [intervalo, setIntervalo] = useState<string>(inicial?.intervalo_h ? String(inicial.intervalo_h) : '');
   const [obs, setObs] = useState(inicial?.observacao ?? '');
+  const [termina, setTermina] = useState(inicial?.termina_em ?? '');
   const [msg, setMsg] = useState<string | null>(null);
   if (!bebe || !membro) return null;
+  const acabou = !!inicial && prazoAcabou(inicial, hoje);
+  const emUso = !!inicial && remedioEmUso(inicial, hoje);
+  /** Dias de tratamento a partir de hoje (contando hoje) */
+  const diasRestantes = termina && termina >= hoje ? diasEntre(hoje, termina) + 1 : null;
 
   /** Grava o que está no formulário; `ativo` muda só ao encerrar/reativar */
-  function salvar(ativo: boolean, aviso: string) {
+  function salvar(ativo: boolean, aviso: string, fimTratamento = termina) {
     if (!bebe || !membro) return;
     if (!nome.trim()) return setMsg('Informe o nome do remédio.');
+    if (fimTratamento && fimTratamento < hoje && fimTratamento !== inicial?.termina_em) return setMsg('O último dia do tratamento não pode ser antes de hoje.');
     const r: Remedio = {
       id: inicial?.id ?? crypto.randomUUID(),
       familia_id: membro.familia_id,
@@ -34,6 +55,8 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
       intervalo_h: intervalo ? Number(intervalo) : null,
       ativo,
       observacao: obs.trim() || null,
+      // Só manda a coluna quando há prazo (ou havia, para limpar): funciona mesmo antes da migração do prazo
+      ...(fimTratamento || inicial?.termina_em ? { termina_em: fimTratamento || null } : {}),
     };
     gravar({ tipo: 'colecao', colecao: 'remedios', dado: r });
     mostrarAviso({ texto: aviso });
@@ -46,7 +69,8 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
         className="pilha"
         onSubmit={(e) => {
           e.preventDefault();
-          salvar(inicial?.ativo ?? true, inicial ? 'Remédio atualizado' : 'Remédio salvo');
+          // Encerrado pelo prazo e com um novo último dia: volta para a lista de uso
+          salvar(inicial?.ativo ?? true, inicial ? (acabou && (!termina || termina >= hoje) ? 'Remédio reativado' : 'Remédio atualizado') : 'Remédio salvo');
         }}
       >
         <Campo rotulo="Remédio">
@@ -62,10 +86,32 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
               .sort((a, b) => a - b)
               .map((h) => (
                 <option key={h} value={h}>
-                  {h === 24 ? '1 vez por dia' : `De ${h} em ${h} horas`}
+                  {textoIntervalo(h)}
                 </option>
               ))}
           </select>
+        </Campo>
+        <Campo
+          rotulo="Por quantos dias? (opcional)"
+          grupo
+          dica={
+            termina
+              ? termina < hoje
+                ? `Terminou em ${dataBr(termina)}.`
+                : `Último dia: ${nomeDia(termina, hoje).toLowerCase()} (${diasRestantes === 1 ? 'só hoje' : `${diasRestantes} dias contando hoje`}). Depois, o remédio vai para "Encerrados" e os avisos param.`
+              : 'Sem prazo: fica em uso até você encerrar.'
+          }
+        >
+          <Escolhas
+            rotulo="Duração do tratamento"
+            opcoes={[{ valor: null, rotulo: 'Sem prazo' }, ...DURACOES.map((d) => ({ valor: d, rotulo: String(d) }))]}
+            valor={termina ? (diasRestantes && DURACOES.includes(diasRestantes) ? diasRestantes : -1) : null}
+            aoMudar={(d) => setTermina(d && d > 0 ? ultimoDiaTratamento(hoje, d) : '')}
+          />
+          <label className="campo" style={{ marginTop: 8 }}>
+            <span>Último dia</span>
+            <input type="date" value={termina} min={termina && termina < hoje ? termina : hoje} onChange={(e) => setTermina(e.target.value)} />
+          </label>
         </Campo>
         <Campo rotulo="Observação (opcional)">
           <textarea value={obs} maxLength={2000} onChange={(e) => setObs(e.target.value)} placeholder="Ex.: receitado na consulta de 1 mês, por 7 dias" />
@@ -77,9 +123,10 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
           <button
             type="button"
             className="botao"
-            onClick={() => salvar(!inicial.ativo, inicial.ativo ? 'Remédio encerrado' : 'Remédio reativado')}
+            // Voltar a usar um remédio que terminou pelo prazo: tira o prazo vencido (ou usa o novo último dia)
+            onClick={() => (emUso ? salvar(false, 'Remédio encerrado') : salvar(true, 'Remédio reativado', termina && termina >= hoje ? termina : ''))}
           >
-            {inicial.ativo ? 'Encerrar (parou de tomar)' : 'Voltar a usar'}
+            {emUso ? 'Encerrar (parou de tomar)' : 'Voltar a usar'}
           </button>
         )}
       </form>
@@ -88,7 +135,7 @@ function FolhaRemedio({ inicial, aoFechar }: { inicial: Remedio | null; aoFechar
 }
 
 function CartaoRemedio({ r }: { r: Remedio }) {
-  const { registros, gravar, mostrarAviso, baseRegistro, nomeDe } = useDados();
+  const { registros, gravar, mostrarAviso, baseRegistro, nomeDe, hoje } = useDados();
   const agora = useAgora(30_000);
   const [editar, setEditar] = useState(false);
   const [outraHora, setOutraHora] = useState(false);
@@ -97,6 +144,14 @@ function CartaoRemedio({ r }: { r: Remedio }) {
   const atrasada = proxima && new Date(proxima).getTime() < agora.getTime();
 
   function deiAgora() {
+    // Dose em dobro: a última foi há menos da metade do intervalo (sem intervalo, há menos de 30 min)
+    const recente = doseRecente(r, registros, new Date());
+    if (recente) {
+      const quem = recente.criado_por ? nomeDe(recente.criado_por) : '';
+      const sujeito = quem ? quem.charAt(0).toUpperCase() + quem.slice(1) : 'Alguém';
+      const ha = haQuanto(recente.inicio, new Date());
+      if (!window.confirm(`${sujeito} já deu às ${horaCurta(recente.inicio)} (${ha === 'agora' ? 'agora há pouco' : ha}). Registrar outra dose mesmo assim?`)) return;
+    }
     const ini = agoraIso();
     const reg: RegistroDe<'remedio'> = { ...baseRegistro(), tipo: 'remedio', inicio: ini, fim: ini, observacao: null, dados: { remedio_id: r.id, nome: r.nome, dose: r.dose } };
     gravar({ tipo: 'registro', dado: reg });
@@ -110,8 +165,9 @@ function CartaoRemedio({ r }: { r: Remedio }) {
         <div className="cresce">
           <div style={{ fontWeight: 650 }}>{r.nome}</div>
           <div className="texto-2">
-            {[r.dose, r.intervalo_h ? (r.intervalo_h === 24 ? '1 vez por dia' : `de ${r.intervalo_h} em ${r.intervalo_h} h`) : 'quando precisar'].filter(Boolean).join(' · ')}
+            {[r.dose, r.intervalo_h ? (r.intervalo_h === 24 ? '1 vez por dia' : r.intervalo_h === 48 ? 'dia sim, dia não' : `de ${r.intervalo_h} em ${r.intervalo_h} h`) : 'quando precisar'].filter(Boolean).join(' · ')}
           </div>
+          {r.termina_em && <div className="texto-2">{textoPrazo(r.termina_em, hoje)}</div>}
         </div>
         <button className="botao pequeno" onClick={() => setEditar(true)}>
           Editar
@@ -132,6 +188,7 @@ function CartaoRemedio({ r }: { r: Remedio }) {
           <div className="rotulo">Próxima</div>
           <div className={`valor ${atrasada ? 'ruim' : ''}`}>{proxima ? horaCurta(proxima) : '—'}</div>
           {proxima && <div className="mudo">{atrasada ? `passou há ${textoDuracao(agora.getTime() - new Date(proxima).getTime())}` : nomeDia(chaveDia(proxima), chaveDia(agora))}</div>}
+          {!proxima && ultima && r.intervalo_h && r.termina_em && <div className="mudo">fim do tratamento</div>}
         </div>
       </div>
       <div className="linha">
@@ -149,14 +206,15 @@ function CartaoRemedio({ r }: { r: Remedio }) {
 }
 
 export function SecaoRemedios() {
-  const { remedios, registros, nomeDe } = useDados();
+  const { remedios, registros, nomeDe, hoje } = useDados();
   const agora = useAgora(60_000);
   const [novo, setNovo] = useState(false);
   const [avulso, setAvulso] = useState(false);
   const [encerradoAberto, setEncerradoAberto] = useState<Remedio | null>(null);
   const [editando, setEditando] = useState<RegistroDe<'remedio'> | null>(null);
-  const ativos = remedios.filter((r) => r.ativo);
-  const encerrados = remedios.filter((r) => !r.ativo);
+  // Com prazo vencido (termina_em antes de hoje), o remédio encerra sozinho
+  const ativos = remedios.filter((r) => remedioEmUso(r, hoje));
+  const encerrados = remedios.filter((r) => !remedioEmUso(r, hoje));
   const doses = ordenarRecentes(registros.filter((r): r is RegistroDe<'remedio'> => r.tipo === 'remedio')).slice(0, 15);
 
   return (
@@ -202,7 +260,9 @@ export function SecaoRemedios() {
               <button key={r.id} className="item" onClick={() => setEncerradoAberto(r)}>
                 <div className="cresce">
                   <div className="titulo">{r.nome}</div>
-                  {r.dose && <div className="detalhe">{r.dose}</div>}
+                  {(r.dose || prazoAcabou(r, hoje)) && (
+                    <div className="detalhe">{[r.dose, prazoAcabou(r, hoje) && `terminou em ${dataBr(r.termina_em!).slice(0, 5)}`].filter(Boolean).join(' · ')}</div>
+                  )}
                 </div>
               </button>
             ))}

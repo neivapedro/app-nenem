@@ -3,6 +3,7 @@ import { useDados } from '../dados/contexto';
 import { avaliarTemperatura, FONTE_FEBRE } from '../lib/conteudo';
 import { agoraIso, deCampoDataHora, diasEntre, chaveDia, paraCampoDataHora } from '../lib/datas';
 import { validarRegistro } from '../lib/registros';
+import { remedioEmUso } from '../lib/saude';
 import type { Aceitacao, PoteLeite, Registro, RegistroDe } from '../lib/tipos';
 import { Campo, Escolhas, Folha, Icone } from './ui';
 
@@ -41,8 +42,9 @@ interface PropsForm<T> {
 // ---------- Remédio (dose dada) ----------
 
 export function FormRemedio({ inicial, aoSalvar, rodape }: PropsForm<RegistroDe<'remedio'>>) {
-  const { remedios } = useDados();
-  const ativos = remedios.filter((m) => m.ativo);
+  const { remedios, hoje } = useDados();
+  // Em uso: ativo e dentro do prazo do tratamento
+  const ativos = remedios.filter((m) => remedioEmUso(m, hoje));
   const [remedioId, setRemedioId] = useState<string | null>(inicial.dados.remedio_id);
   const [nome, setNome] = useState(inicial.dados.nome);
   const [dose, setDose] = useState(inicial.dados.dose ?? '');

@@ -4,7 +4,7 @@ import { chaveDia, dataBr } from './datas';
 import type { CarteiraVacinacaoPdf } from './pdf-documentos';
 import type { Bebe, Documento, VacinaRegistro } from './tipos';
 
-const SITUACAO: Record<string, string> = { atrasada: 'Atrasada', agora: 'Já pode tomar', proxima: 'Próxima' };
+const SITUACAO: Record<string, string> = { passou: 'Passou da idade — fale com o pediatra', atrasada: 'Atrasada', agora: 'Já pode tomar', proxima: 'Próxima' };
 
 export function modeloCarteiraVacinacao(bebe: Bebe, vacinas: VacinaRegistro[], documentos: Documento[], hoje: string, geradoEm: string): CarteiraVacinacaoPdf {
   const nasc = bebe.nascimento ? chaveDia(bebe.nascimento) : null;
@@ -24,7 +24,7 @@ export function modeloCarteiraVacinacao(bebe: Bebe, vacinas: VacinaRegistro[], d
     });
   const pendentes = nasc
     ? calendarioDoBebe(nasc, bebe.calendario_vacinal, vacinas.filter((v) => v.bebe_id === bebe.id), hoje)
-        .filter((c) => c.situacao === 'atrasada' || c.situacao === 'agora' || c.situacao === 'proxima')
+        .filter((c) => c.situacao === 'passou' || c.situacao === 'atrasada' || c.situacao === 'agora' || c.situacao === 'proxima')
         .map((c): [string, string, string, string] => [dataBr(c.prevista), c.dose.vacina, c.dose.dose, SITUACAO[c.situacao]])
     : [];
   return {

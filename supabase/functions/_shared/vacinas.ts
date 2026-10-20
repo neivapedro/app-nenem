@@ -6,6 +6,8 @@
 //   gov.br/saude/pt-br/composicao/svsa/pni/calendario-tecnico/calendario-tecnico-nacional-de-vacinacao-crianca
 //   (+ NT 64/2026: 2º reforço de VIP aos 4 anos; NT 77/2025: MenACWY aos 12 meses;
 //    VPC20 no SUS desde jun/2026, em transição com a VPC10; nirsevimabe no SUS desde fev/2026, Portaria SCTIE/MS 14/2026)
+//   Idades máximas (`idade_max`): rotavírus pela NT 193/2024 (1ª dose até 11m29d, 2ª até 23m29d); BCG e hepatite A
+//   até 4 anos, 11 meses e 29 dias, como no calendário técnico.
 // - SBP: Calendário de Vacinação, atualização 2026-2027 (Documento Científico nº 56, 28/07/2026)
 //   sbp.com.br/calendario-de-vacinacao-da-sbp-atualizacao-2026-2027/
 // Itens com `confirmar: true` não puderam ser conferidos no documento original: o app pede para confirmar com o pediatra.
@@ -29,6 +31,11 @@ export interface Dose {
   apos?: { id: string; dias: number };
   /** No calendário da SBP, depende desta dose em vez de `apos` (ex.: reforço da pneumo depois da 3ª dose) */
   apos_sbp?: { id: string; dias: number };
+  /**
+   * Idade máxima para tomar esta dose (regra oficial do PNI): `meses` + `dias` depois do nascimento
+   * é o último dia. Depois disso, a dose não aplicada fica como "passou" (fale com o pediatra).
+   */
+  idade_max?: { meses: number; dias: number; texto: string };
 }
 
 export const FONTES_VACINAS = [
@@ -40,13 +47,13 @@ const PNI_SBP: Calendario[] = ['pni', 'sbp'];
 
 export const DOSES: Dose[] = [
   // Ao nascer
-  { id: 'bcg', vacina: 'BCG', dose: 'Dose única', idade_meses: 0, idade_texto: 'Ao nascer', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Na maternidade ou o quanto antes.' },
+  { id: 'bcg', vacina: 'BCG', dose: 'Dose única', idade_meses: 0, idade_texto: 'Ao nascer', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Na maternidade ou o quanto antes. No SUS, até 4 anos, 11 meses e 29 dias.', idade_max: { meses: 59, dias: 29, texto: '4 anos, 11 meses e 29 dias' } },
   { id: 'hepb-nascer', vacina: 'Hepatite B', dose: 'Dose ao nascer', idade_meses: 0, idade_texto: 'Primeiras 12 a 24 horas', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Na maternidade. As doses seguintes vêm na penta (SUS) ou na hexa (particular) aos 2, 4 e 6 meses.' },
   { id: 'vsr-nirsevimabe', vacina: 'Nirsevimabe (anticorpo contra o VSR)', dose: 'Dose única', idade_meses: 0, idade_texto: 'Ao nascer ou antes da temporada do VSR', rede: 'particular', calendarios: ['sbp'], confirmar: true, observacao: 'Não é vacina: é anticorpo contra o vírus da bronquiolite (VSR), de preferência ainda na maternidade. No SUS (desde fevereiro de 2026), para prematuros (menos de 37 semanas) e crianças até 2 anos com algumas doenças. Se a mãe tomou a vacina do VSR na gestação pelo menos 14 dias antes do parto, em geral o bebê não precisa: confirme com o pediatra.' },
   // 2 meses
   { id: 'penta-1', vacina: 'Pentavalente (SUS) / Hexavalente (particular)', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Difteria, tétano, coqueluche, Hib e hepatite B. A hexa acelular inclui também a pólio inativada.' },
   { id: 'vip-1', vacina: 'Poliomielite inativada (VIP)', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Injetável. No particular pode vir dentro da hexa.' },
-  { id: 'rota-1', vacina: 'Rotavírus', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Gotinha. No SUS, a 1ª dose só pode ser dada de 1 mês e 15 dias até 11 meses e 29 dias.' },
+  { id: 'rota-1', vacina: 'Rotavírus', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'Gotinha. No SUS, a 1ª dose só pode ser dada de 1 mês e 15 dias até 11 meses e 29 dias.', idade_max: { meses: 11, dias: 29, texto: '11 meses e 29 dias' } },
   { id: 'pneumo-1', vacina: 'Pneumocócica conjugada', dose: '1ª dose', idade_meses: 2, idade_texto: '2 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'SUS: VPC20 (desde junho de 2026). Particular: VPC20 ou VPC15.' },
   // 3 meses
   { id: 'meningo-1', vacina: 'Meningocócica conjugada (C no SUS / ACWY no particular)', dose: '1ª dose', idade_meses: 3, idade_texto: '3 meses', rede: 'ambas', calendarios: PNI_SBP },
@@ -54,7 +61,7 @@ export const DOSES: Dose[] = [
   // 4 meses
   { id: 'penta-2', vacina: 'Pentavalente (SUS) / Hexavalente (particular)', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'vip-2', vacina: 'Poliomielite inativada (VIP)', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP },
-  { id: 'rota-2', vacina: 'Rotavírus', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'rota-1', dias: 30 }, observacao: 'No SUS, até 23 meses e 29 dias. Com a vacina monovalente (SUS), o esquema termina aqui.' },
+  { id: 'rota-2', vacina: 'Rotavírus', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP, apos: { id: 'rota-1', dias: 30 }, observacao: 'No SUS, até 23 meses e 29 dias. Com a vacina monovalente (SUS), o esquema termina aqui.', idade_max: { meses: 23, dias: 29, texto: '23 meses e 29 dias' } },
   { id: 'pneumo-2', vacina: 'Pneumocócica conjugada', dose: '2ª dose', idade_meses: 4, idade_texto: '4 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: 'No SUS, enquanto durar o estoque antigo, esta dose ainda pode ser a VPC10. Depois, tudo com a VPC20.' },
   // 5 meses
   { id: 'meningo-2', vacina: 'Meningocócica conjugada (C no SUS / ACWY no particular)', dose: '2ª dose', idade_meses: 5, idade_texto: '5 meses', rede: 'ambas', calendarios: PNI_SBP },
@@ -83,7 +90,7 @@ export const DOSES: Dose[] = [
   { id: 'vip-reforco-1', vacina: 'Poliomielite inativada (VIP)', dose: '1º reforço', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'dtp-reforco-1', vacina: 'Tríplice bacteriana (DTP no SUS / DTPa no particular)', dose: '1º reforço', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP },
   { id: 'tetraviral', vacina: 'Tetraviral (tríplice viral + varicela)', dose: '2ª dose da tríplice viral + varicela', idade_meses: 15, idade_texto: '15 meses', rede: 'ambas', calendarios: PNI_SBP, observacao: '2ª dose da tríplice viral. Da varicela, no SUS é a 1ª dose; para quem seguiu a SBP (varicela aos 12 meses), é a 2ª.' },
-  { id: 'hepa-sus', vacina: 'Hepatite A', dose: 'Dose única', idade_meses: 15, idade_texto: '15 meses', rede: 'sus', calendarios: ['pni'], observacao: 'No SUS, aceita até 4 anos, 11 meses e 29 dias.' },
+  { id: 'hepa-sus', vacina: 'Hepatite A', dose: 'Dose única', idade_meses: 15, idade_texto: '15 meses', rede: 'sus', calendarios: ['pni'], observacao: 'No SUS, aceita até 4 anos, 11 meses e 29 dias.', idade_max: { meses: 59, dias: 29, texto: '4 anos, 11 meses e 29 dias' } },
   // 18 meses
   { id: 'hepa-sbp-2', vacina: 'Hepatite A', dose: '2ª dose', idade_meses: 18, idade_texto: '18 meses', rede: 'particular', calendarios: ['sbp'], confirmar: true, apos: { id: 'hepa-sbp-1', dias: 180 } },
   // 4 anos
@@ -109,7 +116,8 @@ export interface AplicacaoVacina {
   data: string | null;
 }
 
-export type SituacaoDose = 'aplicada' | 'pulada' | 'atrasada' | 'agora' | 'proxima' | 'futura';
+/** `passou`: não foi aplicada e já passou da idade máxima (não conta como atrasada nem gera aviso) */
+export type SituacaoDose = 'aplicada' | 'pulada' | 'passou' | 'atrasada' | 'agora' | 'proxima' | 'futura';
 
 export interface DoseNoCalendario {
   dose: Dose;
@@ -117,6 +125,8 @@ export interface DoseNoCalendario {
   prevista: string;
   situacao: SituacaoDose;
   aplicacao: AplicacaoVacina | null;
+  /** Último dia para tomar (quando a dose tem idade máxima) */
+  limite: string | null;
 }
 
 /** Dias depois da data prevista em que a dose passa a contar como atrasada */
@@ -128,11 +138,17 @@ export function dosesDoCalendario(cal: Calendario): Dose[] {
   return DOSES.filter((d) => d.calendarios.includes(cal));
 }
 
+/** Último dia em que a dose ainda pode ser tomada (null = sem idade máxima) */
+export function limiteDaDose(nascimento: string, dose: Dose): string | null {
+  return dose.idade_max ? somarDias(somarMeses(nascimento, dose.idade_max.meses), dose.idade_max.dias) : null;
+}
+
 /** Data prevista de cada dose (respeitando o intervalo mínimo da dose anterior, quando houver). */
 export function calendarioDoBebe(nascimento: string, cal: Calendario, aplicacoes: AplicacaoVacina[], hoje: string): DoseNoCalendario[] {
   const porId = new Map(aplicacoes.map((a) => [a.dose_id, a]));
   const lista = dosesDoCalendario(cal);
   const previstas = new Map<string, string>();
+  const situacoes = new Map<string, SituacaoDose>();
   return lista.map((dose) => {
     let prevista = somarMeses(nascimento, dose.idade_meses);
     const apos = (cal === 'sbp' && dose.apos_sbp) || dose.apos;
@@ -146,14 +162,18 @@ export function calendarioDoBebe(nascimento: string, cal: Calendario, aplicacoes
     }
     previstas.set(dose.id, prevista);
     const aplicacao = porId.get(dose.id) ?? null;
+    const limite = limiteDaDose(nascimento, dose);
     let situacao: SituacaoDose;
     if (aplicacao?.status === 'aplicada') situacao = 'aplicada';
     else if (aplicacao?.status === 'pulada') situacao = 'pulada';
+    // Passou da idade máxima, ou a dose anterior do esquema passou sem ser aplicada (ex.: 2ª do rotavírus sem a 1ª)
+    else if ((limite && limite < hoje) || (apos && situacoes.get(apos.id) === 'passou')) situacao = 'passou';
     else if (somarDias(prevista, TOLERANCIA_DIAS) < hoje) situacao = 'atrasada';
     else if (prevista <= hoje) situacao = 'agora';
     else if (somarDias(hoje, JANELA_PROXIMA_DIAS) >= prevista) situacao = 'proxima';
     else situacao = 'futura';
-    return { dose, prevista, situacao, aplicacao };
+    situacoes.set(dose.id, situacao);
+    return { dose, prevista, situacao, aplicacao, limite };
   });
 }
 

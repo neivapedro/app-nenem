@@ -8,6 +8,8 @@ import {
   duracaoPorLado,
   emAndamento,
   finalizarMamada,
+  finalizarMamadaNaHora,
+  cronometroEsquecido,
   finalizarSono,
   iniciarMamada,
   iniciarSono,
@@ -182,6 +184,47 @@ export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
   );
 }
 
+/**
+ * Cronômetro aberto há tempo demais (esqueceram de parar): pergunta que horas
+ * terminou, em vez de salvar uma mamada de 50 h.
+ */
+export function FolhaQueHorasTerminou({ r, aoFechar, aoSalvar }: { r: RegistroDe<'mamada'> | RegistroDe<'sono'>; aoFechar: () => void; aoSalvar: (fim: Date) => void }) {
+  const ini = new Date(r.inicio).getTime();
+  // Sugestão: mamada pausada → quando pausou; lado ainda contando → 15 min depois de começar esse lado; sono → 3 h depois
+  const ultimo = r.tipo === 'mamada' ? r.dados.segmentos[r.dados.segmentos.length - 1] : undefined;
+  const base = ultimo ? (ultimo.fim ? new Date(ultimo.fim).getTime() : new Date(ultimo.inicio).getTime() + 15 * 60_000) : ini + (r.tipo === 'mamada' ? 30 : 180) * 60_000;
+  const sugestao = Math.min(Date.now(), Math.max(base, ini + 60_000));
+  const [quando, setQuando] = useState(() => paraCampoDataHora(new Date(sugestao).toISOString()));
+  const [msg, setMsg] = useState<string | null>(null);
+  const horas = Math.floor((Date.now() - ini) / 3_600_000);
+  return (
+    <Folha titulo={r.tipo === 'mamada' ? 'Esqueceu o cronômetro?' : 'Esqueceu de marcar que acordou?'} aoFechar={aoFechar}>
+      <form
+        className="pilha"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const iso = deCampoDataHora(quando);
+          if (!iso) return setMsg('Informe a hora.');
+          const t = new Date(iso).getTime();
+          if (t <= ini) return setMsg(`Precisa ser depois do início (${horaCurta(r.inicio)}).`);
+          if (t > Date.now() + 60_000) return setMsg('A hora está no futuro.');
+          aoSalvar(new Date(t));
+        }}
+      >
+        <p className="texto-2">
+          {r.tipo === 'mamada' ? 'A mamada' : 'O sono'} começou {chaveDia(r.inicio) === chaveDia(new Date()) ? 'hoje' : `em ${dataBr(chaveDia(r.inicio)).slice(0, 5)}`} às {horaCurta(r.inicio)} e o cronômetro está contando há {horas} h. Que horas {r.tipo === 'mamada' ? 'terminou' : 'acordou'}?
+        </p>
+        <CampoHora rotulo={r.tipo === 'mamada' ? 'Terminou às' : 'Acordou às'} valor={quando} aoMudar={setQuando} />
+        <Erro msg={msg} />
+        <button className="botao primario">Salvar com essa hora</button>
+        <button type="button" className="botao" onClick={() => aoSalvar(new Date())}>
+          {r.tipo === 'mamada' ? 'Terminou agora mesmo' : 'Acordou agora mesmo'}
+        </button>
+      </form>
+    </Folha>
+  );
+}
+
 /** Mamada em andamento: tempo de cada lado, trocar, pausar e finalizar. */
 export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
   const { gravar, mostrarAviso, nomeDe } = useDados();
@@ -191,8 +234,12 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
   const toque = useUmToque();
   const salvar = (novo: Registro) => gravar({ tipo: 'registro', dado: novo });
 
-  function finalizar() {
-    const fim = finalizarMamada(r, new Date());
+  const [perguntar, setPerguntar] = useState(false);
+  function finalizar(quando?: Date) {
+    // Aberta há mais de 3 h: pergunta a hora em vez de salvar tudo isso
+    if (!quando && cronometroEsquecido(r, new Date())) return setPerguntar(true);
+    setPerguntar(false);
+    const fim = quando ? finalizarMamadaNaHora(r, quando) : finalizarMamada(r, new Date());
     salvar(fim);
     mostrarAviso({ texto: `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, desfazer: () => salvar(r) });
   }
@@ -241,13 +288,14 @@ export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
             <Icone nome="tocar" /> Continuar
           </button>
         )}
-        <button className="botao primario cresce" onClick={toque(finalizar)}>
+        <button className="botao primario cresce" onClick={toque(() => finalizar())}>
           <Icone nome="parar" /> Finalizar
         </button>
       </div>
       <button className="botao texto pequeno" style={{ alignSelf: 'center' }} onClick={cancelar}>
         Descartar
       </button>
+      {perguntar && <FolhaQueHorasTerminou r={r} aoFechar={() => setPerguntar(false)} aoSalvar={(q) => finalizar(q)} />}
     </section>
   );
 }
@@ -486,8 +534,12 @@ export function CartaoSonoAtivo({ r }: { r: RegistroDe<'sono'> }) {
   const { gravar, mostrarAviso, nomeDe } = useDados();
   const agora = useAgora(1000);
   const toque = useUmToque();
-  function acordou() {
-    const fim = finalizarSono(r, new Date());
+  const [perguntar, setPerguntar] = useState(false);
+  function acordou(quando?: Date) {
+    // Contando há mais de 14 h: pergunta a hora em vez de salvar tudo isso
+    if (!quando && cronometroEsquecido(r, new Date())) return setPerguntar(true);
+    setPerguntar(false);
+    const fim = finalizarSono(r, quando ?? new Date());
     gravar({ tipo: 'registro', dado: fim });
     mostrarAviso({
       texto: `Sono salvo (${textoDuracao(new Date(fim.fim!).getTime() - new Date(r.inicio).getTime(), true)})`,
@@ -507,9 +559,10 @@ export function CartaoSonoAtivo({ r }: { r: RegistroDe<'sono'> }) {
         </span>
       </div>
       <div className="grande">{relogio(agora.getTime() - new Date(r.inicio).getTime())}</div>
-      <button className="botao primario largo" onClick={toque(acordou)}>
+      <button className="botao primario largo" onClick={toque(() => acordou())}>
         Acordou
       </button>
+      {perguntar && <FolhaQueHorasTerminou r={r} aoFechar={() => setPerguntar(false)} aoSalvar={(q) => acordou(q)} />}
     </section>
   );
 }

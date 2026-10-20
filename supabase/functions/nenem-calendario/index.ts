@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     // Validade dos documentos (tabela nova: vazia se ainda não existir)
     db.from('nenem_documentos').select('id, titulo, validade').eq('familia_id', membro.familia_id).not('validade', 'is', null),
     db.from('nenem_cofrinho_planos').select('dia_aporte, aporte_mensal_centavos').eq('familia_id', membro.familia_id),
-    db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', membro.familia_id).eq('tipo', 'deposito').gte('data', inicioMes).limit(1),
+    db.from('nenem_cofrinho_movimentos').select('id').eq('familia_id', membro.familia_id).eq('tipo', 'deposito').is('transferencia_id', null).gte('data', inicioMes).limit(1),
   ]);
   if (segundas.some((r) => r.error)) return tenteDepois();
   const [{ data: bebesCompletos }, { data: vac }, { data: tar }, { data: docs }, { data: planos }, { data: depMes }] = segundas;
