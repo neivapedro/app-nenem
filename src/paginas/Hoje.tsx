@@ -137,11 +137,11 @@ function AntesDoParto() {
             Hoje: {g.semanas} semanas{g.dias ? ` e ${g.dias} ${g.dias === 1 ? 'dia' : 'dias'}` : ''} de gestação
             <br />
             Previsão: {dataBr(bebe.data_prevista!)} · com 40 semanas
-            {/* 37 semanas = bebê a termo (antes disso é prematuro) */}
+            {/* 37 semanas = a termo: a partir daí o bebê não é mais prematuro */}
             {g.semanas < 37 && (
               <>
                 <br />
-                37 semanas (a termo) em {dataBr(somarDiasLocal(bebe.data_prevista!, -21))}
+                37 semanas (deixa de ser prematuro) em {dataBr(somarDiasLocal(bebe.data_prevista!, -21))}
               </>
             )}
           </span>
