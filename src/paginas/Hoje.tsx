@@ -8,7 +8,7 @@ import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMama
 import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
-import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, textoDuracao } from '../lib/datas';
+import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, somarDiasLocal, textoDuracao } from '../lib/datas';
 import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
 import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
 import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
@@ -134,7 +134,16 @@ function AntesDoParto() {
           <span className="rotulo">{g.faltam > 0 ? 'Faltam' : g.faltam === 0 ? 'Data prevista' : 'Data prevista passou há'}</span>
           <div className="grande">{g.faltam === 0 ? 'Hoje!' : `${Math.abs(g.faltam)} ${Math.abs(g.faltam) === 1 ? 'dia' : 'dias'}`}</div>
           <span className="texto-2">
-            Previsão: {dataBr(bebe.data_prevista!)} · {g.semanas} semanas{g.dias ? ` e ${g.dias} ${g.dias === 1 ? 'dia' : 'dias'}` : ''} de gestação
+            Hoje: {g.semanas} semanas{g.dias ? ` e ${g.dias} ${g.dias === 1 ? 'dia' : 'dias'}` : ''} de gestação
+            <br />
+            Previsão: {dataBr(bebe.data_prevista!)} · com 40 semanas
+            {/* 37 semanas = bebê a termo (antes disso é prematuro) */}
+            {g.semanas < 37 && (
+              <>
+                <br />
+                37 semanas (a termo) em {dataBr(somarDiasLocal(bebe.data_prevista!, -21))}
+              </>
+            )}
           </span>
         </>
       ) : (
