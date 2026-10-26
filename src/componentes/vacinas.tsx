@@ -362,6 +362,16 @@ const TEXTO_ETAPA: Record<SituacaoEtapa, string> = {
   futura: 'mais para a frente',
 };
 
+/** "em 12 dias", "em 3 meses", "em 2 anos e 6 meses" */
+function textoEm(dias: number): string {
+  if (dias <= 60) return `em ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+  const meses = Math.round(dias / 30.4375);
+  if (meses < 24) return `em ${meses} meses`;
+  const anos = Math.floor(meses / 12);
+  const resto = meses % 12;
+  return `em ${anos} anos${resto ? ` e ${resto === 1 ? '1 mês' : `${resto} meses`}` : ''}`;
+}
+
 /** Movimento suave só para quem não pediu para reduzir animações */
 const semAnimacao = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -540,7 +550,7 @@ export function SecaoVacinas() {
             {proximo && (
               <div className="texto-2">
                 Próxima etapa: <strong>{proximo.idade_texto.toLowerCase() === 'ao nascer' ? 'ao nascer' : proximo.idade_texto}</strong>
-                {situacaoEtapa(proximo.itens) === 'agora' ? ' · já pode tomar' : diasProximo > 0 ? ` · em ${diasProximo} ${diasProximo === 1 ? 'dia' : 'dias'}` : ''}
+                {situacaoEtapa(proximo.itens) === 'agora' ? ' · já pode tomar' : diasProximo > 0 ? ` · ${textoEm(diasProximo)}` : ''}
               </div>
             )}
           </div>

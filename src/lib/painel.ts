@@ -361,7 +361,10 @@ export function narrativa(e: EntradaNarrativa): FraseNarrativa[] {
   if (comSono.length >= 3) {
     const top = comSono.reduce((x, y) => (y.maiorSonoMs >= x.maiorSonoMs ? y : x));
     const rel = top.maiorSonoMs / media(comSono.map((d) => d.maiorSonoMs)) - 1;
-    add('maior-sono', 'recorde', ['Maior sono seguido: ', { destaque: duracaoCurta(top.maiorSonoMs) }, ` ${quandoFoi(top.dia, hoje)}`], rel >= 0.15 ? 4 + Math.min(10, rel * 20) : 1.5);
+    // Todo dia igual (ou empate no topo) não é destaque
+    const empate = comSono.filter((d) => Math.round(d.maiorSonoMs / MIN) === Math.round(top.maiorSonoMs / MIN)).length > 1;
+    if (rel >= 0.05 && !empate)
+      add('maior-sono', 'recorde', ['Maior sono seguido: ', { destaque: duracaoCurta(top.maiorSonoMs) }, ` ${quandoFoi(top.dia, hoje)}`], rel >= 0.15 ? 4 + Math.min(10, rel * 20) : 1.5);
   }
 
   // Intervalo entre alimentações
