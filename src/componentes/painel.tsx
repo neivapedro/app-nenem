@@ -2,8 +2,10 @@
 // minigráfico, colunas empilhadas com seleção de dia (vale para todos os
 // gráficos), mapa de horários, linha do tempo e proporção do peito.
 // Marcas finas, grade discreta, legenda com 2+ séries, toque para ver valores.
-import { useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { inicioDoDia } from '../lib/datas';
+import type { ForaDoPadrao, FraseNarrativa, IconeFrase } from '../lib/painel';
+import '../estilos/painel.css';
 
 const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const diaCurto = (dia: string) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
@@ -39,16 +41,27 @@ export function Kpi({
   const pts = serie && serie.length > 1 ? serie : null;
   const max = pts ? Math.max(...pts, 1e-9) : 1;
   const caminho = pts ? pts.map((v, i) => `${i ? 'L' : 'M'}${((i / (pts.length - 1)) * 100).toFixed(1)},${(26 - (v / max) * 24).toFixed(1)}`).join('') : '';
+  // "14,2 h" → número grande + unidade menor (hierarquia); "2h34" fica inteiro
+  const partes = /^([\d.,]+)\s(h|ml|min)$/.exec(valor);
   return (
-    <div className="kpi">
+    <div className="kpi" style={{ '--kpi-cor': cor } as CSSProperties}>
       <div className="kpi-rotulo">
         <span className="kpi-ponto" style={{ background: cor }} />
         {rotulo}
       </div>
-      <div className="kpi-valor">{valor}</div>
+      <div className="kpi-valor">
+        {partes ? (
+          <>
+            {partes[1]}
+            <span className="kpi-unidade"> {partes[2]}</span>
+          </>
+        ) : (
+          valor
+        )}
+      </div>
       <div className="kpi-rodape">
         {delta !== undefined && delta !== null && isFinite(delta) ? (
-          <span className="kpi-delta">
+          <span className={`kpi-delta ${Math.abs(delta) < 0.005 ? 'igual' : delta > 0 ? 'sobe' : 'desce'}`}>
             {Math.abs(delta) < 0.005 ? '= ' : delta > 0 ? '▲ ' : '▼ '}
             {Math.abs(delta * 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%
           </span>
@@ -57,7 +70,7 @@ export function Kpi({
         )}
         {pts && (
           <svg className="kpi-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
-            <path d={caminho} style={{ stroke: cor }} />
+            <path d={caminho} pathLength={1} style={{ stroke: cor }} />
             <circle cx={100} cy={26 - (pts[pts.length - 1] / max) * 24} r={2.6} style={{ fill: cor }} />
           </svg>
         )}
@@ -95,6 +108,7 @@ export function ColunasEmpilhadas({
   selecionado,
   aoSelecionar,
   rotulo,
+  foraDoPadrao,
 }: {
   dias: string[];
   series: SerieColuna[];
@@ -104,6 +118,8 @@ export function ColunasEmpilhadas({
   selecionado: number | null;
   aoSelecionar: (i: number | null) => void;
   rotulo: string;
+  /** Dia que destoa dos outros (marcado de leve, com o motivo na legenda e na leitura) */
+  foraDoPadrao?: ForaDoPadrao | null;
 }) {
   const [toque, setToque] = useState<number | null>(null);
   const n = dias.length;
@@ -118,7 +134,10 @@ export function ColunasEmpilhadas({
   // Ao trocar de período, um toque antigo pode apontar para fora: ignora
   const ativo = (toque !== null && toque < n ? toque : null) ?? (selecionado !== null && selecionado < n ? selecionado : null);
   const mostrarRotulo = (i: number) => n <= 14 || i % Math.ceil(n / 7) === 0 || i === n - 1;
-  const eixo = formatarEixo ?? ((v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1)));
+  const eixo = formatarEixo ?? ((v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
+  const fora = foraDoPadrao && foraDoPadrao.indice < n ? foraDoPadrao : null;
+  const nomeDia = (i: number) => (n <= 7 ? semana(dias[i]) : diaCurto(dias[i]));
+  const motivo = fora ? `${fora.acima ? 'bem acima' : 'bem abaixo'} da média (${formatar(fora.media)})` : '';
 
   const tecla = (e: KeyboardEvent<SVGSVGElement>) => {
     if (e.key === 'ArrowRight') aoSelecionar(Math.min(n - 1, (selecionado ?? -1) + 1));
@@ -130,7 +149,7 @@ export function ColunasEmpilhadas({
 
   return (
     <div className="painel-grafico">
-      {(series.length > 1 || (media !== undefined && media !== null && media > 0)) && (
+      {(series.length > 1 || (media !== undefined && media !== null && media > 0) || fora) && (
         <ul className="legenda" aria-label="Legenda">
           {(series.length > 1 ? series : []).map((s) => (
             <li key={s.id}>
@@ -144,13 +163,19 @@ export function ColunasEmpilhadas({
               média {formatar(media)}
             </li>
           )}
+          {fora && (
+            <li className="legenda-fora" title={`Fora do padrão: ${motivo}`}>
+              <span className="chave-fora" />
+              fora do padrão: {nomeDia(fora.indice)}
+            </li>
+          )}
         </ul>
       )}
       <div className="grafico-area">
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={rotulo}
+          aria-label={fora ? `${rotulo}. Fora do padrão: ${semana(dias[fora.indice])}, ${diaCurto(dias[fora.indice])}, ${formatar(totais[fora.indice])}, ${motivo}` : rotulo}
           tabIndex={0}
           onKeyDown={tecla}
           onPointerLeave={(e) => e.pointerType === 'mouse' && setToque(null)}
@@ -185,6 +210,9 @@ export function ColunasEmpilhadas({
                 style={{ cursor: 'pointer' }}
               >
                 <rect x={cx - banda / 2} y={T} width={banda} height={H - T - B} fill="transparent" />
+                {fora?.indice === i && (
+                  <rect className="fora-faixa" x={cx - Math.min(banda, largura + 8) / 2} y={T - 2} width={Math.min(banda, largura + 8)} height={H - T - B + 2} rx={Math.min(6, banda / 2)} />
+                )}
                 {segs.map((p, k) => {
                   const ultimo = k === segs.length - 1;
                   // 2 px de respiro entre os pedaços empilhados
@@ -194,11 +222,12 @@ export function ColunasEmpilhadas({
                   return (
                     <path
                       key={p.s.id}
-                      style={{ fill: p.s.cor }}
+                      style={{ fill: p.s.cor, '--atraso': `${Math.round((i / Math.max(1, n)) * 320)}ms` } as CSSProperties}
                       d={`M${x},${topoSeg + alto} V${topoSeg + r} Q${x},${topoSeg} ${x + r},${topoSeg} H${x + largura - r} Q${x + largura},${topoSeg} ${x + largura},${topoSeg + r} V${topoSeg + alto} Z`}
                     />
                   );
                 })}
+                {fora?.indice === i && <circle className="fora-marca" cx={cx} cy={(segs.length ? segs[segs.length - 1].y1 : y(0)) - 7} r={3.2} />}
                 {mostrarRotulo(i) && (
                   <text x={cx} y={H - 7} textAnchor="middle" className={`eixo-texto ${selecionado === i ? 'forte' : ''}`}>
                     {n <= 7 ? semana(d) : d.slice(8, 10)}
@@ -210,7 +239,16 @@ export function ColunasEmpilhadas({
           {media !== undefined && media !== null && media > 0 && <line x1={L} x2={W - R} y1={y(media)} y2={y(media)} className="media-linha" />}
         </svg>
         {ativo !== null && (
-          <div className={`leitura ${L + banda * ativo + banda / 2 < W / 2 ? 'direita' : 'esquerda'}`} aria-live="polite">
+          <div
+            className={`leitura ${L + banda * ativo + banda / 2 < W / 2 ? 'direita' : 'esquerda'}`}
+            // Ao lado da coluna, sem cobri-la
+            style={
+              L + banda * ativo + banda / 2 < W / 2
+                ? { left: `${((L + banda * (ativo + 1) + 2) / W) * 100}%`, right: 'auto', maxWidth: `min(220px, ${(1 - (L + banda * (ativo + 1) + 2) / W) * 100}%)` }
+                : { right: `${(1 - (L + banda * ativo - 2) / W) * 100}%`, left: 'auto', maxWidth: `min(220px, ${((L + banda * ativo - 2) / W) * 100}%)` }
+            }
+            aria-live="polite"
+          >
             <div className="leitura-titulo">
               {semana(dias[ativo])}, {diaCurto(dias[ativo])}
             </div>
@@ -226,6 +264,7 @@ export function ColunasEmpilhadas({
                   <span>{s.nome}</span>
                 </div>
               ))}
+            {fora?.indice === ativo && <div className="leitura-fora">Fora do padrão: {motivo}</div>}
           </div>
         )}
       </div>
@@ -268,7 +307,12 @@ export function MapaCalor({
           ))}
         </div>
         {matriz.map((linha, d) => (
-          <div key={dias[d]} className={`mapa-linha ${selecionado === d ? 'selecionada' : selecionado !== null ? 'esmaecida' : ''}`} role="row">
+          <div
+            key={dias[d]}
+            className={`mapa-linha ${selecionado === d ? 'selecionada' : selecionado !== null ? 'esmaecida' : ''}`}
+            role="row"
+            style={{ '--atraso': `${Math.round((d / Math.max(1, matriz.length)) * 260)}ms` } as CSSProperties}
+          >
             <button type="button" role="rowheader" className="mapa-dia" onClick={() => aoSelecionar(selecionado === d ? null : d)}>
               {dias.length <= 7 ? semana(dias[d]) : diaCurto(dias[d])}
             </button>
@@ -367,14 +411,14 @@ export function LinhaTempo({
       {faixa(
         'Fraldas',
         fraldas.map((f, i) => (
-          <span key={i} className="lt-ponto" style={{ left: `${f.em * 100}%`, background: f.coco ? 'var(--c-mamadeira)' : 'var(--c-fralda)' }} />
+          <span key={i} className="lt-ponto" style={{ left: `clamp(6px, ${f.em * 100}%, calc(100% - 6px))`, background: f.coco ? 'var(--c-mamadeira)' : 'var(--c-fralda)' }} />
         )),
       )}
       <div className="lt-eixo">
         <span className="lt-titulo" />
         <div className="lt-trilho sem-fundo">
           {marcas.map((m) => (
-            <span key={m.em} className="lt-marca" style={{ left: `${m.em * 100}%` }}>
+            <span key={m.em} className={`lt-marca ${m.em < 0.06 ? 'na-esquerda' : m.em > 0.94 ? 'na-direita' : ''}`} style={{ left: `${m.em * 100}%` }}>
               {m.texto}
             </span>
           ))}
@@ -421,5 +465,52 @@ export function Proporcao({ partes, formatar }: { partes: { nome: string; valor:
         ))}
       </div>
     </div>
+  );
+}
+
+// ---------- Narrativa (destaques do período em frases) ----------
+
+const ICONES: Record<IconeFrase, { cor: string; desenho: ReactNode }> = {
+  sono: { cor: 'var(--c-sono)', desenho: <path d="M19.5 14.6A7.6 7.6 0 1 1 9.4 4.5a6.1 6.1 0 0 0 10.1 10.1Z" /> },
+  recorde: { cor: 'var(--c-sono)', desenho: <path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.4l-4.8 2.5.9-5.4-3.9-3.8 5.4-.8Z" /> },
+  intervalo: {
+    cor: 'var(--c-mamada)',
+    desenho: (
+      <>
+        <circle cx="12" cy="12.5" r="7.5" />
+        <path d="M12 8.5v4l2.6 1.8M10 3h4" />
+      </>
+    ),
+  },
+  alimentacao: { cor: 'var(--c-mamada)', desenho: <path d="M12 4c2.9 3.4 5.8 6.6 5.8 9.6a5.8 5.8 0 0 1-11.6 0C6.2 10.6 9.1 7.4 12 4Z" /> },
+  mamadeira: { cor: 'var(--c-mamadeira)', desenho: <path d="M10 3.5h4M10.2 3.5v2.7L8 9v9.5A2 2 0 0 0 10 20.5h4a2 2 0 0 0 2-2V9l-2.2-2.8V3.5M8 12.5h3.5M8 15.5h3.5" /> },
+  fralda: { cor: 'var(--c-fralda)', desenho: <path d="M4 7h16v2.6c0 4.6-3.6 8.4-8 8.4s-8-3.8-8-8.4V7ZM8.5 7v2.5M15.5 7v2.5" /> },
+};
+
+/** Até 4 frases automáticas sobre o período, cada uma com ícone e o número em negrito */
+export function Narrativa({ frases, titulo = 'Destaques do período' }: { frases: FraseNarrativa[]; titulo?: string }) {
+  if (!frases.length) return null;
+  return (
+    <section className="cartao narrativa" aria-label={titulo}>
+      <h2 className="narrativa-titulo">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3.5 13.6 9l5.4 1.6-5.4 1.6L12 17.7l-1.6-5.5L5 10.6 10.4 9ZM18.5 15.5l.7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7Z" />
+        </svg>
+        {titulo}
+      </h2>
+      <ul className="narrativa-lista">
+        {frases.map((f, i) => {
+          const ic = ICONES[f.icone];
+          return (
+            <li key={f.id} style={{ '--cor-icone': ic.cor, '--atraso': `${i * 70}ms` } as CSSProperties}>
+              <span className="narrativa-icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24">{ic.desenho}</svg>
+              </span>
+              <span className="narrativa-texto">{f.partes.map((p, k) => (typeof p === 'string' ? p : <strong key={k}>{p.destaque}</strong>))}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

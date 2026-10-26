@@ -50,6 +50,8 @@ export interface Repositorio {
   novoTokenCalendario(): Promise<string>;
 
   salvarBebe(b: Bebe): Promise<void>;
+  /** Grava só a foto do bebê, na hora (fora da fila): a foto antiga só é apagada depois disso dar certo */
+  salvarFotoBebe(bebeId: string, caminho: string | null): Promise<void>;
 
   /** Registros com início a partir de `desde` (ISO) */
   listarRegistros(desde: string): Promise<Registro[]>;

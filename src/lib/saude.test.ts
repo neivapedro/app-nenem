@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { avaliarTemperatura } from './conteudo';
 import { idFixo } from './ids';
 import { intervaloMedioAlimentacao, ultimosDias } from './padroes';
-import { alimentosProvados, doseRecente, emEstoque, prazoAcabou, proximaDose, remedioEmUso, situacaoPote, ultimoDiaTratamento, validadeLeite } from './saude';
+import { alimentosProvados, doseRecente, etapaAtual, mesesCompletos, rotuloCurtoIdade, situacaoEtapa, emEstoque, prazoAcabou, proximaDose, remedioEmUso, situacaoPote, ultimoDiaTratamento, validadeLeite } from './saude';
 import type { PoteLeite, Registro, Remedio } from './tipos';
 
 const base = { familia_id: 'f', bebe_id: 'b', criado_por: 'u', observacao: null };
@@ -93,5 +93,38 @@ describe('saúde', () => {
       ['2026-12-01', 3, 180],
       ['2026-12-02', 1, 60],
     ]);
+  });
+});
+
+describe('trilha de vacinas', () => {
+  const ds = (...s: string[]) => s.map((situacao) => ({ situacao }));
+  it('situação da etapa: atrasada pesa mais; completa só com tudo aplicado ou dispensado', () => {
+    expect(situacaoEtapa(ds('aplicada', 'atrasada', 'agora'))).toBe('atrasada');
+    expect(situacaoEtapa(ds('aplicada', 'agora'))).toBe('agora');
+    expect(situacaoEtapa(ds('proxima', 'futura'))).toBe('proxima');
+    expect(situacaoEtapa(ds('aplicada', 'passou'))).toBe('passou');
+    expect(situacaoEtapa(ds('futura', 'futura'))).toBe('futura');
+    expect(situacaoEtapa(ds('aplicada', 'pulada'))).toBe('completa');
+  });
+
+  it('meses completos, com mesversário no fim de mês curto', () => {
+    expect(mesesCompletos('2026-08-01', '2026-07-31')).toBe(-1);
+    expect(mesesCompletos('2026-08-01', '2026-08-01')).toBe(0);
+    expect(mesesCompletos('2026-08-15', '2026-10-14')).toBe(1);
+    expect(mesesCompletos('2026-08-15', '2026-10-15')).toBe(2);
+    expect(mesesCompletos('2026-01-31', '2026-02-28')).toBe(1);
+    expect(mesesCompletos('2025-04-20', '2026-10-26')).toBe(18);
+  });
+
+  it('etapa atual e rótulos curtos', () => {
+    const idades = [0, 2, 3, 4, 5, 6, 7, 9, 12, 15, 48];
+    expect(etapaAtual(idades, -1)).toBe(-1);
+    expect(etapaAtual(idades, 0)).toBe(0);
+    expect(etapaAtual(idades, 3)).toBe(2);
+    expect(etapaAtual(idades, 18)).toBe(9);
+    expect(rotuloCurtoIdade(0)).toBe('Nascer');
+    expect(rotuloCurtoIdade(15)).toBe('15 m');
+    expect(rotuloCurtoIdade(48)).toBe('4 anos');
+    expect(rotuloCurtoIdade(51)).toBe('4a 3m');
   });
 });

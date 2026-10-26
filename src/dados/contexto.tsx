@@ -263,7 +263,11 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     [atualizarFila, mudarDados, processarFila],
   );
 
+  // Cargas em andamento: só a última a terminar tira o "Carregando…" (senão, com duas cargas
+  // cruzadas, a tela de primeiro acesso piscava antes de os dados chegarem)
+  const cargasAbertas = useRef(0);
   const recarregar = useCallback(async () => {
+    cargasAbertas.current++;
     setCarregando(true);
     try {
       await carregar();
@@ -271,7 +275,7 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     } catch (e) {
       setErro(traduzirErro(e));
     } finally {
-      setCarregando(false);
+      if (--cargasAbertas.current === 0) setCarregando(false);
     }
   }, [carregar, processarFila, setErro]);
 
@@ -292,6 +296,11 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     await repositorio.sair();
     if (id) apagarDadosLocais(id);
     await apagarTudoLocal();
+    try {
+      localStorage.removeItem('heitor:foto-bebe'); // miniatura da foto do bebê (avatar.tsx)
+    } catch {
+      /* sem armazenamento */
+    }
     carregouNaSessao.current = false;
     await recarregar();
   }, [recarregar]);

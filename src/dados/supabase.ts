@@ -75,6 +75,8 @@ function paraBebe(d: any): Bebe {
     altura_nascer_cm: num(d.altura_nascer_cm),
     pc_nascer_cm: num(d.pc_nascer_cm),
     calendario_vacinal: d.calendario_vacinal === 'sbp' ? 'sbp' : 'pni',
+    // Coluna nova (migração bebe_foto): ausente no banco antigo = não manda o campo de volta
+    ...('foto' in d ? { foto: d.foto ?? null } : {}),
   };
 }
 
@@ -384,7 +386,14 @@ export class RepositorioSupabase implements Repositorio {
   }
 
   async salvarBebe(b: Bebe) {
-    erro(await this.sb.from('nenem_bebes').upsert(b));
+    // A foto nunca vai junto: é gravada só por salvarFotoBebe. Assim um aparelho com dados
+    // antigos (ou offline) não traz de volta uma foto que já foi trocada e apagada.
+    const { foto: _foto, ...resto } = b;
+    erro(await this.sb.from('nenem_bebes').upsert(resto));
+  }
+
+  async salvarFotoBebe(bebeId: string, caminho: string | null) {
+    erro(await this.sb.from('nenem_bebes').update({ foto: caminho }).eq('id', bebeId));
   }
 
   async listarRegistros(desde: string): Promise<Registro[]> {

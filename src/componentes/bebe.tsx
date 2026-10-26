@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useDados } from '../dados/contexto';
-import { agoraIso, deCampoDataHora, paraCampoDataHora } from '../lib/datas';
+import { agoraIso, chaveDia, dataBr, deCampoDataHora, paraCampoDataHora } from '../lib/datas';
 import type { Bebe } from '../lib/tipos';
 import { Campo, Escolhas, Folha } from './ui';
 
@@ -11,7 +11,7 @@ const numOuNulo = (v: string) => (v.trim() === '' ? null : Number(v.replace(',',
  * hora de agora e pede as medidas do nascimento.
  */
 export function FolhaBebe({ aoFechar, nascimento }: { aoFechar: () => void; nascimento?: boolean }) {
-  const { bebe, gravar, mostrarAviso } = useDados();
+  const { bebe, gravar, mostrarAviso, medidas, vacinas } = useDados();
   const [nome, setNome] = useState(bebe?.nome ?? '');
   const [sexo, setSexo] = useState<Bebe['sexo']>(bebe?.sexo ?? null);
   const [prevista, setPrevista] = useState(bebe?.data_prevista ?? '');
@@ -35,6 +35,14 @@ export function FolhaBebe({ aoFechar, nascimento }: { aoFechar: () => void; nasc
     if (p !== null && !(p >= 300 && p <= 7000)) return setMsg('Peso em gramas, entre 300 e 7000 (ex.: 3250).');
     if (a !== null && !(a >= 20 && a <= 70)) return setMsg('Comprimento em cm, entre 20 e 70 (ex.: 49,5).');
     if (c !== null && !(c >= 18 && c <= 50)) return setMsg('Perímetro cefálico em cm, entre 18 e 50 (ex.: 34).');
+    // Voltar para "ainda não nasceu" apaga a data e as medidas do nascimento: confirma antes
+    if (bebe.nascimento && !nasc && !confirm('Marcar como "ainda não nasceu"? A data, a hora e as medidas do nascimento serão apagadas.')) return;
+    // Nova data de nascimento depois de medidas ou vacinas já anotadas: avisa (elas ficam fora das contas)
+    if (nasc && nasc !== bebe.nascimento) {
+      const dia = chaveDia(nasc);
+      const antes = medidas.filter((m) => m.data < dia).length + vacinas.filter((v) => v.status === 'aplicada' && v.data && v.data < dia).length;
+      if (antes && !confirm(`Há ${antes === 1 ? '1 medida ou vacina anotada' : `${antes} medidas ou vacinas anotadas`} antes de ${dataBr(dia)}. Elas continuam guardadas, mas ficam fora dos gráficos e das contas. Salvar mesmo assim?`)) return;
+    }
     const novo: Bebe = {
       ...bebe,
       nome: nome.trim(),

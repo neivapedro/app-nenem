@@ -14,19 +14,36 @@
   --ruim: #ff6b61;
   --aviso: #ffd60a;
   --info: #a1a1a6;
-  /* Uma cor por tipo de registro */
-  --c-mamada: #d65a8f;
-  --c-mamadeira: #bd8219;
-  --c-fralda: #3a8fd6;
-  --c-sono: #9670e0;
-  --c-agenda: #35a070;
-  --c-aportado: #3a8fd6;
-  --c-rendimento: #35a070;
-  --c-cenario-conservador: #bd8219;
-  --c-cenario-moderado: #35a070;
-  --c-cenario-otimista: #3a8fd6;
-  --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
-  --raio: 16px;
+  /* Uma cor por tipo de registro. Validadas: texto >= 4.5:1 sobre o cartão (#17181d) e o fundo;
+     marcas >= 3:1; cores distintas entre si também para daltonismo (protan/deutan, ΔE >= 8) */
+  --c-mamada: #f63ea9;
+  --c-mamadeira: #d86a25;
+  --c-fralda: #2da0d9;
+  --c-sono: #9b63f4;
+  --c-agenda: #299c66;
+  --c-aportado: var(--c-fralda);
+  --c-rendimento: var(--c-agenda);
+  --c-cenario-conservador: var(--c-mamadeira);
+  --c-cenario-moderado: var(--c-agenda);
+  --c-cenario-otimista: var(--c-fralda);
+  /* Selo preenchido: no escuro a cor escurece um pouco para o ícone branco ficar >= 4:1 */
+  --selo-mistura: 85%;
+  --selo-brilho: rgb(255 255 255 / 0.14);
+  /* Números grandes: SF Pro Rounded no iPhone (outros aparelhos: a fonte do sistema) */
+  --fonte-numeros: ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Raios e sombras */
+  --raio: 18px;
+  --raio-p: 12px;
+  --raio-g: 24px;
+  --borda-cartao: #2a2c34;
+  --realce: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --sombra: var(--realce), 0 1px 2px rgb(0 0 0 / 0.35), 0 4px 14px rgb(0 0 0 / 0.18);
+  --sombra-2: 0 2px 6px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.35);
+  /* Degradê do cartão principal (.cartao.destaque) */
+  --destaque-a: color-mix(in oklab, var(--c-sono) 16%, var(--superficie));
+  --destaque-b: color-mix(in oklab, var(--c-mamada) 9%, var(--superficie));
+  /* Movimento */
+  --curva: cubic-bezier(0.2, 0.8, 0.2, 1);
   --nav-altura: 64px;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
@@ -44,24 +61,28 @@
     --borda: #e2ded7;
     --texto: #1b1a1f;
     --texto-2: #57555e;
-    --texto-3: #6e6c75;
+    --texto-3: #67656e;
     --destaque: #1b1a1f;
     --destaque-texto: #ffffff;
-    --bom: #248a3d;
+    --bom: #1e7b37;
     --ruim: #c9271b;
     --aviso: #a35200;
     --info: #6e6e73;
-    --c-mamada: #c23c72;
-    --c-mamadeira: #a35f00;
-    --c-fralda: #1a73b5;
-    --c-sono: #8a3fc7;
-    --c-agenda: #1f8a5c;
-    --c-aportado: #1a73b5;
-    --c-rendimento: #1f8a5c;
-    --c-cenario-conservador: #a35f00;
-    --c-cenario-moderado: #1f8a5c;
-    --c-cenario-otimista: #1a73b5;
-    --sombra: 0 1px 3px rgb(0 0 0 / 0.07);
+    /* Texto >= 4.5:1 sobre branco e sobre o fundo (#f6f4f1); ícone branco sobre a cor >= 5:1 */
+    --c-mamada: #c62585;
+    --c-mamadeira: #a24e19;
+    --c-fralda: #1e71bb;
+    --c-sono: #6925d5;
+    --c-agenda: #1c754b;
+    --selo-mistura: 100%;
+    --selo-brilho: rgb(255 255 255 / 0.16);
+    --borda-cartao: #e8e4dd;
+    --realce: inset 0 1px 0 rgb(255 255 255 / 0.7);
+    --sombra: 0 1px 2px rgb(40 30 20 / 0.05), 0 4px 16px rgb(40 30 20 / 0.06);
+    --sombra-2: 0 2px 6px rgb(40 30 20 / 0.08), 0 14px 36px rgb(40 30 20 / 0.12);
+    --destaque-a: color-mix(in oklab, var(--c-sono) 9%, var(--superficie));
+    --destaque-b: color-mix(in oklab, var(--c-mamada) 6%, var(--superficie));
+    --esq-brilho: rgb(255 255 255 / 0.7);
   }
 }
 
@@ -97,6 +118,16 @@ a { color: var(--destaque); }
 .topo-marca { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .marca-mini { width: 42px; height: 42px; border-radius: 12px; flex: none; }
 
+/* Foto do bebê (topo e Ajustes): redonda, com um anel fino; sem foto, a ilustração */
+.avatar { flex: none; object-fit: cover; display: block; }
+.avatar-foto {
+  border-radius: 50%; background: var(--superficie-2);
+  box-shadow: 0 0 0 2px var(--fundo), 0 0 0 3.5px color-mix(in oklab, var(--c-mamada) 55%, var(--c-sono));
+}
+.topo .avatar-foto { margin: 2px; width: 40px; height: 40px; }
+.avatar-grande { width: 64px; height: 64px; border-radius: 18px; }
+.avatar-grande.avatar-foto { border-radius: 50%; box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px color-mix(in oklab, var(--c-mamada) 55%, var(--c-sono)); }
+
 .nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
   display: flex; justify-content: center;
@@ -129,8 +160,19 @@ a { color: var(--destaque); }
 .cresce { flex: 1; min-width: 0; }
 
 .cartao {
-  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio);
+  background: var(--superficie); border: 1px solid var(--borda-cartao, var(--borda)); border-radius: var(--raio);
   padding: 16px; box-shadow: var(--sombra); overflow-wrap: anywhere;
+}
+/* Cartão principal da tela: degradê suave (com .t-mamada etc., puxa para a cor do tipo) */
+.cartao.destaque {
+  background:
+    radial-gradient(120% 90% at 100% 0%, var(--destaque-b), transparent 60%),
+    linear-gradient(150deg, var(--destaque-a), var(--superficie) 70%);
+  border-color: color-mix(in oklab, var(--c-sono) 14%, var(--borda-cartao, var(--borda)));
+}
+.cartao.destaque[class*=" t-"] {
+  background: linear-gradient(150deg, color-mix(in oklab, var(--cor) 13%, var(--superficie)), var(--superficie) 72%);
+  border-color: color-mix(in oklab, var(--cor) 28%, var(--borda-cartao, var(--borda)));
 }
 .cartao > h2 { margin-bottom: 12px; }
 .cartao-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -142,6 +184,10 @@ a { color: var(--destaque); }
 .mudo { color: var(--texto-3); font-size: 0.85rem; }
 .texto-2 { color: var(--texto-2); font-size: 0.85rem; }
 .numero { font-variant-numeric: tabular-nums; }
+/* Números em destaque com a fonte arredondada (use .fonte-numeros ou var(--fonte-numeros)) */
+.fonte-numeros, .grande, .kpi-valor, .cofrinho-saldo, .cofrinho-projecao, .codigo, .lado .tempo, .bloco .valor, .contagem .grande {
+  font-family: var(--fonte-numeros); font-variant-numeric: tabular-nums;
+}
 .grande { font-size: 2.2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .medio { font-size: 1.25rem; font-weight: 650; }
 .bom { color: var(--bom); }
@@ -222,6 +268,14 @@ a { color: var(--destaque); }
   flex: none; width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
   background: color-mix(in srgb, var(--cor, var(--texto-3)) 18%, transparent); color: var(--cor, var(--texto-2));
 }
+/* Selo de um tipo (t-mamada, t-fralda...): preenchido com a cor, ícone branco (>= 4:1 nos dois temas) */
+.selo[class*=" t-"] {
+  background: linear-gradient(180deg, var(--selo-brilho), transparent 70%), color-mix(in oklab, var(--cor, var(--texto-3)) var(--selo-mistura), #000);
+  color: #fff; box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 1px 2px rgb(0 0 0 / 0.12);
+}
+.selo[class*=" t-"] svg { stroke-width: 2.2; }
+/* Quem pinta o selo por conta própria (style com background, ex.: contorno tracejado) mantém a cor no ícone */
+.selo[class*=" t-"][style*="background"] { color: var(--cor, var(--texto-2)); box-shadow: none; }
 .selo svg { width: 20px; height: 20px; }
 .t-mamada { --cor: var(--c-mamada); }
 .t-mamadeira { --cor: var(--c-mamadeira); }
@@ -345,6 +399,9 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .tabela-simples { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .tabela-simples th, .tabela-simples td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--borda); white-space: nowrap; }
 .tabela-simples th:first-child, .tabela-simples td:first-child { text-align: left; white-space: normal; }
+/* Nome do dia: quebra só entre palavras (nunca "Hoj/e") */
+.tabela-simples th:first-child, .tabela-simples td:first-child { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.maiuscula-inicial::first-letter { text-transform: uppercase; }
 .tabela-simples th { color: var(--texto-2); font-weight: 600; font-size: 0.75rem; }
 .tabela-simples tr.clicavel { cursor: pointer; }
 .chips-rolagem { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
@@ -627,3 +684,67 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .proporcao-barra span { display: block; height: 100%; }
 .proporcao-legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.82rem; color: var(--texto-2); }
 .proporcao-legenda strong { color: var(--texto); }
+
+/* ---------- Acabamento 2026 ---------- */
+
+/* Toque: botões afundam um pouco (sem movimento com "Reduzir movimento") */
+.botao, .icone-botao, .chip, .escolhas button, .botao-grande, .acao { transition: transform 0.15s var(--curva), background-color 0.2s, border-color 0.2s; }
+.botao:active:not(:disabled), .icone-botao:active, .chip:active { transform: scale(0.97); }
+.botao.primario { box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+.folha { box-shadow: var(--sombra-2); }
+.aviso-rapido { box-shadow: var(--sombra-2); }
+@media (prefers-reduced-motion: reduce) {
+  .botao, .icone-botao, .chip, .escolhas button, .botao-grande, .acao { transition: none; }
+  .botao:active:not(:disabled), .icone-botao:active, .chip:active, .acao:active, .botao-grande:active { transform: none; }
+}
+
+/* Carregando: o formato da tela com um brilho suave passando */
+.esqueleto { min-height: 100dvh; animation: esq-aparecer 0.35s ease-out 0.12s both; }
+.esqueleto .acao, .esqueleto .cartao { cursor: default; }
+.esqueleto .acao:active { transform: none; }
+.esq { display: block; position: relative; overflow: hidden; background: var(--superficie-2); border-radius: 8px; flex: none; }
+.esq::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--esq-brilho, rgb(255 255 255 / 0.06)), transparent);
+  animation: esq-brilho 1.5s ease-in-out infinite;
+}
+.esq-linha { height: 12px; max-width: 100%; }
+.esq-titulo { height: 20px; }
+.esq-numero { height: 34px; border-radius: 10px; }
+.esq-avatar { width: 42px; height: 42px; border-radius: 50%; }
+.esq-selo { width: 42px; height: 42px; border-radius: 12px; }
+.esq-aba { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: var(--nav-altura); }
+.esq-icone { width: 22px; height: 22px; border-radius: 7px; }
+.esq-rotulo { width: 30px; height: 7px; border-radius: 4px; }
+@keyframes esq-brilho { to { transform: translateX(100%); } }
+@keyframes esq-aparecer { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto { animation: none; }
+  .esq::after { animation: none; display: none; }
+}
+
+/* Troca de tela (View Transitions, Safari 18+): o topo e as abas ficam parados,
+   só o conteúdo desliza um pouco e aparece. Nomes só durante a troca (data-transicao). */
+:root[data-transicao] .topo { view-transition-name: topo; }
+:root[data-transicao] .nav { view-transition-name: abas; }
+/* A imagem antiga fica inteira por baixo (sem "furo" no meio da troca); a nova entra por cima */
+::view-transition-group(abas), ::view-transition-old(abas), ::view-transition-new(abas) { animation: none; }
+::view-transition-group(topo), ::view-transition-old(topo) { animation: none; }
+::view-transition-new(topo) { animation: vt-surgir 0.2s ease-out both; }
+::view-transition-old(root) { animation: none; }
+::view-transition-new(root) { animation: vt-entrar-frente 0.3s var(--curva) both; }
+:root[data-transicao="tras"]::view-transition-new(root) { animation-name: vt-entrar-tras; }
+@keyframes vt-surgir { from { opacity: 0; } }
+@keyframes vt-entrar-frente { from { opacity: 0; transform: translateX(18px); } }
+@keyframes vt-entrar-tras { from { opacity: 0; transform: translateX(-18px); } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+
+/* Com uma folha ou tela cheia aberta, o aviso sobe para o topo e não cobre o "Salvar" nem a legenda */
+body:has(.folha-fundo) .aviso-rapido { bottom: auto; top: calc(env(safe-area-inset-top) + 10px); z-index: 120; }
+/* Em tela cheia (fotos, documento) o aviso não aparece por cima dos botões de fechar e pausar */
+body:has(.crescer, .visualizador) .aviso-rapido { display: none; }
+
+/* Nome comprido do bebê: no máximo 2 linhas no topo */
+.topo h1 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }

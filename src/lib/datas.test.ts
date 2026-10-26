@@ -13,6 +13,8 @@ describe('datas', () => {
     expect(relogio(3600_000 + 7 * 60_000 + 42_000)).toBe('1:07:42');
     expect(haQuanto(t('2026-11-15T10:00').toISOString(), t('2026-11-15T11:20'))).toBe('há 1h 20min');
     expect(haQuanto(t('2026-11-15T10:00').toISOString(), t('2026-11-15T10:00'))).toBe('agora');
+    expect(haQuanto(t('2026-11-13T07:12').toISOString(), t('2026-11-15T12:00'))).toBe('há 2 dias');
+    expect(haQuanto(t('2026-11-14T10:00').toISOString(), t('2026-11-15T11:00'))).toBe('há 1 dia');
   });
 
   it('idade do bebê em dias, semanas, meses e anos', () => {

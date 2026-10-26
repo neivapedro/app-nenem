@@ -887,7 +887,7 @@ function FolhaPix({ contas, aoFechar }: { contas: ContaCofrinho[]; aoFechar: () 
   );
 }
 
-function FolhaContaVer({ conta, aoFechar, aoEditar, aoLancamento }: { conta: ContaCofrinho; aoFechar: () => void; aoEditar: () => void; aoLancamento: (m: MovimentoCofrinho) => void }) {
+function FolhaContaVer({ conta, aoFechar, aoEditar, aoLancamento, oculto }: { conta: ContaCofrinho; aoFechar: () => void; aoEditar: () => void; aoLancamento: (m: MovimentoCofrinho) => void; oculto: boolean }) {
   const { cofrinho_movimentos, mostrarAviso } = useDados();
   const movs = cofrinho_movimentos.filter((m) => m.conta_id === conta.id).sort((a, b) => b.data.localeCompare(a.data));
   const r = resumo([conta], movs);
@@ -914,11 +914,11 @@ function FolhaContaVer({ conta, aoFechar, aoEditar, aoLancamento }: { conta: Con
         <div className="grade">
           <div className="bloco">
             <div className="rotulo">Saldo</div>
-            <div className="valor">{reais(r.saldo)}</div>
+            <div className="valor">{oculto ? 'R$ •••' : reais(r.saldo)}</div>
           </div>
           <div className="bloco">
             <div className="rotulo">Rendeu</div>
-            <div className="valor">{reais(r.rendimento, { sinal: true })}</div>
+            <div className="valor">{oculto ? '•••' : reais(r.rendimento, { sinal: true })}</div>
           </div>
         </div>
         {r.porConta.get(conta.id)?.ultimoExtrato ? <p className="mudo">Saldo conferido no extrato em {dataBr(r.porConta.get(conta.id)!.ultimoExtrato!)}.</p> : <p className="mudo">Sem saldo do extrato ainda: o saldo é a soma dos depósitos.</p>}
@@ -943,7 +943,7 @@ function FolhaContaVer({ conta, aoFechar, aoEditar, aoLancamento }: { conta: Con
         </div>
         {conta.observacao && <p style={{ whiteSpace: 'pre-wrap' }}>{conta.observacao}</p>}
         <h3 style={{ margin: 0 }}>Extrato</h3>
-        <ListaMovimentos movs={movs} contas={[conta]} aoAbrir={aoLancamento} limite={30} />
+        <ListaMovimentos movs={movs} contas={[conta]} aoAbrir={aoLancamento} limite={30} oculto={oculto} />
         <button className="botao" onClick={aoEditar}>
           Editar conta
         </button>
@@ -962,7 +962,7 @@ function tituloMovimento(m: MovimentoCofrinho, todos: MovimentoCofrinho[], nomeC
   return m.tipo === 'deposito' ? m.de || 'Depósito' : m.tipo === 'saldo' ? 'Saldo do extrato' : 'Retirada';
 }
 
-function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCofrinho[]; contas: ContaCofrinho[]; aoAbrir: (m: MovimentoCofrinho) => void; limite?: number }) {
+function ListaMovimentos({ movs, contas, aoAbrir, limite, oculto }: { movs: MovimentoCofrinho[]; contas: ContaCofrinho[]; aoAbrir: (m: MovimentoCofrinho) => void; limite?: number; oculto: boolean }) {
   // A outra ponta de uma transferência pode ser de uma conta fora desta lista (extrato de uma conta só)
   const { cofrinho_movimentos, cofrinho_contas } = useDados();
   const nomeConta = new Map(cofrinho_contas.map((c) => [c.id, c.nome]));
@@ -986,7 +986,7 @@ function ListaMovimentos({ movs, contas, aoAbrir, limite }: { movs: MovimentoCof
             </span>
           </span>
           {/* Transferência não é ganho nem perda: valor sem cor */}
-          <strong className={`mov-valor ${ehTransferencia(m) ? 'transferencia' : m.tipo}`}>{m.tipo === 'retirada' ? `−${reais(m.valor_centavos)}` : m.tipo === 'saldo' ? reais(m.valor_centavos) : `+${reais(m.valor_centavos)}`}</strong>
+          <strong className={`mov-valor ${ehTransferencia(m) ? 'transferencia' : m.tipo}`}>{oculto ? 'R$ •••' : m.tipo === 'retirada' ? `−${reais(m.valor_centavos)}` : m.tipo === 'saldo' ? reais(m.valor_centavos) : `+${reais(m.valor_centavos)}`}</strong>
         </button>
       ))}
     </div>
@@ -1656,7 +1656,7 @@ export function Cofrinho() {
       {/* Extrato */}
       <section className="cartao pilha-p">
         <h2>Lançamentos</h2>
-        <ListaMovimentos movs={movs} contas={contas} aoAbrir={(m) => setAberta({ modo: 'movimento', mov: m, novo: false })} limite={verTodos ? undefined : 8} />
+        <ListaMovimentos movs={movs} contas={contas} aoAbrir={(m) => setAberta({ modo: 'movimento', mov: m, novo: false })} limite={verTodos ? undefined : 8} oculto={oculto} />
         {movs.length > 8 && (
           <button className="botao pequeno texto" onClick={() => setVerTodos(!verTodos)}>
             {verTodos ? 'Mostrar menos' : `Ver todos (${movs.length})`}
@@ -1676,7 +1676,7 @@ export function Cofrinho() {
 
       {aberta?.modo === 'conta' && <FolhaConta inicial={aberta.conta} novo={aberta.novo} aoFechar={() => setAberta(null)} />}
       {aberta?.modo === 'ver-conta' && contaAberta && (
-        <FolhaContaVer conta={contaAberta} aoFechar={() => setAberta(null)} aoEditar={() => setAberta({ modo: 'conta', conta: contaAberta, novo: false })} aoLancamento={(m) => setAberta({ modo: 'movimento', mov: m, novo: false })} />
+        <FolhaContaVer conta={contaAberta} aoFechar={() => setAberta(null)} aoEditar={() => setAberta({ modo: 'conta', conta: contaAberta, novo: false })} aoLancamento={(m) => setAberta({ modo: 'movimento', mov: m, novo: false })} oculto={oculto} />
       )}
       {aberta?.modo === 'movimento' && (
         <FolhaMovimento inicial={aberta.mov} novo={aberta.novo} contas={aberta.novo ? contasAtivas : contas} aoFechar={() => setAberta(null)} />

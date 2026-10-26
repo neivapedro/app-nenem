@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { GraficosMeses } from '../componentes/meses';
-import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Proporcao } from '../componentes/painel';
+import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Narrativa, Proporcao } from '../componentes/painel';
 import { RelatorioPediatra } from '../componentes/relatorio-pediatra';
 import { useAgora, useDados } from '../dados/contexto';
 import { useRegistrosDesde } from '../dados/historico';
 import { chaveDia, dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
-import { diasPainel, inicioDosDados, ladosDoPeito, periodoCoberto, linhaDoTempo, mapaHorarios, mediasPeriodo, type MetricaMapa, variacao } from '../lib/painel';
+import { diasPainel, foraDoPadrao, inicioDosDados, ladosDoPeito, periodoCoberto, linhaDoTempo, mapaHorarios, mediasPeriodo, narrativa, type MetricaMapa, variacao } from '../lib/painel';
 import { duracaoMediaMamada, intervaloMedioAlimentacao } from '../lib/padroes';
 
 const PERIODOS = [7, 14, 30, 90] as const;
@@ -58,6 +58,20 @@ export function Resumo() {
   const setSel = (i: number | null) => setSelData(i === null ? null : (nomes[i] ?? null));
   const selDia = sel !== null ? dias[sel] : null;
 
+  // Destaques em frases (regras simples, sem IA)
+  const frases = useMemo(
+    () => narrativa({ dias, anteriores, hoje, inicio: inicioDados, intervaloMs: intervalo, intervaloAntesMs: intervaloAntes, sexo: bebe?.sexo ?? null }),
+    [dias, anteriores, hoje, inicioDados, intervalo, intervaloAntes, bebe?.sexo],
+  );
+  // Dia fora do padrão: só entre os dias inteiros com dados (sem hoje e sem antes do nascimento)
+  const considerar = dias.map(
+    (d) => d.dia !== hoje && (!inicioDados || d.dia >= inicioDados) && (d.alimentacoes + d.fraldas > 0 || d.sonoMs > 0),
+  );
+  const foraAlim = foraDoPadrao(dias.map((d) => d.alimentacoes), considerar, 2);
+  const foraSono = foraDoPadrao(dias.map((d) => d.sonoMs / 3_600_000), considerar, 1.5);
+  const foraFraldas = foraDoPadrao(dias.map((d) => d.fraldas), considerar, 2);
+  const foraMl = foraDoPadrao(dias.map((d) => d.ml), considerar, 60);
+
   // Mapa: os últimos dias do período (o dia selecionado continua marcado)
   const diasMapa = nomes.slice(-DIAS_MAPA);
   const deslocamento = nomes.length - diasMapa.length;
@@ -93,6 +107,23 @@ export function Resumo() {
       </div>
     );
 
+  // Nada registrado (bebê ainda não nasceu ou conta nova): um aviso no lugar do painel zerado
+  const semDados = !!registros && !regs.some((r) => r.tipo === 'mamada' || r.tipo === 'mamadeira' || r.tipo === 'fralda' || r.tipo === 'sono');
+  if (semDados)
+    return (
+      <div className="pilha painel">
+        <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
+        <div className="cartao">
+          <p className="mudo" style={{ margin: 0 }}>
+            {bebe?.nascimento
+              ? `Nenhuma mamada, fralda ou sono registrado de ${dataBr(deAnterior)} a ${dataBr(hoje)}. Os gráficos aparecem aqui assim que vocês registrarem na tela Hoje.`
+              : 'Depois do nascimento, os gráficos aparecem aqui com o que vocês registrarem na tela Hoje.'}
+          </p>
+        </div>
+        <RelatorioPediatra />
+      </div>
+    );
+
   return (
     <div className="pilha painel">
       <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
@@ -103,6 +134,8 @@ export function Resumo() {
       </p>
       {erro && <div className="alerta erro">Não deu para buscar os registros mais antigos: {erro}</div>}
       {!registros && <p className="mudo">Carregando os registros do período…</p>}
+
+      <Narrativa frases={frases} />
 
       {/* Indicadores */}
       <section className="kpis" aria-label="Indicadores do período">
@@ -130,7 +163,7 @@ export function Resumo() {
       {selDia && (
         <section className="cartao pilha-p detalhe-dia" aria-label="Dia selecionado">
           <div className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-            <h2 style={{ margin: 0 }}>{nomeDia(selDia.dia, hoje)}</h2>
+            <h2 className="maiuscula-inicial" style={{ margin: 0 }}>{nomeDia(selDia.dia, hoje)}</h2>
             <button className="botao pequeno" onClick={() => setSel(null)}>
               Limpar filtro
             </button>
@@ -178,6 +211,7 @@ export function Resumo() {
           ]}
           formatar={(v) => um(v)}
           media={atual.alimentacoes}
+          foraDoPadrao={foraAlim}
           selecionado={sel}
           aoSelecionar={setSel}
         />
@@ -241,6 +275,7 @@ export function Resumo() {
           ]}
           formatar={(v) => `${um(v)} h`}
           media={atual.sonoMs / 3_600_000}
+          foraDoPadrao={foraSono}
           selecionado={sel}
           aoSelecionar={setSel}
         />
@@ -259,6 +294,7 @@ export function Resumo() {
           ]}
           formatar={(v) => um(v)}
           media={atual.fraldas}
+          foraDoPadrao={foraFraldas}
           selecionado={sel}
           aoSelecionar={setSel}
         />
@@ -268,12 +304,13 @@ export function Resumo() {
         <section className="cartao pilha-p" aria-label="Mamadeira por dia">
           <h2>Mamadeira por dia (ml)</h2>
           <ColunasEmpilhadas
-          key={n}
+            key={n}
             rotulo="Mililitros de mamadeira por dia"
             dias={nomes}
             series={[{ id: 'ml', nome: 'Mamadeira', cor: 'var(--c-mamadeira)', valores: dias.map((d) => d.ml) }]}
             formatar={(v) => `${Math.round(v)} ml`}
             media={atual.ml}
+            foraDoPadrao={foraMl}
             selecionado={sel}
             aoSelecionar={setSel}
           />
@@ -297,7 +334,7 @@ export function Resumo() {
           <tbody>
             {[...dias].reverse().map((d) => (
               <tr key={d.dia}>
-                <td>{nomeDia(d.dia, hoje)}</td>
+                <td className="maiuscula-inicial">{nomeDia(d.dia, hoje)}</td>
                 <td>{d.alimentacoes}</td>
                 <td>{d.ml || '—'}</td>
                 <td>

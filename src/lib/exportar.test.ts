@@ -14,6 +14,11 @@ describe('exportar tudo', () => {
     { id: '4', categoria: 'saude', titulo: 'Cartão do SUS', arquivos: [arq('a.pdf')], numero: '700 0000 0000 0000' },
   ] as unknown as Documento[];
 
+  it('inclui a foto do bebê na cópia completa', () => {
+    const l = planejarArquivos([], [], [], [], 'fam/abc.jpg');
+    expect(l).toEqual([{ caminho: 'fam/abc.jpg', destino: 'fotos/Foto do bebê.jpg', balde: 'fotos' }]);
+  });
+
   it('dá a cada arquivo o nome do documento no app, sem repetir', () => {
     const movs = [{ id: 'm', conta_id: 'c1', data: '2026-11-20', de: 'Vovó', comprovante: arq('e.jpg', 'image/jpeg') }] as unknown as MovimentoCofrinho[];
     const marcos = [{ id: 'k', tipo: 'mes', data: '2026-12-10', titulo: '1 mês', marco_id: 'mes-1', foto: 'f.jpg' }] as unknown as Marco[];

@@ -324,6 +324,16 @@ export function RelatorioPediatra() {
   }
 
   const carregando = !registros && !erro;
+  // Antes do nascimento e sem nenhum registro, o PDF sairia só com zeros
+  if (!nascDia && !primeiro)
+    return (
+      <section className="cartao pilha" aria-label="Relatório para o pediatra">
+        <h2>Relatório para o pediatra</h2>
+        <p className="mudo" style={{ margin: 0 }}>
+          Depois do nascimento, aqui você gera um PDF com os gráficos, o crescimento e as vacinas para levar às consultas.
+        </p>
+      </section>
+    );
   return (
     <section className="cartao pilha" aria-label="Relatório para o pediatra">
       <h2>Relatório para o pediatra</h2>

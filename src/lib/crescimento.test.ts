@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diasPrematuridade, escoreZ, idadeParaOms, lmsNaIdade, percentilDoZ, textoPercentil, valorNoPercentil } from './crescimento';
+import { diasPrematuridade, escoreZ, faixaDetalhada, idadeParaOms, lmsNaIdade, percentilDoZ, percentilInteiro, periodoAutomatico, posicaoNaRegua, textoIdadeDias, textoPercentil, valorNoPercentil } from './crescimento';
 
 describe('curvas da OMS', () => {
   it('mediana ao nascer confere com a tabela da OMS', () => {
@@ -61,5 +61,59 @@ describe('idade corrigida (prematuros)', () => {
     expect(idadeParaOms(30, 56)).toBeNull();
     expect(idadeParaOms(730, 56)).toEqual({ dia: 674, corrigida: true });
     expect(idadeParaOms(731, 56)).toEqual({ dia: 731, corrigida: false });
+  });
+});
+
+describe('destaque e gráfico do crescimento', () => {
+  it('5 faixas de percentil nas fronteiras certas', () => {
+    expect(faixaDetalhada(-2)).toBe('abaixo-p3');
+    expect(faixaDetalhada(-1.5)).toBe('p3-p15');
+    expect(faixaDetalhada(0)).toBe('p15-p85');
+    expect(faixaDetalhada(1.036433)).toBe('p15-p85');
+    expect(faixaDetalhada(1.5)).toBe('p85-p97');
+    expect(faixaDetalhada(2.5)).toBe('acima-p97');
+  });
+
+  it('posição na régua: P50 no meio, P15 e P85 nas bordas da faixa do meio, extremos sem encostar', () => {
+    expect(posicaoNaRegua(0)).toBeCloseTo(0.5, 3);
+    expect(posicaoNaRegua(-1.036433)).toBeCloseTo(0.3, 2);
+    expect(posicaoNaRegua(1.036433)).toBeCloseTo(0.7, 2);
+    expect(posicaoNaRegua(-1.880794)).toBeCloseTo(0.12, 2);
+    expect(posicaoNaRegua(-9)).toBeCloseTo(0.02, 3);
+    expect(posicaoNaRegua(9)).toBeCloseTo(0.98, 3);
+    // Sempre crescente
+    let ant = -1;
+    for (let z = -4; z <= 4; z += 0.1) {
+      const p = posicaoNaRegua(z);
+      expect(p).toBeGreaterThanOrEqual(ant);
+      ant = p;
+    }
+  });
+
+  it('percentil inteiro entre 1 e 99', () => {
+    expect(percentilInteiro(0)).toBe(50);
+    expect(percentilInteiro(-0.3)).toBe(38);
+    expect(percentilInteiro(-5)).toBe(1);
+    expect(percentilInteiro(5)).toBe(99);
+  });
+
+  it('período automático pela idade', () => {
+    expect(periodoAutomatico(0)).toBe(183);
+    expect(periodoAutomatico(46)).toBe(183);
+    expect(periodoAutomatico(160)).toBe(365);
+    expect(periodoAutomatico(548)).toBe(731);
+    expect(periodoAutomatico(800)).toBe(1826);
+  });
+
+  it('idade em texto', () => {
+    expect(textoIdadeDias(0)).toBe('0 dias');
+    expect(textoIdadeDias(1)).toBe('1 dia');
+    expect(textoIdadeDias(30)).toBe('1 mês');
+    expect(textoIdadeDias(16)).toBe('2 semanas e 2 dias');
+    expect(textoIdadeDias(28)).toBe('4 semanas');
+    expect(textoIdadeDias(92)).toBe('3 meses');
+    expect(textoIdadeDias(130)).toBe('4 meses e 8 dias');
+    expect(textoIdadeDias(548)).toBe('18 meses');
+    expect(textoIdadeDias(800)).toBe('2 anos e 2 meses');
   });
 });

@@ -65,7 +65,7 @@ export function GraficosMeses() {
   const atual = meses[meses.length - 1];
 
   return (
-    <div className="pilha">
+    <div className="pilha painel">
       <p className="mudo">
         Média por dia em cada mês de vida (de mesversário a mesversário).
         {atual.emAndamento ? ` O ${atual.mes}º mês ainda está em andamento: conta até ontem.` : ''}
@@ -130,6 +130,7 @@ export function GraficosMeses() {
       </section>
       <details className="ajuda cartao" open>
         <summary>Ver em tabela</summary>
+        <div style={{ overflowX: 'auto' }}>
         <table className="tabela-simples">
           <thead>
             <tr>
@@ -157,6 +158,7 @@ export function GraficosMeses() {
             ))}
           </tbody>
         </table>
+        </div>
         <p className="mudo" style={{ marginTop: 8 }}>
           Valores são médias por dia. Peso e altura mês a mês ficam em Saúde → Crescimento.
         </p>

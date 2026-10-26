@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { calendarioDoBebe, DOSES, FONTES_VACINAS, porIdade, type DoseNoCalendario } from '../../supabase/functions/_shared/vacinas.ts';
 import { useDados } from '../dados/contexto';
 import { chaveDia, dataBr, diasEntre, hojeLocal } from '../lib/datas';
 import { idFixo } from '../lib/ids';
+import { etapaAtual, mesesCompletos, rotuloCurtoIdade, situacaoEtapa, type SituacaoEtapa } from '../lib/saude';
 import type { VacinaRegistro } from '../lib/tipos';
 import { Campo, Escolhas, Folha, Icone } from './ui';
+import '../estilos/saude.css';
 
 const ERRO_DATA = 'A data não pode ser no futuro nem antes do nascimento.';
 
@@ -349,6 +351,126 @@ function FolhaVacinaExtra({ inicial, aoFechar }: { inicial: VacinaRegistro | nul
   );
 }
 
+type Grupo = ReturnType<typeof porIdade>[number];
+
+const TEXTO_ETAPA: Record<SituacaoEtapa, string> = {
+  completa: 'em dia',
+  atrasada: 'tem dose atrasada',
+  agora: 'já pode tomar',
+  proxima: 'chegando',
+  passou: 'passou da idade',
+  futura: 'mais para a frente',
+};
+
+/** "em 12 dias", "em 3 meses", "em 2 anos e 6 meses" */
+function textoEm(dias: number): string {
+  if (dias <= 60) return `em ${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+  const meses = Math.round(dias / 30.4375);
+  if (meses < 24) return `em ${meses} meses`;
+  const anos = Math.floor(meses / 12);
+  const resto = meses % 12;
+  return `em ${anos} anos${resto ? ` e ${resto === 1 ? '1 mês' : `${resto} meses`}` : ''}`;
+}
+
+/** Movimento suave só para quem não pediu para reduzir animações */
+const semAnimacao = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/** Anel de progresso: aplicadas de um total (as "não vai tomar" ficam fora do total) */
+function AnelVacinas({ aplicadas, total }: { aplicadas: number; total: number }) {
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const frac = total ? aplicadas / total : 0;
+  return (
+    <div className="sv-anel" role="img" aria-label={`${aplicadas} de ${total} vacinas aplicadas`}>
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r={r} className="sv-anel-trilho" />
+        {aplicadas > 0 && (
+          <circle cx="50" cy="50" r={r} className="sv-anel-prog" style={{ strokeDasharray: c, strokeDashoffset: c * (1 - frac), ['--sv-c' as string]: c }} transform="rotate(-90 50 50)" />
+        )}
+      </svg>
+      <div className="sv-anel-meio" aria-hidden="true">
+        <span className="sv-num">{aplicadas}</span>
+        <small>de {total}</small>
+      </div>
+    </div>
+  );
+}
+
+function IconeEtapa({ s, n }: { s: SituacaoEtapa; n: number }) {
+  if (s === 'completa') return <Icone nome="check" />;
+  if (s === 'atrasada') return <b aria-hidden="true">!</b>;
+  if (s === 'passou') return <b aria-hidden="true">–</b>;
+  return <span className="sv-num">{n}</span>;
+}
+
+/** Trilha horizontal das idades do calendário, com o "hoje" do bebê */
+function TrilhaIdades({ grupos, meses, previa, aoEscolher }: { grupos: Grupo[]; meses: number; previa: boolean; aoEscolher: (idade: number) => void }) {
+  const ref = useRef<HTMLOListElement>(null);
+  const atual = etapaAtual(
+    grupos.map((g) => g.idade_meses),
+    meses,
+  );
+  // Começa mostrando o "hoje" (sem mexer na rolagem da página)
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const marca = el?.querySelector<HTMLElement>('.sv-hoje');
+    if (!el || !marca) return;
+    el.scrollLeft = Math.max(0, marca.offsetLeft - el.clientWidth / 2 + marca.offsetWidth / 2);
+  }, [atual]);
+  const presentes = new Set(grupos.map((g) => situacaoEtapa(g.itens)));
+  const legenda = (['completa', 'agora', 'proxima', 'atrasada', 'passou', 'futura'] as SituacaoEtapa[]).filter((s) => s === 'futura' || presentes.has(s));
+
+  const marcaHoje = (
+    <li className="sv-hoje" key="hoje" aria-label={previa ? 'Hoje: antes do nascimento' : `Hoje: ${meses === 1 ? '1 mês completo' : `${meses} meses completos`}`}>
+      <span className="sv-hoje-no">
+        <Icone nome="bebe" />
+      </span>
+      <span className="sv-etapa-rot">Hoje</span>
+      <span className="sv-etapa-sub">{previa ? 'na barriga' : meses < 1 ? '< 1 m' : meses < 24 ? `${meses} m` : rotuloCurtoIdade(meses)}</span>
+    </li>
+  );
+
+  return (
+    <div className="sv-trilha-caixa">
+      <ol className="sv-trilha" ref={ref} aria-label={previa ? 'Trilha de idades das vacinas (prévia)' : 'Trilha de idades das vacinas'}>
+        {atual < 0 && marcaHoje}
+        {grupos.map((g, i) => {
+          const s = situacaoEtapa(g.itens);
+          const conta = g.itens.filter((d) => d.situacao !== 'pulada');
+          const feitas = conta.filter((d) => d.situacao === 'aplicada').length;
+          return [
+            <li key={g.idade_meses} className={`sv-etapa-li ${i <= atual ? 'sv-passada' : ''}`}>
+              <button
+                type="button"
+                className={`sv-etapa sv-${s}`}
+                onClick={() => aoEscolher(g.idade_meses)}
+                aria-label={`${g.idade_texto}: ${feitas} de ${conta.length} aplicadas, ${TEXTO_ETAPA[s]}. Toque para ver as vacinas.`}
+              >
+                <span className="sv-no">
+                  <IconeEtapa s={s} n={conta.length - feitas} />
+                </span>
+                <span className="sv-etapa-rot">{rotuloCurtoIdade(g.idade_meses)}</span>
+                <span className="sv-etapa-sub">
+                  {feitas}/{conta.length}
+                </span>
+              </button>
+            </li>,
+            i === atual ? marcaHoje : null,
+          ];
+        })}
+      </ol>
+      <ul className="sv-legenda" aria-label="Legenda da trilha">
+        {legenda.map((s) => (
+          <li key={s}>
+            <span className={`sv-no mini sv-${s}`} aria-hidden="true" />
+            {s === 'completa' ? 'Tudo aplicado' : s === 'agora' ? 'Já pode tomar' : s === 'proxima' ? 'Em breve' : s === 'atrasada' ? 'Atrasada' : s === 'passou' ? 'Passou da idade' : 'Futura'}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function SecaoVacinas() {
   const { bebe, vacinas, hoje, gravar } = useDados();
   const [aberta, setAberta] = useState<DoseNoCalendario | null>(null);
@@ -376,11 +498,68 @@ export function SecaoVacinas() {
   const liberadas = (itens: DoseNoCalendario[]) => (bebe?.nascimento ? itens.filter((d) => d.situacao === 'agora' || d.situacao === 'atrasada') : []);
   const visiveis = verTodas || idxAtual < 0 ? grupos : grupos.slice(0, Math.max(idxAtual + 2, ultimoAtrasado + 1));
 
+  const nascimento = bebe?.nascimento ? chaveDia(bebe.nascimento) : null;
+  const meses = nascimento ? mesesCompletos(nascimento, hoje) : -1;
+  // Próxima etapa: a primeira idade com dose que ainda não venceu
+  const proximo = grupos.find((g) => ['agora', 'proxima', 'futura'].includes(situacaoEtapa(g.itens)));
+  const diasProximo = proximo ? diasEntre(hoje, proximo.itens.filter((d) => d.situacao !== 'aplicada' && d.situacao !== 'pulada').reduce((m, d) => (d.prevista < m ? d.prevista : m), '9999-12-31')) : 0;
+
+  // Tocar numa etapa da trilha: abre o calendário completo se preciso e rola até o grupo
+  const [alvo, setAlvo] = useState<number | null>(null);
+  useEffect(() => {
+    if (alvo === null) return;
+    const el = document.getElementById(`vac-idade-${alvo}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: semAnimacao() ? 'auto' : 'smooth', block: 'start' });
+    el.classList.remove('sv-realce');
+    void el.offsetWidth;
+    el.classList.add('sv-realce');
+    setAlvo(null);
+  }, [alvo, verTodas]);
+  function irPara(idade: number) {
+    if (!visiveis.some((g) => g.idade_meses === idade)) setVerTodas(true);
+    setAlvo(idade);
+  }
+
   if (!bebe) return null;
   if (!base) return <div className="cartao mudo">Informe a data de nascimento (ou a data prevista) em Ajustes para montar o calendário de vacinas.</div>;
 
   return (
     <div className="pilha">
+      <section className="cartao pilha sv-painel" aria-label="Resumo das vacinas">
+        <div className="sv-resumo">
+          <AnelVacinas aplicadas={aplicadas} total={total} />
+          <div className="sv-resumo-texto">
+            <div className="sv-titulo">
+              Vacinas aplicadas
+              {!bebe.nascimento && <span className="etiqueta">Prévia</span>}
+            </div>
+            <div className="sv-chips">
+              {atrasadas.length ? (
+                <span className="etiqueta ruim">
+                  <Icone nome="alerta" /> {atrasadas.length} {atrasadas.length === 1 ? 'atrasada' : 'atrasadas'}
+                </span>
+              ) : (
+                bebe.nascimento && (
+                  <span className="etiqueta bom">
+                    <Icone nome="check" /> Nenhuma atrasada
+                  </span>
+                )
+              )}
+            </div>
+            {proximo && (
+              <div className="texto-2">
+                Próxima etapa: <strong>{proximo.idade_texto.toLowerCase() === 'ao nascer' ? 'ao nascer' : proximo.idade_texto}</strong>
+                {situacaoEtapa(proximo.itens) === 'agora' ? ' · já pode tomar' : diasProximo > 0 ? ` · ${textoEm(diasProximo)}` : ''}
+              </div>
+            )}
+          </div>
+        </div>
+        {!bebe.nascimento && <div className="alerta info">Prévia pela data prevista do parto. As datas se ajustam quando vocês registrarem o nascimento.</div>}
+        <TrilhaIdades grupos={grupos} meses={meses} previa={!bebe.nascimento} aoEscolher={irPara} />
+        <p className="mudo">As vacinas pendentes entram no Calendário do iPhone, com aviso na véspera.</p>
+      </section>
+
       <section className="cartao pilha" aria-label="Calendário de vacinas">
         <Campo rotulo="Calendário" grupo dica="O SUS oferece as vacinas do PNI de graça. A SBP recomenda também algumas da rede particular.">
           <Escolhas
@@ -392,27 +571,20 @@ export function SecaoVacinas() {
             aoMudar={(v) => gravar({ tipo: 'bebe', dado: { ...bebe, calendario_vacinal: v } })}
           />
         </Campo>
-        {!bebe.nascimento && <div className="alerta info">Prévia pela data prevista do parto. As datas se ajustam quando vocês registrarem o nascimento.</div>}
-        <div className="grade">
-          <div className="bloco">
-            <div className="rotulo">Aplicadas</div>
-            <div className="valor">
-              {aplicadas} <small>de {total}</small>
-            </div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Atrasadas</div>
-            <div className={`valor ${atrasadas.length ? 'ruim' : ''}`}>{atrasadas.length}</div>
-          </div>
-        </div>
-        <p className="mudo">As vacinas pendentes entram no Calendário do iPhone, com aviso na véspera.</p>
       </section>
 
-      {visiveis.map((g) => (
-        <section key={g.idade_meses} className="cartao" aria-label={g.idade_texto}>
+      {visiveis.map((g) => {
+        const s = situacaoEtapa(g.itens);
+        const conta = g.itens.filter((d) => d.situacao !== 'pulada');
+        const feitas = conta.filter((d) => d.situacao === 'aplicada').length;
+        return (
+        <section key={g.idade_meses} id={`vac-idade-${g.idade_meses}`} className={`cartao sv-grupo sv-${s}`} aria-label={g.idade_texto}>
           <div className="grupo-cab">
             <h2>{g.idade_texto}</h2>
-            <span className="mudo">{dataBr(g.itens[0].prevista)}</span>
+            <span className="mudo">
+              {dataBr(g.itens[0].prevista)}
+              {conta.length > 0 && <span className="sv-grupo-conta"> · {feitas}/{conta.length}</span>}
+            </span>
           </div>
           {liberadas(g.itens).length > 1 && (
             <button className="botao texto pequeno" style={{ padding: 0, minHeight: 32, marginBottom: 2, justifyContent: 'flex-start', textAlign: 'left' }} onClick={() => setGrupoAberto({ titulo: g.idade_texto, doses: liberadas(g.itens) })}>
@@ -441,7 +613,8 @@ export function SecaoVacinas() {
             ))}
           </div>
         </section>
-      ))}
+        );
+      })}
       {!verTodas && visiveis.length < grupos.length && (
         <button className="botao" onClick={() => setVerTodas(true)}>
           Ver o calendário completo (até 10 anos)

@@ -137,3 +137,74 @@ export function ganhoPorDia(a: { data: string; peso_g: number | null }, b: { dat
   const dias = (new Date(`${b.data}T12:00:00`).getTime() - new Date(`${a.data}T12:00:00`).getTime()) / 86_400_000;
   return dias > 0 ? (b.peso_g - a.peso_g) / dias : null;
 }
+
+/** As 5 faixas de percentil mostradas no destaque do crescimento */
+export type FaixaDetalhada = 'abaixo-p3' | 'p3-p15' | 'p15-p85' | 'p85-p97' | 'acima-p97';
+
+const Z_P3 = 1.880794;
+const Z_P15 = 1.036433;
+
+export function faixaDetalhada(z: number): FaixaDetalhada {
+  if (z < -Z_P3) return 'abaixo-p3';
+  if (z < -Z_P15) return 'p3-p15';
+  if (z <= Z_P15) return 'p15-p85';
+  if (z <= Z_P3) return 'p85-p97';
+  return 'acima-p97';
+}
+
+/** Régua de faixas: cada faixa ocupa uma largura fixa (o P15–P85 fica no meio, mais largo) */
+export const REGUA_FAIXAS: { id: FaixaDetalhada; de: number; ate: number; pDe: number; pAte: number }[] = [
+  { id: 'abaixo-p3', de: 0, ate: 0.12, pDe: 0, pAte: 3 },
+  { id: 'p3-p15', de: 0.12, ate: 0.3, pDe: 3, pAte: 15 },
+  { id: 'p15-p85', de: 0.3, ate: 0.7, pDe: 15, pAte: 85 },
+  { id: 'p85-p97', de: 0.7, ate: 0.88, pDe: 85, pAte: 97 },
+  { id: 'acima-p97', de: 0.88, ate: 1, pDe: 97, pAte: 100 },
+];
+
+/** Posição (0 a 1) do escore-z na régua de faixas */
+export function posicaoNaRegua(z: number): number {
+  const f = REGUA_FAIXAS.find((r) => r.id === faixaDetalhada(z))!;
+  // Fora das curvas: de 1,88 a 3,5 desvios ocupam a faixa da ponta (sem encostar na borda)
+  if (f.id === 'abaixo-p3') return f.ate - Math.min(1, (-z - Z_P3) / (3.5 - Z_P3)) * (f.ate - f.de - 0.02);
+  if (f.id === 'acima-p97') return f.de + Math.min(1, (z - Z_P3) / (3.5 - Z_P3)) * (f.ate - f.de - 0.02);
+  const p = percentilDoZ(z);
+  return f.de + ((p - f.pDe) / (f.pAte - f.pDe)) * (f.ate - f.de);
+}
+
+/** Percentil inteiro para o destaque (1 a 99) */
+export function percentilInteiro(z: number): number {
+  return Math.min(99, Math.max(1, Math.round(percentilDoZ(z))));
+}
+
+/** Períodos do gráfico (até o dia) */
+export const PERIODOS_GRAFICO = [
+  { dias: 183, rotulo: '0–6 m', nome: '0 a 6 meses' },
+  { dias: 365, rotulo: '0–1 ano', nome: '0 a 1 ano' },
+  { dias: 731, rotulo: '0–2 anos', nome: '0 a 2 anos' },
+  { dias: 1826, rotulo: '0–5 anos', nome: '0 a 5 anos' },
+] as const;
+
+/** Período automático pela idade: o menor que mostra a idade atual com folga de ~1 mês */
+export function periodoAutomatico(idadeDias: number): number {
+  for (const p of PERIODOS_GRAFICO) if (idadeDias + 30 <= p.dias) return p.dias;
+  return DIA_MAX;
+}
+
+/** Idade em texto curto a partir dos dias: "5 dias", "3 semanas", "4 meses e 10 dias", "1 ano e 2 meses" */
+export function textoIdadeDias(dia: number): string {
+  if (dia < 14) return dia === 1 ? '1 dia' : `${dia} dias`;
+  if (dia < 30) {
+    const s = Math.floor(dia / 7);
+    const r = dia % 7;
+    return `${s} semanas${r ? ` e ${r === 1 ? '1 dia' : `${r} dias`}` : ''}`;
+  }
+  const meses = Math.max(1, Math.floor(dia / 30.4375));
+  if (meses < 24) {
+    const r = Math.max(0, Math.floor(dia - meses * 30.4375));
+    const m = meses === 1 ? '1 mês' : `${meses} meses`;
+    return r ? `${m} e ${r === 1 ? '1 dia' : `${r} dias`}` : m;
+  }
+  const anos = Math.floor(meses / 12);
+  const rm = meses % 12;
+  return `${anos} anos${rm ? ` e ${rm === 1 ? '1 mês' : `${rm} meses`}` : ''}`;
+}

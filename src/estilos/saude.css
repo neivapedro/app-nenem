@@ -1,0 +1,191 @@
+/* Aba Saúde (vacinas, crescimento, remédios e febre): visual 2026.
+   Só usa os tokens globais (claro/escuro vêm de lá); números com fonte arredondada. */
+
+.saude { --sv-redondo: ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.sv-num,
+.saude .bloco .valor,
+.saude .grande { font-family: var(--sv-redondo, ui-rounded, system-ui, sans-serif); font-variant-numeric: tabular-nums; }
+
+/* ---------- Vacinas: resumo com anel ---------- */
+.sv-resumo { display: flex; align-items: center; gap: 16px; }
+.sv-resumo-texto { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.sv-titulo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 650; font-size: 1.02rem; }
+.sv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sv-chips:empty { display: none; }
+.sv-anel { position: relative; width: 104px; height: 104px; flex: none; }
+.sv-anel svg { width: 100%; height: 100%; display: block; }
+.sv-anel-trilho { fill: none; stroke: var(--superficie-2); stroke-width: 10; }
+.sv-anel-prog { fill: none; stroke: var(--c-agenda); stroke-width: 10; stroke-linecap: round; }
+.sv-anel-meio { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.sv-anel-meio .sv-num { font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; }
+.sv-anel-meio small { margin-top: 3px; font-size: 0.75rem; color: var(--texto-2); font-weight: 500; }
+@media (max-width: 359px) {
+  .sv-resumo { gap: 12px; }
+  .sv-anel { width: 88px; height: 88px; }
+  .sv-anel-meio .sv-num { font-size: 1.7rem; }
+}
+
+/* ---------- Vacinas: trilha de idades ---------- */
+.sv-trilha-caixa { display: flex; flex-direction: column; gap: 10px; margin: 0 -16px; }
+.sv-trilha {
+  --sv-linha: color-mix(in srgb, var(--texto-3) 55%, transparent);
+  --sv-linha-feita: var(--texto-2);
+  list-style: none; margin: 0; padding: 4px 16px 2px; display: flex;
+  overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+}
+.sv-trilha::-webkit-scrollbar { display: none; }
+.sv-trilha > li { position: relative; flex: none; display: flex; }
+/* Linha que liga as etapas: cheia no que já passou, tracejada no que vem */
+.sv-trilha > li::before {
+  content: ''; position: absolute; z-index: 0; top: 19px; left: 0; right: 0; height: 2px;
+  background: repeating-linear-gradient(90deg, var(--sv-linha) 0 4px, transparent 4px 8px);
+}
+.sv-trilha > li.sv-passada::before { background: var(--sv-linha-feita); }
+.sv-trilha > li.sv-hoje::before { background: linear-gradient(90deg, var(--sv-linha-feita) 50%, transparent 50%), repeating-linear-gradient(90deg, var(--sv-linha) 0 4px, transparent 4px 8px); }
+.sv-trilha > li:first-child::before { left: 50%; }
+.sv-trilha > li:last-child::before { right: 50%; }
+.sv-trilha > li:first-child.sv-hoje::before { background: repeating-linear-gradient(90deg, var(--sv-linha) 0 4px, transparent 4px 8px); }
+
+.sv-etapa, .sv-hoje {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  width: 58px; min-height: 76px; padding: 0 0 2px; scroll-snap-align: center;
+}
+.sv-etapa { border: 0; background: none; color: var(--texto); cursor: pointer; border-radius: 12px; }
+.sv-etapa:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.sv-etapa-rot { font-size: 0.78rem; font-weight: 650; white-space: nowrap; color: var(--texto); }
+.sv-etapa-sub { font-size: 0.7rem; color: var(--texto-3); white-space: nowrap; font-family: var(--sv-redondo, system-ui); font-variant-numeric: tabular-nums; }
+
+.sv-no {
+  position: relative; width: 38px; height: 38px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; border: 2px solid var(--borda); background: var(--superficie); color: var(--texto-3);
+  font-size: 0.85rem; font-weight: 750; font-family: var(--sv-redondo, system-ui); line-height: 1;
+}
+.sv-no svg { width: 18px; height: 18px; stroke-width: 2.6; }
+.sv-no b { font-size: 1.05rem; }
+.sv-completa .sv-no, .sv-no.sv-completa { background: var(--bom); border-color: var(--bom); color: var(--superficie); }
+.sv-atrasada .sv-no, .sv-no.sv-atrasada { background: var(--ruim); border-color: var(--ruim); color: var(--superficie); }
+.sv-agora .sv-no, .sv-no.sv-agora { background: var(--aviso); border-color: var(--aviso); color: var(--superficie); }
+.sv-proxima .sv-no, .sv-no.sv-proxima { background: color-mix(in srgb, var(--aviso) 12%, var(--superficie)); border-color: var(--aviso); color: var(--texto); }
+.sv-passou .sv-no, .sv-no.sv-passou { background: var(--superficie-2); border: 2px dashed color-mix(in srgb, var(--aviso) 75%, var(--texto-3)); color: var(--texto-2); }
+.sv-futura .sv-no, .sv-no.sv-futura { border-color: color-mix(in srgb, var(--texto-3) 45%, var(--borda)); color: var(--texto-2); }
+.sv-etapa.sv-futura .sv-etapa-rot { color: var(--texto-2); font-weight: 600; }
+.sv-etapa:active .sv-no { transform: scale(0.92); }
+
+.sv-hoje-no {
+  width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--destaque); color: var(--destaque-texto); box-shadow: 0 0 0 4px var(--superficie);
+}
+.sv-hoje-no svg { width: 20px; height: 20px; }
+.sv-hoje .sv-etapa-rot { font-weight: 750; }
+
+.sv-legenda { list-style: none; margin: 0; padding: 0 16px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.75rem; color: var(--texto-2); }
+.sv-legenda li { display: inline-flex; align-items: center; gap: 5px; }
+.sv-no.mini { width: 12px; height: 12px; border-width: 2px; }
+
+/* Grupos da lista: bolinha da situação ao lado do título; rolagem para baixo do cabeçalho fixo */
+.sv-grupo { scroll-margin-top: calc(88px + env(safe-area-inset-top)); }
+.sv-grupo .grupo-cab h2 { display: flex; align-items: center; gap: 8px; }
+.sv-grupo .grupo-cab h2::before { content: ''; width: 10px; height: 10px; flex: none; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--texto-3) 45%, var(--borda)); }
+.sv-grupo.sv-completa .grupo-cab h2::before { background: var(--bom); border-color: var(--bom); }
+.sv-grupo.sv-atrasada .grupo-cab h2::before { background: var(--ruim); border-color: var(--ruim); }
+.sv-grupo.sv-agora .grupo-cab h2::before { background: var(--aviso); border-color: var(--aviso); }
+.sv-grupo.sv-proxima .grupo-cab h2::before { border-color: var(--aviso); }
+.sv-grupo.sv-passou .grupo-cab h2::before { border-style: dashed; border-color: var(--aviso); }
+.sv-grupo-conta { font-family: var(--sv-redondo, system-ui); font-variant-numeric: tabular-nums; }
+
+/* ---------- Crescimento: destaque do percentil ---------- */
+.sc-destaque { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: var(--superficie-2); }
+.sc-topo { display: flex; align-items: center; gap: 14px; }
+.sc-numero { flex: none; min-width: 64px; font-size: 3.1rem; font-weight: 750; letter-spacing: -0.04em; line-height: 1; color: var(--texto); }
+.sc-frase { font-size: 1rem; font-weight: 500; line-height: 1.35; color: var(--texto); }
+.sc-frase strong { font-weight: 700; white-space: nowrap; }
+.sc-sub { display: block; font-size: 0.8rem; color: var(--texto-2); font-weight: 500; }
+@media (max-width: 359px) { .sc-numero { font-size: 2.6rem; min-width: 52px; } .sc-topo { gap: 10px; } }
+.sc-regua { position: relative; padding-top: 5px; }
+.sc-regua-faixas { display: flex; gap: 2px; height: 10px; }
+.sc-faixa { height: 100%; border-radius: 3px; }
+.sc-faixa:first-child { border-radius: 999px 3px 3px 999px; }
+.sc-faixa:last-child { border-radius: 3px 999px 999px 3px; }
+.sc-regua { --sc-fora: 48%; --sc-lado: 34%; --sc-meio: 62%; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .sc-regua { --sc-fora: 34%; --sc-lado: 24%; --sc-meio: 46%; } }
+.sc-f-abaixo-p3, .sc-f-acima-p97 { background: color-mix(in srgb, var(--aviso) var(--sc-fora), var(--superficie)); }
+.sc-f-p3-p15, .sc-f-p85-p97 { background: color-mix(in srgb, var(--bom) var(--sc-lado), var(--superficie)); }
+.sc-f-p15-p85 { background: color-mix(in srgb, var(--bom) var(--sc-meio), var(--superficie)); }
+.sc-marcador {
+  position: absolute; top: 0; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%;
+  background: var(--texto); border: 3px solid var(--superficie-2); box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+.sc-regua-marcas { position: relative; height: 14px; margin-top: 4px; }
+.sc-regua-marcas span { position: absolute; transform: translateX(-50%); font-size: 0.68rem; color: var(--texto-3); font-family: var(--sv-redondo, system-ui); }
+.sc-notas { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+
+/* ---------- Crescimento: gráfico ---------- */
+.sc-grafico { display: flex; flex-direction: column; gap: 10px; }
+.sc-grafico .escolhas button { min-height: 38px; padding: 0 6px; font-size: 0.82rem; }
+.sc-grafico-caixa { position: relative; }
+.sc-grafico svg { touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+.sc-legenda { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.78rem; color: var(--texto-2); }
+.sc-legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.sc-chave { display: inline-block; width: 16px; height: 0; border-top: 2.5px solid var(--c-fralda); border-radius: 2px; flex: none; }
+.sc-chave.oms { border-top: 1.5px solid var(--texto-3); }
+.sc-linha-bebe { stroke-width: 2.5; }
+.sc-alvo { fill: transparent; }
+.sc-ponto { cursor: pointer; outline: none; }
+.sc-ponto .ponto-bebe { transition: r 0.15s ease-out; }
+.sc-ponto:focus-visible .ponto-bebe { stroke: var(--texto); }
+.sc-mira { stroke: var(--texto-3); stroke-width: 1; stroke-dasharray: 3 3; }
+.sc-grafico .sc-dica { transform: translateY(-100%); gap: 2px; padding: 7px 10px; }
+.sc-grafico .sc-dica.abaixo { transform: none; }
+.sc-dica-valor { display: flex; align-items: center; gap: 6px; }
+.sc-dica-p { font-weight: 650; color: var(--texto); background: var(--superficie-2); border-radius: 6px; padding: 0 6px; font-size: 0.75rem; }
+.sc-dica strong { font-family: var(--sv-redondo, system-ui); }
+
+/* ---------- Remédios ---------- */
+.sr-barra { height: 6px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
+.sr-barra > span { display: block; height: 100%; border-radius: inherit; background: var(--c-agenda); }
+.sr-barra.atrasada > span { background: var(--ruim); }
+
+/* ---------- Microanimações (só sem "reduzir movimento") ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* backwards: depois de entrar não sobra transform (as folhas fixas ficam dentro destes cartões) */
+  .saude > .pilha > :not(.folha-fundo) { animation: sv-entrar 0.32s ease-out backwards; }
+  .saude > .pilha > :nth-child(2):not(.folha-fundo) { animation-delay: 0.04s; }
+  .saude > .pilha > :nth-child(3):not(.folha-fundo) { animation-delay: 0.08s; }
+  .saude > .pilha > :nth-child(n + 4):not(.folha-fundo) { animation-delay: 0.12s; }
+  .sv-anel-prog { animation: sv-anel 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .sv-agora .sv-no { animation: sv-pulso 2.2s ease-in-out infinite; }
+  .sv-no { transition: transform 0.12s ease-out; }
+  .sv-realce { animation: sv-realce 1.4s ease-out; }
+  .sc-marcador { animation: sc-marcador 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  .sc-linha-bebe { stroke-dasharray: 1; animation: sc-desenhar 0.8s ease-out both; }
+  .sc-dica { animation: sc-dica 0.14s ease-out; }
+  .sr-barra > span { transition: width 0.4s ease-out; }
+}
+@keyframes sv-entrar { from { opacity: 0; transform: translateY(6px); } }
+@keyframes sv-anel { from { stroke-dashoffset: var(--sv-c); } }
+@keyframes sv-pulso {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--aviso) 45%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--aviso) 0%, transparent); }
+}
+@keyframes sv-realce {
+  0%, 30% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--texto) 30%, transparent), var(--sombra); }
+  100% { box-shadow: 0 0 0 3px transparent, var(--sombra); }
+}
+@keyframes sc-marcador { from { left: 50%; opacity: 0; } }
+@keyframes sc-desenhar { from { stroke-dashoffset: 1; } }
+@keyframes sc-dica { from { opacity: 0; } }
+
+/* Ajustes de tela estreita */
+.sc-grafico .escolhas { flex-wrap: nowrap; }
+.sc-grafico .escolhas button { flex: 1 1 0; min-width: 0; }
+@media (max-width: 359px) { .sc-grafico .escolhas button { padding: 0 3px; font-size: 0.76rem; } }
+.saude .tabela-simples td:first-child { white-space: nowrap; }
+/* Nome da vacina quebra entre palavras (não no meio de "Meningocócica") */
+.sv-grupo .item .titulo { overflow-wrap: break-word; }
+
+/* Tela estreita (iPhone SE / zoom): botões lado a lado sem quebrar o texto em duas linhas */
+@media (max-width: 340px) {
+  .saude .linha > .botao { white-space: nowrap; padding-inline: 12px; font-size: 0.95rem; }
+}

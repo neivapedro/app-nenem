@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { useDados } from '../dados/contexto';
 import { chaveDia, dataBr } from '../lib/datas';
@@ -30,6 +30,7 @@ import { EditorFoto } from './doc-editor-foto';
 import { useEstadoOffline } from './doc-offline';
 import { Visualizador } from './doc-visualizador';
 import { Campo, Escolhas, Folha, Icone } from './ui';
+import '../estilos/carteira.css';
 
 const qtd = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
 const ehFoto = (a: ArquivoDocumento) => a.tipo.startsWith('image/');
@@ -149,17 +150,53 @@ function CopiarNumero({ numero }: { numero: string }) {
   );
 }
 
-/** Cartão da carteira: a foto do documento de fundo, nome e número */
+/** Cor de cada categoria na carteira (como os cartões da Carteira do iPhone) */
+const COR_CARTEIRA: Record<CategoriaDocumento, string> = {
+  identificacao: 'var(--c-fralda)',
+  saude: 'var(--c-agenda)',
+  exames: 'var(--c-mamadeira)',
+  plano: 'var(--c-sono)',
+  escola: 'var(--c-mamada)',
+  viagem: 'color-mix(in srgb, var(--c-fralda) 55%, var(--c-agenda))',
+  familia: 'color-mix(in srgb, var(--c-mamada) 60%, var(--c-mamadeira))',
+  outros: 'color-mix(in srgb, var(--texto-3) 80%, var(--c-fralda))',
+};
+
+/** Cartão da carteira: faixa colorida com o nome (é o que aparece na pilha) e a foto do documento */
 function CartaoCarteira({ doc, aoAbrir }: { doc: Documento; aoAbrir: () => void }) {
   const url = useUrlArquivo(doc.arquivos.find(ehFoto)?.caminho ?? null);
   return (
-    <button type="button" className="carteira-cartao" onClick={aoAbrir} aria-label={`Mostrar ${doc.titulo}`}>
-      {url ? <img src={url} alt="" /> : <span className="carteira-icone"><Icone nome="documento" /></span>}
-      <span className="carteira-texto">
+    <button type="button" className="cartao-carteira" style={{ '--cc': COR_CARTEIRA[doc.categoria] ?? COR_CARTEIRA.outros } as CSSProperties} onClick={aoAbrir} aria-label={`Mostrar ${doc.titulo}`}>
+      <span className="cc-topo">
         <strong>{doc.titulo}</strong>
-        {doc.numero && <span>{doc.numero}</span>}
+        <span>{NOME_CATEGORIA[doc.categoria]}</span>
       </span>
+      <span className={`cc-corpo ${url ? 'com-foto' : ''}`}>
+        {url ? <img src={url} alt="" /> : <Icone nome="documento" />}
+      </span>
+      {doc.numero && <span className="cc-numero">{doc.numero}</span>}
     </button>
+  );
+}
+
+/** Carteira vazia: desenho simples e um convite curto */
+function CarteiraVazia() {
+  return (
+    <div className="carteira-vazia">
+      <svg viewBox="0 0 120 90" aria-hidden="true">
+        <rect className="cv-c3" x="22" y="8" width="76" height="46" rx="8" />
+        <rect className="cv-c2" x="16" y="20" width="88" height="50" rx="9" />
+        <rect className="cv-c1" x="10" y="32" width="100" height="52" rx="10" />
+        <rect className="cv-linha" x="22" y="46" width="34" height="6" rx="3" />
+        <rect className="cv-linha" x="22" y="58" width="56" height="5" rx="2.5" opacity="0.6" />
+        <circle className="cv-mais" cx="92" cy="68" r="9" />
+        <path className="cv-mais-x" d="M92 63.5v9M87.5 68h9" />
+      </svg>
+      <div className="cresce">
+        <strong>Nenhum cartão ainda</strong>
+        <p className="texto-2">SUS, plano e certidão entram aqui quando tiverem foto. Outros: abra e toque em “Pôr na carteira”.</p>
+      </div>
+    </div>
   );
 }
 
@@ -909,13 +946,16 @@ export function SecaoDocumentos() {
           {carteira.length > 0 && <span className="mudo">Toque para mostrar</span>}
         </div>
         {carteira.length ? (
-          <div className="carteira">
-            {carteira.map((d) => (
-              <CartaoCarteira key={d.id} doc={d} aoAbrir={() => mostrar(d)} />
+          // Empilhados como na Carteira do iPhone: o mais usado fica na frente, inteiro; os outros mostram só a faixa de cima
+          <ul className={`carteira-pilha ${carteira.length > 4 ? 'apertada' : ''}`}>
+            {[...carteira].reverse().map((d) => (
+              <li key={d.id}>
+                <CartaoCarteira doc={d} aoAbrir={() => mostrar(d)} />
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
-          <p className="texto-2 cartao">Os documentos que vocês mais mostram (cartão do SUS, carteirinha do plano, certidão) aparecem aqui assim que tiverem foto. Qualquer outro também pode entrar: abra e toque em “Pôr na carteira”.</p>
+          <CarteiraVazia />
         )}
         <StatusOffline />
       </section>

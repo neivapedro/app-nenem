@@ -1,0 +1,74 @@
+/* Carteira (topo da aba Documentos): cartões empilhados como na Carteira do iPhone */
+
+.carteira-pilha { --faixa: 50px; list-style: none; margin: 0; padding: 4px 0 0; width: 100%; max-width: 440px; }
+.carteira-pilha.apertada { --faixa: 42px; }
+/* Cada cartão de trás ocupa só a altura da faixa: o próximo cobre o resto dele */
+.carteira-pilha > li { position: relative; height: var(--faixa); isolation: isolate; }
+.carteira-pilha > li:last-child { height: auto; }
+
+.carteira-pilha .cartao-carteira {
+  --cc: var(--c-fralda);
+  position: relative; display: block; width: 100%; aspect-ratio: 85.6 / 54; padding: 0; margin: 0; border: 0; border-radius: 16px; overflow: hidden;
+  cursor: pointer; text-align: left; color: #fff; font: inherit;
+  background:
+    radial-gradient(70% 90% at 100% 0%, rgb(255 255 255 / 0.22), transparent 60%),
+    radial-gradient(60% 80% at 0% 100%, rgb(0 0 0 / 0.18), transparent 70%),
+    linear-gradient(140deg, color-mix(in srgb, var(--cc) 85%, #fff) 0%, var(--cc) 40%, color-mix(in srgb, var(--cc) 60%, #000) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), 0 -4px 14px rgb(0 0 0 / 0.16), 0 12px 26px rgb(0 0 0 / 0.14);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.carteira-pilha > li:not(:last-child) .cartao-carteira:active { transform: translateY(-8px); }
+.carteira-pilha > li:last-child .cartao-carteira:active { transform: scale(0.98); }
+@media (hover: hover) {
+  .carteira-pilha > li:not(:last-child) .cartao-carteira:hover { transform: translateY(-6px); }
+}
+.carteira-pilha .cartao-carteira:focus-visible { outline: 3px solid var(--cc); outline-offset: 2px; }
+
+.cc-topo {
+  position: absolute; top: 0; left: 0; right: 0; height: var(--faixa); z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+.cc-topo strong { font-size: 0.98rem; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc-topo span { flex: none; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.85; }
+
+.cc-corpo {
+  position: absolute; left: 12px; right: 12px; top: var(--faixa); bottom: 12px; border-radius: 10px; overflow: hidden;
+  display: grid; place-items: center; background: rgb(255 255 255 / 0.12); color: rgb(255 255 255 / 0.75);
+}
+.cc-corpo.com-foto { background: rgb(0 0 0 / 0.25); box-shadow: 0 0 0 1px rgb(255 255 255 / 0.18); }
+.cc-corpo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cc-corpo svg { width: 40px; height: 40px; }
+.cc-numero {
+  position: absolute; left: 20px; bottom: 20px; z-index: 1; max-width: calc(100% - 40px); padding: 3px 9px; border-radius: 8px;
+  font-size: 0.82rem; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
+  background: rgb(0 0 0 / 0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Carteira vazia */
+.carteira-vazia {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--raio);
+  border: 1.5px dashed var(--borda); background: var(--superficie); overflow-wrap: anywhere;
+}
+.carteira-vazia svg { width: 92px; height: auto; flex: none; }
+.carteira-vazia strong { display: block; font-weight: 650; margin-bottom: 2px; }
+.cv-c1 { fill: var(--c-fralda); }
+.cv-c2 { fill: var(--c-agenda); opacity: 0.8; }
+.cv-c3 { fill: var(--c-sono); opacity: 0.6; }
+.cv-linha { fill: #fff; opacity: 0.85; }
+.cv-mais { fill: var(--superficie); }
+.cv-mais-x { fill: none; stroke: var(--c-fralda); stroke-width: 2.4; stroke-linecap: round; }
+
+@media (max-width: 359px) {
+  .carteira-pilha { --faixa: 44px; }
+  .carteira-pilha.apertada { --faixa: 38px; }
+  .cc-topo { padding: 0 14px; }
+  .cc-topo strong { font-size: 0.92rem; }
+  .carteira-vazia { gap: 12px; padding: 12px; }
+  .carteira-vazia svg { width: 72px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carteira-pilha .cartao-carteira { transition: none; }
+}

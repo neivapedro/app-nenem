@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
 import { FolhaBebe } from '../componentes/bebe';
+import { CartaoProximaMamada, Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
 import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
+import { mediasUltimosDias } from '../lib/hoje';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, somarDiasLocal, textoDuracao } from '../lib/datas';
 import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
 import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
@@ -171,6 +173,9 @@ export function Hoje() {
   const sono = ultimoDoTipo(registros, 'sono');
   const recentes = ordenarRecentes(registros).slice(0, 5);
   const proximo = proximosCompromissos(compromissos, agora)[0];
+  const nascido = !!bebe?.nascimento;
+  // Média dos últimos 7 dias completos (muda só quando chega registro ou vira o dia)
+  const medias = useMemo(() => (nascido ? mediasUltimosDias(registros, hoje, new Date(), bebe?.nascimento ?? null) : null), [registros, hoje, nascido, bebe?.nascimento]);
 
   const desdeAlimentacao = alimentacao
     ? `${haQuanto(alimentacao.inicio, agora)}${alimentacao.tipo === 'mamada' && ladoFinal(alimentacao) ? ` · terminou no ${ladoFinal(alimentacao)}` : alimentacao.tipo === 'mamadeira' ? ` · ${alimentacao.dados.ml} ml` : ''}`
@@ -197,11 +202,15 @@ export function Hoje() {
       {andamento.sono && <CartaoSonoAtivo r={andamento.sono} />}
       {perguntarSono && andamento.sono && <FolhaQueHorasTerminou r={andamento.sono} aoFechar={() => setPerguntarSono(false)} aoSalvar={(q) => acordou(q)} />}
 
+      {/* Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela */}
+      {nascido && !andamento.mamada && <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} />}
+      {nascido && <Faixa24h registros={registros} agora={agora} />}
+
       <section className="acoes" aria-label="Registrar">
         <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada}>
           <Selo tipo="mamada" />
           <span className="nome">Mamada</span>
-          <span className="desde">{andamento.mamada ? 'em andamento' : `Última ${desdeAlimentacao}`}</span>
+          <span className="desde">{andamento.mamada ? 'em andamento' : alimentacao ? `Última ${desdeAlimentacao}` : desdeAlimentacao}</span>
         </button>
         <button className="acao t-mamadeira" onClick={() => setFolha('mamadeira')}>
           <Selo tipo="mamadeira" />
@@ -246,34 +255,7 @@ export function Hoje() {
             Histórico <Icone nome="seta" />
           </Link>
         </div>
-        <div className="grade grade-3">
-          <div className="bloco">
-            <div className="rotulo">Alimentações</div>
-            <div className="valor">{resumo.alimentacoes}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">No peito</div>
-            <div className="valor">{resumo.peitoMs ? textoDuracao(resumo.peitoMs) : '—'}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Mamadeira</div>
-            <div className="valor">{resumo.ml ? `${resumo.ml} ml` : '—'}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Fraldas</div>
-            <div className="valor">{resumo.fraldas}</div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Xixi · cocô</div>
-            <div className="valor">
-              {resumo.xixi} · {resumo.coco}
-            </div>
-          </div>
-          <div className="bloco">
-            <div className="rotulo">Sono</div>
-            <div className="valor">{resumo.sonoMs ? textoDuracao(resumo.sonoMs) : '—'}</div>
-          </div>
-        </div>
+        <NumerosDoDia resumo={resumo} medias={medias} nascido={nascido} />
       </section>
 
       {proximo && (
