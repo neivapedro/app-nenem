@@ -54,10 +54,15 @@ export function relogio(ms: number): string {
   return h ? `${h}:${dois(m)}:${dois(seg)}` : `${dois(m)}:${dois(seg)}`;
 }
 
-/** "agora", "há 12 min", "há 1h 20min" */
+/** "agora", "há 12 min", "há 1h 20min", "há 2 dias" */
 export function haQuanto(iso: string, agora: Date): string {
   const ms = agora.getTime() - new Date(iso).getTime();
   if (ms < 60_000) return 'agora';
+  // Depois de um dia, em dias (e não "há 52h 48min")
+  if (ms >= 86_400_000) {
+    const dias = Math.floor(ms / 86_400_000);
+    return dias === 1 ? 'há 1 dia' : `há ${dias} dias`;
+  }
   return `há ${textoDuracao(ms)}`;
 }
 

@@ -193,8 +193,11 @@ export function SecaoCrescimento() {
     if (nasc && bebe && (bebe.peso_nascer_g || bebe.altura_nascer_cm || bebe.pc_nascer_cm) && !medidas.some((m) => m.data === nasc)) {
       l.push({ id: 'nascimento', data: nasc, peso_g: bebe.peso_nascer_g, comprimento_cm: bebe.altura_nascer_cm, pc_cm: bebe.pc_nascer_cm, medida: null });
     }
-    return l.sort((a, b) => a.data.localeCompare(b.data));
+    // Mesmo dia: o nascimento vem antes das medidas; depois, a ordem em que foram anotadas
+    return l.sort((a, b) => a.data.localeCompare(b.data) || (a.id === 'nascimento' ? -1 : b.id === 'nascimento' ? 1 : 0));
   }, [medidas, nasc, bebe]);
+  // Medidas de antes do nascimento (ex.: a data de nascimento foi corrigida) ficam fora das contas
+  const validas = nasc ? linhas.filter((l) => l.data >= nasc) : linhas;
 
   if (!bebe) return null;
   const sexo = bebe.sexo;
@@ -204,7 +207,7 @@ export function SecaoCrescimento() {
   const pontos: PontoCrescimento[] = [];
   if (nasc && sexo) {
     let anterior: { data: string; valor: number } | null = null;
-    for (const l of linhas) {
+    for (const l of validas) {
       const valor = valorMedida(l, ind);
       if (valor === null) continue;
       // Ganho desde a medida anterior deste indicador (mesmo as de antes da data prevista contam)
@@ -226,11 +229,14 @@ export function SecaoCrescimento() {
     }
   }
   const ultimo = pontos[pontos.length - 1] ?? null;
-  const penultimo = pontos[pontos.length - 2] ?? null;
+  // Para comparar, a última medida de OUTRO dia (duas no mesmo dia não dizem nada)
+  const penultimo = (ultimo && pontos.slice(0, -1).reverse().find((p) => p.data !== ultimo.data)) ?? null;
   const zUltimo = ultimo && sexo ? escoreZ(ind, sexo, ultimo.dia, ultimo.valor) : null;
   const zPenultimo = penultimo && sexo ? escoreZ(ind, sexo, penultimo.dia, penultimo.valor) : null;
-  const comPeso = linhas.filter((l) => l.peso_g);
-  const ganho = comPeso.length >= 2 ? ganhoPorDia(comPeso[comPeso.length - 2], comPeso[comPeso.length - 1]) : null;
+  const comPeso = validas.filter((l) => l.peso_g);
+  const ultPeso = comPeso[comPeso.length - 1];
+  const antPeso = ultPeso ? comPeso.slice(0, -1).reverse().find((l) => l.data !== ultPeso.data) : undefined;
+  const ganho = ultPeso && antPeso ? ganhoPorDia(antPeso, ultPeso) : null;
   const idadeHoje = nasc ? idadeParaOms(diasEntre(nasc, hoje), prematuridade) : null;
   const nome = bebe.nome?.trim().split(/\s+/)[0] || 'O bebê';
 

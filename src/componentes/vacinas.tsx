@@ -421,7 +421,7 @@ function TrilhaIdades({ grupos, meses, previa, aoEscolher }: { grupos: Grupo[]; 
   const legenda = (['completa', 'agora', 'proxima', 'atrasada', 'passou', 'futura'] as SituacaoEtapa[]).filter((s) => s === 'futura' || presentes.has(s));
 
   const marcaHoje = (
-    <li className="sv-hoje" key="hoje" aria-label={previa ? 'Hoje: antes do nascimento' : `Hoje: ${meses === 1 ? '1 mês' : `${meses} meses`} completos`}>
+    <li className="sv-hoje" key="hoje" aria-label={previa ? 'Hoje: antes do nascimento' : `Hoje: ${meses === 1 ? '1 mês completo' : `${meses} meses completos`}`}>
       <span className="sv-hoje-no">
         <Icone nome="bebe" />
       </span>
