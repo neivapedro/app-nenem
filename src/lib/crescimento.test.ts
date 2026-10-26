@@ -108,6 +108,7 @@ describe('destaque e gráfico do crescimento', () => {
   it('idade em texto', () => {
     expect(textoIdadeDias(0)).toBe('0 dias');
     expect(textoIdadeDias(1)).toBe('1 dia');
+    expect(textoIdadeDias(30)).toBe('1 mês');
     expect(textoIdadeDias(16)).toBe('2 semanas e 2 dias');
     expect(textoIdadeDias(28)).toBe('4 semanas');
     expect(textoIdadeDias(92)).toBe('3 meses');

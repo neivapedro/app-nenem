@@ -198,9 +198,9 @@ export function textoIdadeDias(dia: number): string {
     const r = dia % 7;
     return `${s} semanas${r ? ` e ${r === 1 ? '1 dia' : `${r} dias`}` : ''}`;
   }
-  const meses = Math.floor(dia / 30.4375);
+  const meses = Math.max(1, Math.floor(dia / 30.4375));
   if (meses < 24) {
-    const r = Math.floor(dia - meses * 30.4375);
+    const r = Math.max(0, Math.floor(dia - meses * 30.4375));
     const m = meses === 1 ? '1 mês' : `${meses} meses`;
     return r ? `${m} e ${r === 1 ? '1 dia' : `${r} dias`}` : m;
   }

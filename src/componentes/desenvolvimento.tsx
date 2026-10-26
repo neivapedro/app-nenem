@@ -528,7 +528,9 @@ function VerCrescer({ fotos, aoFechar }: { fotos: { id: string; foto: string; ro
     };
   }, [aoFechar, ir, i]);
 
-  const atual = fotos[i];
+  // A lista pode encolher com a tela aberta (o outro responsável apagou uma foto)
+  const atual = fotos[Math.min(i, fotos.length - 1)];
+  if (!atual) return null;
   return (
     <div className="crescer" role="dialog" aria-modal="true" aria-label="Ver como cresceu">
       <div className="crescer-barras" aria-hidden="true">

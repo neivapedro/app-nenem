@@ -6,7 +6,7 @@ import { Icone, Marca } from './ui';
 
 // Miniatura da foto guardada no aparelho: o topo abre com a foto na hora (e sem internet),
 // sem piscar a ilustração enquanto o endereço temporário da foto é pedido ao servidor.
-const CHAVE = 'heitor:foto-bebe';
+const CHAVE = 'heitor:foto-bebe'; // também apagada ao Sair (contexto.tsx)
 const LADO = 240;
 
 function lerMiniatura(caminho: string): string | null {
@@ -104,7 +104,14 @@ export function EscolherFotoBebe() {
       await miniatura(reduzida)
         .then((d) => guardarMiniatura(caminho, d))
         .catch(() => undefined);
+      try {
+        await repo.salvarFotoBebe(bebe.id, caminho);
+      } catch (e) {
+        void repo.excluirFoto(caminho).catch(() => undefined);
+        throw e;
+      }
       gravar({ tipo: 'bebe', dado: { ...bebe, foto: caminho } });
+      // Só agora (foto nova já gravada) a antiga pode ser apagada
       if (antiga) void repo.excluirFoto(antiga).catch(() => undefined);
       mostrarAviso({ texto: antiga ? 'Foto trocada' : 'Foto do bebê guardada 📸' });
     } catch (e) {
@@ -114,12 +121,20 @@ export function EscolherFotoBebe() {
     }
   }
 
-  function tirar() {
+  async function tirar() {
     if (!bebe || !antiga) return;
     if (!confirm('Tirar a foto do bebê? Ela será apagada e o app volta a mostrar a ilustração.')) return;
-    gravar({ tipo: 'bebe', dado: { ...bebe, foto: null } });
-    void repo.excluirFoto(antiga).catch(() => undefined);
-    mostrarAviso({ texto: 'Foto tirada' });
+    setEnviando(true);
+    try {
+      await repo.salvarFotoBebe(bebe.id, null);
+      gravar({ tipo: 'bebe', dado: { ...bebe, foto: null } });
+      void repo.excluirFoto(antiga).catch(() => undefined);
+      mostrarAviso({ texto: 'Foto tirada' });
+    } catch (e) {
+      setErro(`A foto não foi tirada: ${traduzirErro(e)}`);
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -128,7 +143,7 @@ export function EscolherFotoBebe() {
         <Icone nome="camera" /> {enviando ? 'Enviando…' : antiga ? 'Trocar foto' : 'Escolher foto'}
       </button>
       {antiga && !enviando && (
-        <button type="button" className="botao pequeno texto" onClick={tirar}>
+        <button type="button" className="botao pequeno texto" onClick={() => void tirar()}>
           Tirar a foto
         </button>
       )}

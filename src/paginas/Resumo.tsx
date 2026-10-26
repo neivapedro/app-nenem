@@ -64,7 +64,9 @@ export function Resumo() {
     [dias, anteriores, hoje, inicioDados, intervalo, intervaloAntes, bebe?.sexo],
   );
   // Dia fora do padrão: só entre os dias inteiros com dados (sem hoje e sem antes do nascimento)
-  const considerar = dias.map((d) => d.dia !== hoje && (!inicioDados || d.dia >= inicioDados));
+  const considerar = dias.map(
+    (d) => d.dia !== hoje && (!inicioDados || d.dia >= inicioDados) && (d.alimentacoes + d.fraldas > 0 || d.sonoMs > 0),
+  );
   const foraAlim = foraDoPadrao(dias.map((d) => d.alimentacoes), considerar, 2);
   const foraSono = foraDoPadrao(dias.map((d) => d.sonoMs / 3_600_000), considerar, 1.5);
   const foraFraldas = foraDoPadrao(dias.map((d) => d.fraldas), considerar, 2);

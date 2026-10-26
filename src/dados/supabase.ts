@@ -386,9 +386,14 @@ export class RepositorioSupabase implements Repositorio {
   }
 
   async salvarBebe(b: Bebe) {
-    // Sem foto conhecida (banco ainda sem a coluna), grava só o resto
-    const { foto, ...resto } = b;
-    erro(await this.sb.from('nenem_bebes').upsert(foto === undefined ? resto : b));
+    // A foto nunca vai junto: é gravada só por salvarFotoBebe. Assim um aparelho com dados
+    // antigos (ou offline) não traz de volta uma foto que já foi trocada e apagada.
+    const { foto: _foto, ...resto } = b;
+    erro(await this.sb.from('nenem_bebes').upsert(resto));
+  }
+
+  async salvarFotoBebe(bebeId: string, caminho: string | null) {
+    erro(await this.sb.from('nenem_bebes').update({ foto: caminho }).eq('id', bebeId));
   }
 
   async listarRegistros(desde: string): Promise<Registro[]> {

@@ -262,8 +262,17 @@ export class RepositorioLocal implements Repositorio {
   async salvarBebe(bebe: Bebe) {
     await espera();
     const b = ler();
-    b.bebe = bebe;
+    // Igual à nuvem: a foto só muda por salvarFotoBebe
+    b.bebe = { ...bebe, foto: b.bebe?.id === bebe.id ? b.bebe.foto : bebe.foto };
     gravar(b);
+  }
+
+  async salvarFotoBebe(bebeId: string, caminho: string | null) {
+    const b = ler();
+    if (b.bebe?.id === bebeId) {
+      b.bebe = { ...b.bebe, foto: caminho };
+      gravar(b);
+    }
   }
 
   async listarRegistros(desde: string) {

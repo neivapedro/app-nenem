@@ -224,7 +224,7 @@ function Exportar() {
       const { lista: todos, completo } = await todosRegistros();
       const { bebe, membros, compromissos, medidas, vacinas, remedios, leite, marcos, tarefas, documentos, cofrinho_contas, cofrinho_movimentos, cofrinho_metas, cofrinho_planos } = dados;
       const pasta = `Heitor - cópia completa ${hoje}`;
-      const lista = planejarArquivos(documentos, cofrinho_movimentos, cofrinho_contas, marcos);
+      const lista = planejarArquivos(documentos, cofrinho_movimentos, cofrinho_contas, marcos, bebe?.foto);
       const zip = new MontadorZip();
       const baixados: typeof lista = [];
       const faltaram: string[] = [];

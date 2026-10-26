@@ -214,9 +214,16 @@ export function listaDocumentos(documentos: Documento[], baixados: ArquivoParaBa
 }
 
 /** A lista de arquivos e onde cada um vai ficar no .zip (sem nomes repetidos) */
-export function planejarArquivos(documentos: Documento[], movimentos: MovimentoCofrinho[], contas: ContaCofrinho[], marcos: Marco[]): ArquivoParaBaixar[] {
+export function planejarArquivos(
+  documentos: Documento[],
+  movimentos: MovimentoCofrinho[],
+  contas: ContaCofrinho[],
+  marcos: Marco[],
+  fotoBebe?: string | null,
+): ArquivoParaBaixar[] {
   const unico = nomesUnicos();
   const lista = planejarDocumentos(documentos, 'documentos', unico);
+  if (fotoBebe) lista.push({ caminho: fotoBebe, destino: unico('fotos', 'Foto do bebê', extensao({ caminho: fotoBebe })), balde: 'fotos' });
   const conta = new Map(contas.map((c) => [c.id, c.nome]));
   for (const m of [...movimentos].sort((a, b) => a.data.localeCompare(b.data)))
     if (m.comprovante)

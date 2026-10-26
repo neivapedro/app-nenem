@@ -21,6 +21,7 @@
     radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--c-sono) 9%, transparent), transparent 60%),
     var(--superficie);
 }
+.cartao > h2.narrativa-titulo,
 .narrativa-titulo {
   display: flex;
   align-items: center;

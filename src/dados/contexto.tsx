@@ -292,6 +292,11 @@ export function ProvedorDados({ children }: { children: ReactNode }) {
     await repositorio.sair();
     if (id) apagarDadosLocais(id);
     await apagarTudoLocal();
+    try {
+      localStorage.removeItem('heitor:foto-bebe'); // miniatura da foto do bebê (avatar.tsx)
+    } catch {
+      /* sem armazenamento */
+    }
     carregouNaSessao.current = false;
     await recarregar();
   }, [recarregar]);
