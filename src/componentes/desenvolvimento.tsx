@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import { useDados } from '../dados/contexto';
 import { FONTE_MARCOS, MARCOS_CADERNETA, ORIENTACAO_MARCOS } from '../lib/conteudo';
@@ -12,20 +12,33 @@ import { Campo, Folha, Icone } from './ui';
 import '../estilos/desenvolvimento.css';
 
 /** Mostra uma foto guardada (endereço temporário pedido ao servidor) */
-export function Foto({ caminho, classe, alt = '' }: { caminho: string; classe?: string; alt?: string }) {
+export function Foto({ caminho, classe, alt = '', reserva }: { caminho: string; classe?: string; alt?: string; reserva?: ReactNode }) {
   const { repo } = useDados();
-  const [url, setUrl] = useState<string | null>(null);
+  // undefined = buscando; null = não deu para abrir (sem internet ou foto apagada)
+  const [url, setUrl] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let vivo = true;
+    setUrl(undefined);
     repo
       .urlFoto(caminho)
       .then((u) => vivo && setUrl(u))
-      .catch(() => undefined);
+      .catch(() => vivo && setUrl(null));
     return () => {
       vivo = false;
     };
   }, [repo, caminho]);
-  return url ? <img className={classe} src={url} alt={alt} loading="lazy" /> : <span className="mudo">carregando…</span>;
+  if (url === undefined) return <span className="mudo">carregando…</span>;
+  if (url === null)
+    return (
+      <>
+        {reserva ?? (
+          <span className="mudo foto-falhou" role="img" aria-label="Foto indisponível agora (sem internet?)">
+            <Icone nome="camera" />
+          </span>
+        )}
+      </>
+    );
+  return <img className={classe} src={url} alt={alt} loading="lazy" onError={() => setUrl(null)} />;
 }
 
 /** Escolher foto (câmera ou galeria): reduz e envia na hora (precisa de internet) */
@@ -288,10 +301,12 @@ function Marcos() {
       <section className="cartao dev-heroi" aria-label="Faixa de idade atual">
         <Anel feitos={feitosAtual} total={itensAtual.length} />
         <div className="cresce">
-          <span className="dev-sobre">Idade atual</span>
+          <span className="dev-sobre">{bebe.nascimento ? 'Idade atual' : 'Primeira faixa'}</span>
           <h2>{itensAtual[0].faixa}</h2>
           <p className="texto-2">
-            {feitosAtual === itensAtual.length ? 'Todos os marcos da faixa! 🎉' : `${feitosAtual} de ${itensAtual.length} marcos da faixa`} · {feitosTotal} no total
+            {!bebe.nascimento
+              ? 'Depois do nascimento, marquem aqui cada conquista.'
+              : `${feitosAtual === itensAtual.length ? 'Todos os marcos da faixa! 🎉' : `${feitosAtual} de ${itensAtual.length} marcos da faixa`} · ${feitosTotal} no total`}
           </p>
         </div>
       </section>
@@ -321,7 +336,7 @@ function Marcos() {
               <section className="trilha-cartao" aria-label={itens[0].faixa}>
                 <div className="trilha-cab">
                   <div className="cresce">
-                    {f === atual && <span className="dev-sobre">Agora</span>}
+                    {f === atual && bebe.nascimento && <span className="dev-sobre">Agora</span>}
                     <h3>{itens[0].faixa}</h3>
                   </div>
                   <span className="trilha-conta">
@@ -672,7 +687,10 @@ function FotosDoMes() {
           const m = existente ?? novoMarco('mes', `mes-${n}`, { data: somarMeses(nasc, n), titulo: n === 0 ? 'Nascimento' : `${n} ${n === 1 ? 'mês' : 'meses'}` });
           if (!m) return;
           gravar({ tipo: 'colecao', colecao: 'marcos', dado: { ...m, foto: caminho } });
-          mostrarAviso({ texto: 'Foto guardada 📸' });
+          // Trocou a foto: a antiga sai do armazenamento
+          if (existente?.foto && existente.foto !== caminho) void repo.excluirFoto(existente.foto).catch(() => undefined);
+          setAberta(null);
+          mostrarAviso({ texto: existente?.foto ? 'Foto trocada 📸' : 'Foto guardada 📸' });
         }}
       />
       {vendo && sequencia.length > 0 && <VerCrescer fotos={sequencia} aoFechar={() => setVendo(false)} />}
@@ -680,6 +698,18 @@ function FotosDoMes() {
         <Folha titulo={aberta.titulo ?? 'Foto'} aoFechar={() => setAberta(null)}>
           <div className="pilha">
             <Foto caminho={aberta.foto} classe="foto-grande" />
+            <button
+              className="botao"
+              disabled={enviando}
+              onClick={() => {
+                const n = Number(aberta.marco_id?.replace('mes-', ''));
+                if (!Number.isFinite(n)) return;
+                setAlvo(n);
+                entrada.current?.click();
+              }}
+            >
+              <Icone nome="camera" /> {enviando ? 'Enviando…' : 'Trocar foto'}
+            </button>
             <button
               className="botao perigo"
               onClick={() => {

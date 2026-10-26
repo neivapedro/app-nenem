@@ -740,3 +740,6 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
+
+/* Com uma folha ou tela cheia aberta, o aviso sobe para o topo e não cobre o "Salvar" nem a legenda */
+body:has(.folha-fundo, .crescer, .visualizador) .aviso-rapido { bottom: auto; top: calc(env(safe-area-inset-top) + 10px); z-index: 120; }

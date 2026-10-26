@@ -144,8 +144,8 @@ function Menu() {
           <Link key={s.id} to={`/mais/${s.id}`} className={`mais-cartao t-${s.tipo} ${p?.convite ? 'convite' : ''}`} style={{ '--i': i } as CSSProperties}>
             <span className="mais-cartao-topo">
               {p?.foto ? (
-                <span className="selo mais-foto">
-                  <Foto caminho={p.foto} classe="foto-mini" />
+                <span className={`selo t-${s.tipo} mais-foto`}>
+                  <Foto caminho={p.foto} classe="foto-mini" reserva={<Icone nome={s.icone ?? s.tipo} />} />
                 </span>
               ) : (
                 <Selo tipo={s.tipo} icone={s.icone} />
