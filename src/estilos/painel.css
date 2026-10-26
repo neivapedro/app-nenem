@@ -198,3 +198,6 @@
 .painel-grafico .leitura-linha .chave-linha { margin-top: 0.5em; }
 .painel-grafico .leitura-linha strong { white-space: nowrap; }
 .painel-grafico .leitura-linha span:last-child { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.kpis .kpi-rodape { gap: 8px; }
+.kpis .kpi-spark { max-width: 52%; }
+.narrativa-texto strong { white-space: nowrap; }
