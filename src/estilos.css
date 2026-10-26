@@ -743,3 +743,6 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 
 /* Com uma folha ou tela cheia aberta, o aviso sobe para o topo e não cobre o "Salvar" nem a legenda */
 body:has(.folha-fundo, .crescer, .visualizador) .aviso-rapido { bottom: auto; top: calc(env(safe-area-inset-top) + 10px); z-index: 120; }
+
+/* Nome comprido do bebê: no máximo 2 linhas no topo */
+.topo h1 { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }

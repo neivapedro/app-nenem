@@ -210,7 +210,7 @@ export function Hoje() {
         <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada}>
           <Selo tipo="mamada" />
           <span className="nome">Mamada</span>
-          <span className="desde">{andamento.mamada ? 'em andamento' : `Última ${desdeAlimentacao}`}</span>
+          <span className="desde">{andamento.mamada ? 'em andamento' : alimentacao ? `Última ${desdeAlimentacao}` : desdeAlimentacao}</span>
         </button>
         <button className="acao t-mamadeira" onClick={() => setFolha('mamadeira')}>
           <Selo tipo="mamadeira" />

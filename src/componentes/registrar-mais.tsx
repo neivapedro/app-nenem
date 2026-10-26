@@ -354,10 +354,12 @@ export function novoRegistroMais(tipo: TipoMais, base: Pick<Registro, 'id' | 'fa
 }
 
 export function FolhaRegistroMais({ tipo, aoFechar, remedioId }: { tipo: TipoMais; aoFechar: () => void; remedioId?: string }) {
-  const { baseRegistro, gravar, mostrarAviso, remedios } = useDados();
+  const { baseRegistro, gravar, mostrarAviso, remedios, hoje } = useDados();
   const [inicial] = useState(() => {
     const r = novoRegistroMais(tipo, baseRegistro(), remedioId);
-    const m = remedios.find((x) => x.id === remedioId);
+    // Sem remédio escolhido e um só em uso: ele já vem marcado
+    const emUso = remedios.filter((x) => remedioEmUso(x, hoje));
+    const m = remedios.find((x) => x.id === remedioId) ?? (!remedioId && emUso.length === 1 ? emUso[0] : undefined);
     if (r.tipo === 'remedio' && m) r.dados = { remedio_id: m.id, nome: m.nome, dose: m.dose };
     return r;
   });

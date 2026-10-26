@@ -128,6 +128,11 @@ export function EscolherFotoBebe() {
     try {
       await repo.salvarFotoBebe(bebe.id, null);
       gravar({ tipo: 'bebe', dado: { ...bebe, foto: null } });
+      try {
+        localStorage.removeItem(CHAVE);
+      } catch {
+        /* sem armazenamento */
+      }
       void repo.excluirFoto(antiga).catch(() => undefined);
       mostrarAviso({ texto: 'Foto tirada' });
     } catch (e) {

@@ -82,7 +82,7 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
   const cor = COR_ESTADO[p.estado];
   const centro =
     p.faltaMs === null
-      ? { valor: duracaoCurta(p.desdeMs), legenda: 'desde a última' }
+      ? { valor: duracaoCurta(p.desdeMs), legenda: 'desde' }
       : p.faltaMs > 0
         ? { valor: duracaoCurta(p.faltaMs), legenda: 'faltam' }
         : { valor: `+${duracaoCurta(-p.faltaMs)}`, legenda: 'passou' };
@@ -114,7 +114,9 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
             <span className="hp-hora">{hora}</span>
           </>
         ) : (
-          <span className="hp-dica">Com mais alguns registros, o app prevê a próxima.</span>
+          <span className="hp-dica">
+            {p.desdeMs > 12 * 3_600_000 ? 'Faz tempo desde a última: registre a próxima para o app voltar a prever.' : 'Com mais alguns registros, o app prevê a próxima.'}
+          </span>
         )}
       </span>
       <span className="hp-rodape">
