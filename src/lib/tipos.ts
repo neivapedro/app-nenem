@@ -97,6 +97,8 @@ export interface Bebe {
   pc_nascer_cm: number | null;
   /** Calendário de vacinas: só SUS (pni) ou SUS + particular (sbp) */
   calendario_vacinal: 'pni' | 'sbp';
+  /** Foto do bebê (caminho no armazenamento nenem-fotos); vazio = ilustração padrão */
+  foto?: string | null;
 }
 
 export interface Membro {
