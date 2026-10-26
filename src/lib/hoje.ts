@@ -99,13 +99,14 @@ export interface MediasDia {
 
 /**
  * Média por dia dos últimos `n` dias completos (hoje fica de fora). Só conta
- * dias desde o nascimento e com algum registro (dias sem uso do app não puxam
+ * dias depois do nascimento e com algum registro (dias sem uso do app não puxam
  * a média para baixo). Sem nenhum dia assim, null.
  */
 export function mediasUltimosDias(registros: Registro[], hoje: string, agora: Date, nascimento: string | null, n = 7): MediasDia | null {
   let de = somarDiasLocal(hoje, -n);
   const nasc = nascimento ? chaveDia(nascimento) : null;
-  if (nasc && nasc > de) de = nasc;
+  // O dia do nascimento é incompleto: fica de fora
+  if (nasc && nasc >= de) de = somarDiasLocal(nasc, 1);
   const ate = somarDiasLocal(hoje, -1);
   if (de > ate) return null;
   const dias = diasDoPeriodo(registros, de, ate, agora).filter((d) => d.alimentacoes + d.fraldas + d.sonoMs > 0);
@@ -123,9 +124,10 @@ export function mediasUltimosDias(registros: Registro[], hoje: string, agora: Da
   };
 }
 
-/** Progresso de hoje em relação à média (0 a 1; acima da média fica cheio) */
+/** Progresso de hoje em relação à média (0 a 1; acima da média fica cheio). Sem média ainda, vazio. */
 export function progresso(valor: number, media: number | null | undefined): number {
-  if (!media || media <= 0) return valor > 0 ? 1 : 0;
+  if (media === null || media === undefined) return 0;
+  if (media <= 0) return valor > 0 ? 1 : 0;
   return Math.min(1, Math.max(0, valor / media));
 }
 

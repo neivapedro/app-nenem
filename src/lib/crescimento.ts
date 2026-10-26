@@ -193,7 +193,7 @@ export function periodoAutomatico(idadeDias: number): number {
 /** Idade em texto curto a partir dos dias: "5 dias", "3 semanas", "4 meses e 10 dias", "1 ano e 2 meses" */
 export function textoIdadeDias(dia: number): string {
   if (dia < 14) return dia === 1 ? '1 dia' : `${dia} dias`;
-  if (dia < 61) {
+  if (dia < 30) {
     const s = Math.floor(dia / 7);
     const r = dia % 7;
     return `${s} semanas${r ? ` e ${r === 1 ? '1 dia' : `${r} dias`}` : ''}`;

@@ -34,6 +34,7 @@
 .hp-proxima:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
 .hp-anel-grande { width: 112px; }
 .hp-centro-valor { font-size: 1.45rem; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hp-centro-valor.hp-longo { font-size: 1.15rem; letter-spacing: -0.04em; }
 .hp-centro-legenda { margin-top: 3px; font-size: 0.7rem; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: 0.06em; }
 .hp-centro-icone { color: var(--texto-3); display: grid; place-items: center; }
 .hp-centro-icone svg { width: 30px; height: 30px; }
@@ -73,11 +74,15 @@
 .hp-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 @media (min-width: 540px) { .hp-numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .hp-numero {
-  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'anel rotulo' 'anel valor' 'anel ref';
+  align-items: center; column-gap: 10px; min-width: 0; padding: 10px;
   border-radius: 14px; background: var(--superficie-2);
 }
+.hp-numero .hp-anel { grid-area: anel; }
 .hp-anel-mini { width: 46px; }
-.hp-numero-texto { min-width: 0; display: flex; flex-direction: column; }
+.hp-numero-rotulo { grid-area: rotulo; }
+.hp-numero-valor { grid-area: valor; }
+.hp-numero-ref { grid-area: ref; }
 .hp-numero-rotulo {
   display: flex; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--texto-2); font-weight: 500;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -97,10 +102,15 @@
   .hp-anel-grande { width: 96px; }
   .hp-centro-valor { font-size: 1.25rem; }
   .hp-centro-legenda { font-size: 0.62rem; }
+  .hp-centro-valor.hp-longo { font-size: 1rem; }
   .hp-hora { font-size: 1.75rem; }
   .hp-ultima { font-size: 0.95rem; }
-  .hp-numero { gap: 8px; padding: 9px 8px; }
-  .hp-anel-mini { width: 40px; }
+  .hp-rotulo { font-size: 0.68rem; letter-spacing: 0.03em; }
+  /* Cartões estreitos: o nome vai em cima, o anel ao lado do número */
+  .hp-numero { grid-template-areas: 'rotulo rotulo' 'anel valor' 'ref ref'; column-gap: 8px; padding: 9px 10px 10px; }
+  .hp-numero-rotulo { margin-bottom: 4px; }
+  .hp-numero-ref { margin-top: 3px; }
+  .hp-anel-mini { width: 34px; }
   .hp-numero-valor { font-size: 1.15rem; }
 }
 

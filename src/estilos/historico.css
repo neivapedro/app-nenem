@@ -43,7 +43,7 @@
 .hist-fita { margin: 0 0 8px; padding: 10px 10px 8px; border-radius: 12px; background: color-mix(in srgb, var(--superficie-2) 45%, var(--superficie)); }
 .hist-fita .linha-tempo { gap: 4px; }
 .hist-fita .lt-faixa, .hist-fita .lt-eixo { grid-template-columns: 66px minmax(0, 1fr); gap: 6px; }
-.hist-fita .lt-titulo { font-size: 0.7rem; }
+.hist-fita .lt-titulo { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hist-fita .lt-trilho { height: 14px; border-radius: 4px; }
 .hist-fita .lt-trilho.sem-fundo { height: 12px; }
 .hist-fita .lt-bloco { top: 2px; bottom: 2px; border-radius: 2px; }
@@ -67,10 +67,10 @@
   text-align: left; cursor: pointer;
   animation: hist-entra-item 0.42s ease-out both; animation-delay: calc(var(--i, 0) * 60ms + var(--j, 0) * 22ms + 0.08s);
 }
-.hist-item:hover { background: color-mix(in srgb, var(--cor) 6%, transparent); }
+@media (hover: hover) { .hist-item:hover { background: color-mix(in srgb, var(--cor) 6%, transparent); } }
 .hist-item:active { background: color-mix(in srgb, var(--cor) 11%, transparent); }
 .hist-item:focus-visible { outline: 2px solid var(--texto-2); outline-offset: 1px; }
-.hist-trilho { position: relative; align-self: stretch; display: flex; justify-content: center; min-height: 36px; }
+.hist-trilho { position: relative; align-self: stretch; display: flex; justify-content: center; align-items: flex-start; min-height: 36px; }
 .hist-icone { position: relative; z-index: 1; display: flex; border-radius: 50%; background: var(--superficie); box-shadow: 0 0 0 3px var(--superficie); }
 .hist-icone .selo { width: 36px; height: 36px; border-radius: 50%; }
 .hist-icone .selo svg { width: 18px; height: 18px; }
@@ -83,6 +83,15 @@
 .hist-detalhe { color: var(--texto-2); font-size: 0.8rem; line-height: 1.35; overflow-wrap: anywhere; margin-top: 1px; }
 
 /* Sono: barra na própria linha, do tamanho da duração */
+/* Faixa clara atrás do sono, saindo da linha (o ícone e a barra ficam por cima) */
+.hist-item.sono { isolation: isolate; margin: 2px 0; }
+.hist-item.sono::before {
+  content: ''; position: absolute; inset: 0 0 0 18px; z-index: -1; border-radius: 0 12px 12px 0;
+  background: color-mix(in srgb, var(--c-sono) 8%, transparent);
+}
+@media (hover: hover) { .hist-item.sono:hover { background: none; } .hist-item.sono:hover::before { background: color-mix(in srgb, var(--c-sono) 13%, transparent); } }
+.hist-item.sono:active { background: none; }
+.hist-item.sono:active::before { background: color-mix(in srgb, var(--c-sono) 16%, transparent); }
 .hist-barra {
   position: absolute; top: 18px; bottom: 2px; left: 50%; width: 10px; margin-left: -5px; border-radius: 5px;
   background: color-mix(in srgb, var(--c-sono) 78%, var(--superficie));
@@ -98,7 +107,7 @@
   background: repeating-linear-gradient(to bottom, color-mix(in srgb, var(--c-sono) 70%, var(--superficie)) 0 6px, transparent 6px 10px);
   transform-origin: bottom;
 }
-.hist-item.continuacao .hist-trilho { flex-direction: column; justify-content: flex-end; }
+.hist-item.continuacao .hist-trilho { align-items: flex-end; }
 .hist-item.continuacao .hist-hora { color: var(--texto-3); font-weight: 600; }
 .hist-item.continuacao { align-items: end; }
 .hist-item.continuacao .hist-texto { padding-bottom: 6px; }
@@ -136,6 +145,7 @@
   .hist-icone .selo { width: 34px; height: 34px; }
   .hist-hora { font-size: 0.95rem; }
   .hist-fita { padding: 8px 8px 6px; }
-  .hist-fita .lt-faixa, .hist-fita .lt-eixo { grid-template-columns: 58px minmax(0, 1fr); }
+  .hist-fita .lt-faixa, .hist-fita .lt-eixo { grid-template-columns: 60px minmax(0, 1fr); gap: 4px; }
+  .hist-fita .lt-titulo { font-size: 0.62rem; }
   .hist-ir > span { font-size: 0.82rem; }
 }

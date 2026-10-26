@@ -94,14 +94,19 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
   return (
     <button type="button" className={`hp-proxima hp-entra hp-${p.estado}`} style={{ '--hp-cor': cor } as CSSProperties} onClick={aoTocar}>
       <Anel arcos={[{ fracao: p.fracao, cor }]} espessura={9} rotulo={rotuloAnel} classe="hp-anel-grande">
-        <span className="hp-centro-valor">{centro.valor}</span>
+        <span className={`hp-centro-valor ${centro.valor.length >= 7 ? 'hp-longo' : ''}`}>{centro.valor}</span>
         <span className="hp-centro-legenda">{centro.legenda}</span>
       </Anel>
       <span className="hp-proxima-texto">
         <span className="hp-rotulo">{nome}</span>
         <span className="hp-ultima">
-          {ha}
-          {p.detalhe && <span className="hp-sem-quebra"> · {p.detalhe}</span>}
+          <span className="hp-sem-quebra">{ha}</span>
+          {p.detalhe && (
+            <>
+              {' · '}
+              <span className="hp-sem-quebra">{p.detalhe}</span>
+            </>
+          )}
         </span>
         {hora ? (
           <>
@@ -239,13 +244,11 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
               arcos={it.arcos}
               espessura={it.arcos.length > 1 ? 10 : 12}
               classe="hp-anel-mini"
-              rotulo={`${it.nomeLido}: ${it.valor === '—' ? 'nada' : it.valor} hoje${it.referencia ? `, ${it.referencia.replace('de ~', 'média de ')} por dia` : ''}`}
+              rotulo={`${it.nomeLido}: ${it.valor === '—' ? 'nada' : it.valor} hoje${it.referencia ? `, ${it.referencia.replace('de ', 'média de ').replace(/~/g, '')} por dia` : ''}`}
             />
-            <div className="hp-numero-texto">
-              <div className="hp-numero-rotulo">{it.rotulo}</div>
-              <div className="hp-numero-valor">{it.valor}</div>
-              <div className="hp-numero-ref">{it.referencia ?? (medias ? 'sem média' : ' ')}</div>
-            </div>
+            <div className="hp-numero-rotulo">{it.rotulo}</div>
+            <div className="hp-numero-valor">{it.valor}</div>
+            {medias && <div className="hp-numero-ref">{it.referencia ?? ' '}</div>}
           </div>
         ))}
       </div>

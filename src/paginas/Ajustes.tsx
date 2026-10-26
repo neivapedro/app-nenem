@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AvatarBebe, EscolherFotoBebe } from '../componentes/avatar';
 import { FolhaBebe } from '../componentes/bebe';
 import { CartaoCalendario } from '../componentes/calendario';
 import { Campo, Icone } from '../componentes/ui';
@@ -51,14 +52,15 @@ function CartaoBebe() {
   return (
     <section className="cartao pilha" aria-label="Bebê">
       <div className="cartao-cab" style={{ marginBottom: 0 }}>
-        <div className="linha">
-          <Icone nome="bebe" />
+        <div className="linha" style={{ gap: 14 }}>
+          <AvatarBebe classe="avatar-grande" />
           <h2>{bebe.nome || 'Bebê'}</h2>
         </div>
         <button className="botao pequeno" onClick={() => setEditar(true)}>
           Editar
         </button>
       </div>
+      <EscolherFotoBebe />
       {bebe.nascimento ? (
         <div className="pilha-p">
           <p>{idadeBebe(bebe.nascimento, agora)}</p>

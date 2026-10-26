@@ -8,6 +8,7 @@ import type { RegistroDe, Remedio } from '../lib/tipos';
 import { FolhaRegistroMais } from './registrar-mais';
 import { FolhaEditar } from './registrar';
 import { Campo, Escolhas, Folha, Icone, Selo } from './ui';
+import '../estilos/saude.css';
 
 const INTERVALOS = [3, 4, 6, 8, 12, 24, 48];
 /** Atalhos de duração do tratamento (dias, contando hoje) */
@@ -142,6 +143,8 @@ function CartaoRemedio({ r }: { r: Remedio }) {
   const ultima = ultimaDose(registros, r.id);
   const proxima = proximaDose(r, registros);
   const atrasada = proxima && new Date(proxima).getTime() < agora.getTime();
+  // Quanto do intervalo já passou desde a última dose (barra até a próxima)
+  const fracao = ultima && proxima && r.intervalo_h ? Math.min(1, Math.max(0, (agora.getTime() - new Date(ultima.inicio).getTime()) / (r.intervalo_h * 3_600_000))) : null;
 
   function deiAgora() {
     // Dose em dobro: a última foi há menos da metade do intervalo (sem intervalo, há menos de 30 min)
@@ -191,6 +194,19 @@ function CartaoRemedio({ r }: { r: Remedio }) {
           {!proxima && ultima && r.intervalo_h && r.termina_em && <div className="mudo">fim do tratamento</div>}
         </div>
       </div>
+      {fracao !== null && (
+        <div
+          className={`sr-barra ${atrasada ? 'atrasada' : ''}`}
+          role="progressbar"
+          aria-label="Tempo até a próxima dose"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(fracao * 100)}
+          aria-valuetext={atrasada ? 'Já passou da hora da próxima dose' : `${Math.round(fracao * 100)}% do intervalo`}
+        >
+          <span style={{ width: `${fracao * 100}%` }} />
+        </div>
+      )}
       <div className="linha">
         <button className="botao primario cresce" onClick={deiAgora}>
           <Icone nome="check" /> Dei agora

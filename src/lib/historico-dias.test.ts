@@ -85,9 +85,9 @@ describe('itens do dia', () => {
 
 describe('desenho', () => {
   it('a barra do sono cresce com a duração, com limites', () => {
-    expect(alturaSono(10 * 60_000)).toBe(60);
+    expect(alturaSono(10 * 60_000)).toBe(76);
     expect(alturaSono(3 * 3_600_000)).toBeGreaterThan(alturaSono(2 * 3_600_000));
-    expect(alturaSono(20 * 3_600_000)).toBe(210);
+    expect(alturaSono(20 * 3_600_000)).toBe(250);
   });
 
   it('tira a hora do começo do detalhe', () => {

@@ -239,7 +239,16 @@ export function ColunasEmpilhadas({
           {media !== undefined && media !== null && media > 0 && <line x1={L} x2={W - R} y1={y(media)} y2={y(media)} className="media-linha" />}
         </svg>
         {ativo !== null && (
-          <div className={`leitura ${L + banda * ativo + banda / 2 < W / 2 ? 'direita' : 'esquerda'}`} aria-live="polite">
+          <div
+            className={`leitura ${L + banda * ativo + banda / 2 < W / 2 ? 'direita' : 'esquerda'}`}
+            // Ao lado da coluna, sem cobri-la
+            style={
+              L + banda * ativo + banda / 2 < W / 2
+                ? { left: `${((L + banda * (ativo + 1) + 2) / W) * 100}%`, right: 'auto', maxWidth: `min(220px, ${(1 - (L + banda * (ativo + 1) + 2) / W) * 100}%)` }
+                : { right: `${(1 - (L + banda * ativo - 2) / W) * 100}%`, left: 'auto', maxWidth: `min(220px, ${((L + banda * ativo - 2) / W) * 100}%)` }
+            }
+            aria-live="polite"
+          >
             <div className="leitura-titulo">
               {semana(dias[ativo])}, {diaCurto(dias[ativo])}
             </div>
@@ -402,7 +411,7 @@ export function LinhaTempo({
       {faixa(
         'Fraldas',
         fraldas.map((f, i) => (
-          <span key={i} className="lt-ponto" style={{ left: `${f.em * 100}%`, background: f.coco ? 'var(--c-mamadeira)' : 'var(--c-fralda)' }} />
+          <span key={i} className="lt-ponto" style={{ left: `clamp(6px, ${f.em * 100}%, calc(100% - 6px))`, background: f.coco ? 'var(--c-mamadeira)' : 'var(--c-fralda)' }} />
         )),
       )}
       <div className="lt-eixo">

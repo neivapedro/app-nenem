@@ -290,6 +290,7 @@ function quandoFoi(dia: string, hoje: string): string {
 }
 
 const maisMenos = (d: number) => (d > 0 ? 'a mais' : 'a menos');
+const mediaDe = (lista: DiaPainel[], f: (d: DiaPainel) => number) => media(lista.map(f));
 
 /**
  * 2 a 4 frases curtas sobre o período, em linguagem de pai e mãe. Só entra o
@@ -334,7 +335,28 @@ export function narrativa(e: EntradaNarrativa): FraseNarrativa[] {
     } else if (Math.abs(rel) < 0.02 && Math.abs(dif) < 10 * MIN) add('sono', 'sono', ['Sono estável: ', { destaque: `${um(a.sonoMs / HORA)} h por dia` }, `, como ${P.antesLongo}`], 1.8);
   }
 
-  // Maior sono seguido do período
+  // Sono da noite (19h às 7h): o que mais pesa para pai e mãe
+  if (ambos((d) => d.sonoNoiteMs > 0)) {
+    const noiteA = mediaDe(completos, (d) => d.sonoNoiteMs);
+    const noiteB = mediaDe(anteriores, (d) => d.sonoNoiteMs);
+    const dif = noiteA - noiteB;
+    const rel = noiteB > 0 ? dif / noiteB : 0;
+    if (Math.abs(dif) >= 15 * MIN && Math.abs(rel) >= 0.05)
+      add('sono', 'sono', [`${P.agora} as noites tiveram `, { destaque: `${duracaoCurta(Math.abs(dif))} ${maisMenos(dif)}` }, ` de sono do que ${P.antes}`], 9 + Math.abs(rel) * 100);
+  }
+
+  // Maior sono seguido: a média mudou ou o dia em que ele foi mais longo
+  if (ambos((d) => d.maiorSonoMs > 0) && b.maiorSonoMs > 0) {
+    const dif = a.maiorSonoMs - b.maiorSonoMs;
+    const rel = dif / b.maiorSonoMs;
+    if (Math.abs(dif) >= 10 * MIN && Math.abs(rel) >= 0.05)
+      add(
+        'maior-sono',
+        'recorde',
+        ['O maior sono seguido está ', { destaque: `${duracaoCurta(Math.abs(dif))} ${dif > 0 ? 'mais longo' : 'mais curto'}` }, `: ${duracaoCurta(a.maiorSonoMs)} em média`],
+        9 + Math.abs(rel) * 100,
+      );
+  }
   const comSono = completos.filter((d) => d.maiorSonoMs > 0);
   if (comSono.length >= 3) {
     const top = comSono.reduce((x, y) => (y.maiorSonoMs >= x.maiorSonoMs ? y : x));

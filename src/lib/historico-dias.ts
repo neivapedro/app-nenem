@@ -90,8 +90,8 @@ export function itensDoDia(registros: Registro[], dia: string, tipos: readonly T
 
 /** Altura (px) do trecho de sono na linha do tempo: proporcional à duração, com limites */
 export function alturaSono(duracaoMs: number): number {
-  const PX_POR_HORA = 30;
-  return Math.round(Math.min(210, Math.max(60, (duracaoMs / 3_600_000) * PX_POR_HORA + 30)));
+  const PX_POR_HORA = 44;
+  return Math.round(Math.min(250, Math.max(76, (duracaoMs / 3_600_000) * PX_POR_HORA + 40)));
 }
 
 /** Tira a hora do começo do detalhe (a hora já aparece em destaque ao lado) */

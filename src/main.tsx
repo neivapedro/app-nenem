@@ -1,11 +1,15 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+// Base visual primeiro: os estilos de cada tela (src/estilos/*.css) vêm depois e podem refinar
+import './estilos.css';
 import { App } from './App';
 import { Protecao } from './componentes/Protecao';
 import { ProvedorDados } from './dados/contexto';
 import { capturarConviteDaUrl } from './lib/convite';
 import { registrarServiceWorker, vigiarVersaoNova } from './lib/notificacoes';
-import './estilos.css';
+
+// Estilos de cada tela (Hoje, Histórico, Saúde...): todos os .css de src/estilos entram sozinhos
+import.meta.glob('./estilos/*.css', { eager: true });
 
 capturarConviteDaUrl();
 registrarServiceWorker();

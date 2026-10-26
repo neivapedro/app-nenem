@@ -79,7 +79,7 @@ describe('mediasUltimosDias', () => {
 
   it('média dos dias completos, sem hoje e sem dias antes do nascimento', () => {
     const m = mediasUltimosDias(regs, '2026-12-03', new Date(em('2026-12-03', '10:00')), em('2026-11-30', '10:00'))!;
-    // 30/11 (nascimento) não tem registro: fica de fora
+    // 30/11 (nascimento, dia incompleto) fica de fora
     expect(m.dias).toBe(2);
     expect(m.alimentacoes).toBe(5);
     expect(m.ml).toBe(100);
@@ -89,8 +89,10 @@ describe('mediasUltimosDias', () => {
     expect(m.sonoMs).toBe(3 * 3_600_000);
   });
 
-  it('nascido hoje: sem média', () => {
+  it('nascido hoje ou ontem: sem média (o dia do nascimento é incompleto)', () => {
     expect(mediasUltimosDias(regs, '2026-12-03', new Date(em('2026-12-03', '10:00')), em('2026-12-03', '01:00'))).toBeNull();
+    expect(mediasUltimosDias(regs, '2026-12-03', new Date(em('2026-12-03', '10:00')), em('2026-12-02', '01:00'))).toBeNull();
+    expect(mediasUltimosDias(regs, '2026-12-03', new Date(em('2026-12-03', '10:00')), em('2026-12-01', '01:00'))!.dias).toBe(1);
   });
 });
 
@@ -99,6 +101,7 @@ describe('progresso e aproximar', () => {
     expect(progresso(7, 9)).toBeCloseTo(7 / 9);
     expect(progresso(12, 9)).toBe(1);
     expect(progresso(0, null)).toBe(0);
+    expect(progresso(5, undefined)).toBe(0);
     expect(progresso(3, 0)).toBe(1);
   });
   it('arredonda para leitura', () => {

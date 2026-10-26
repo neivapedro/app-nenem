@@ -154,6 +154,14 @@ describe('narrativa', () => {
     expect(f.find((x) => x.id === 'sono')!.partes).toContainEqual({ destaque: '40 min a mais' });
   });
 
+  it('noites mais longas e maior sono seguido mais longo', () => {
+    const dias = periodo(hoje, 7, () => ({ sonoNoiteMs: 9 * HORA + 45 * MIN, maiorSonoMs: 3 * HORA + 25 * MIN }));
+    const anteriores = periodo(ateAntes, 7);
+    const textos = narrativa({ dias, anteriores, hoje, inicio: null, sexo: 'F' }).map((x) => x.texto);
+    expect(textos).toContain('Esta semana as noites tiveram 45 min a mais de sono do que na anterior');
+    expect(textos).toContain('O maior sono seguido está 25 min mais longo: 3h25 em média');
+  });
+
   it('sem sexo informado, a frase fica neutra', () => {
     const dias = periodo(hoje, 7, () => ({ sonoMs: 13 * HORA }));
     const anteriores = periodo(ateAntes, 7);

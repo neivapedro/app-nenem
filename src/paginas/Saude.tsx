@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { SecaoCrescimento } from '../componentes/crescimento';
 import { SecaoRemedios, SecaoTemperatura } from '../componentes/remedios';
 import { SecaoVacinas } from '../componentes/vacinas';
+import '../estilos/saude.css';
 
 const ABAS = [
   { id: 'vacinas', rotulo: 'Vacinas' },
@@ -16,7 +17,7 @@ export function Saude() {
   const [params, setParams] = useSearchParams();
   const aba = (ABAS.find((a) => a.id === params.get('aba'))?.id ?? 'vacinas') as Aba;
   return (
-    <div className="pilha">
+    <div className="pilha saude">
       <div className="abas" role="tablist" aria-label="Saúde">
         {ABAS.map((a) => (
           <button key={a.id} role="tab" aria-selected={aba === a.id} className={aba === a.id ? 'ativo' : ''} onClick={() => setParams({ aba: a.id }, { replace: true })}>

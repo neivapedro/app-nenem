@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useState, type MouseEvent } from 'react';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { AvatarBebe } from './componentes/avatar';
 import { Protecao } from './componentes/Protecao';
-import { Icone, Marca } from './componentes/ui';
+import { Icone } from './componentes/ui';
 import { useAgora, useDados } from './dados/contexto';
 import { idadeBebe, semanasGestacao } from './lib/datas';
 import { limparConvite } from './lib/convite';
+import { telaTrocada, trocarComTransicao, type Direcao } from './lib/transicao';
 import { Agenda } from './paginas/Agenda';
 import { Configurar } from './paginas/Configurar';
 import { SincronizarDocumentos } from './componentes/doc-offline';
@@ -26,6 +28,31 @@ const ABAS = [
   { para: '/agenda', rotulo: 'Agenda', icone: 'agenda' },
   { para: '/mais', rotulo: 'Mais', icone: 'menu' },
 ];
+
+const semBarra = (p: string) => p.replace(/\/+$/, '') || '/';
+
+/** Posição da tela na ordem das abas (subtelas de "Mais" ficam depois de "Mais") */
+function ordemTela(p: string): number {
+  const i = ABAS.findIndex((a) => a.para === p);
+  if (i >= 0) return i;
+  return p.startsWith('/mais/') ? ABAS.length : ABAS.length - 1;
+}
+
+/**
+ * Clique num link interno com a transição entre telas (abas da esquerda para a direita
+ * deslizam para a frente). Sem suporte ou com "Reduzir movimento", o link segue normal.
+ */
+function useLinkComTransicao() {
+  const navegar = useNavigate();
+  const { pathname } = useLocation();
+  return (para: string, direcao?: Direcao) => (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const atual = semBarra(pathname);
+    if (atual === para) return;
+    const dir = direcao ?? (ordemTela(para) < ordemTela(atual) ? 'tras' : 'frente');
+    if (trocarComTransicao(() => navegar(para), dir)) e.preventDefault();
+  };
+}
 
 function AvisoNovaVersao() {
   const [nova, setNova] = useState(() => !!(window as { novaVersao?: boolean }).novaVersao);
@@ -111,8 +138,9 @@ function AvisoRapido() {
 function Cabecalho() {
   const { bebe, hoje } = useDados();
   const { pathname: bruto } = useLocation();
+  const comTransicao = useLinkComTransicao();
   // "/historico/" é a mesma tela que "/historico"
-  const pathname = bruto.replace(/\/+$/, '') || '/';
+  const pathname = semBarra(bruto);
   const agora = useAgora(60_000);
   const aba = ABAS.find((a) => a.para === pathname);
   const secao = pathname.startsWith('/mais/') ? SECOES_MAIS.find((s) => pathname === `/mais/${s.id}`) : null;
@@ -127,13 +155,13 @@ function Cabecalho() {
     <header className="topo">
       <div className="topo-marca">
         {secao ? (
-          <Link to="/mais" className="icone-botao" aria-label="Voltar">
+          <Link to="/mais" className="icone-botao" aria-label="Voltar" onClick={comTransicao('/mais', 'tras')}>
             <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
               <Icone nome="seta" />
             </span>
           </Link>
         ) : (
-          <Marca classe="marca-mini" />
+          <AvatarBebe classe="marca-mini" />
         )}
         <div style={{ minWidth: 0 }}>
           <h1>{pathname === '/' ? nome : (secao?.titulo ?? aba?.rotulo ?? 'Mais')}</h1>
@@ -151,9 +179,11 @@ function Cabecalho() {
 
 function Estrutura() {
   const { pathname } = useLocation();
-  // Cada aba abre do topo
-  useEffect(() => {
+  const comTransicao = useLinkComTransicao();
+  // Cada aba abre do topo; antes da tela aparecer, para a transição já mostrar o topo da tela nova
+  useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    telaTrocada();
   }, [pathname]);
   return (
     <>
@@ -183,7 +213,7 @@ function Estrutura() {
       <nav className="nav" aria-label="Navegação principal">
         <div className="nav-itens">
           {ABAS.map((a) => (
-            <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} className={({ isActive }) => (isActive ? 'ativo' : '')}>
+            <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} className={({ isActive }) => (isActive ? 'ativo' : '')} onClick={comTransicao(a.para)}>
               <Icone nome={a.icone} />
               {'curto' in a && a.curto ? (
                 <>
@@ -200,6 +230,65 @@ function Estrutura() {
         </div>
       </nav>
     </>
+  );
+}
+
+/** Enquanto carrega: o formato da tela (topo, cartões e abas) com um brilho suave, no lugar de "Carregando…" */
+function Esqueleto() {
+  const linha = (largura: string, classe = '') => <span className={`esq esq-linha ${classe}`} style={{ width: largura }} />;
+  return (
+    <div className="esqueleto" role="status" aria-busy="true">
+      <span className="oculto-visual">Carregando…</span>
+      <div className="app" aria-hidden="true">
+        <div className="topo">
+          <div className="topo-marca">
+            <span className="esq esq-avatar" />
+            <div className="pilha-p" style={{ gap: 8 }}>
+              {linha('120px', 'esq-titulo')}
+              {linha('84px')}
+            </div>
+          </div>
+        </div>
+        <div className="pilha">
+          <div className="cartao destaque pilha-p">
+            {linha('40%')}
+            {linha('62%', 'esq-numero')}
+            {linha('75%')}
+          </div>
+          <div className="acoes">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="acao">
+                <span className="esq esq-selo" />
+                {linha('58%')}
+                {linha('80%')}
+              </div>
+            ))}
+          </div>
+          <div className="cartao pilha">
+            {linha('34%')}
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="linha" style={{ flexWrap: 'nowrap' }}>
+                <span className="esq esq-selo" />
+                <div className="cresce pilha-p">
+                  {linha('55%')}
+                  {linha('35%')}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="nav" aria-hidden="true">
+        <div className="nav-itens">
+          {ABAS.map((a) => (
+            <span key={a.para} className="esq-aba">
+              <span className="esq esq-icone" />
+              <span className="esq esq-rotulo" />
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -227,13 +316,7 @@ export function App() {
   }, [temFamilia]);
   if (recuperandoSenha) return <NovaSenha />;
   if (semConexao) return <SemConexao />;
-  if (carregando && !membro) {
-    return (
-      <div className="centro">
-        <p className="mudo">Carregando…</p>
-      </div>
-    );
-  }
+  if (carregando && !membro) return <Esqueleto />;
   if (!usuario) return <Entrar />;
   if (!membro) {
     // Falha ao carregar não é conta nova: não abre o primeiro acesso por cima dos dados

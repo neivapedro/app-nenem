@@ -125,9 +125,15 @@ function DestaquePercentil({ z, zAnterior, dataAnterior, ind, nome, corrigida }:
   const fora = f === 'abaixo-p3' || f === 'acima-p97';
   return (
     <div className={`sc-destaque sc-${f}`}>
-      <p className="sc-frase">
-        {nome} está {fora ? (f === 'abaixo-p3' ? 'abaixo do' : 'acima do') : 'no'} <span className="sc-hero">percentil <span className="sv-num">{fora ? (f === 'abaixo-p3' ? 3 : 97) : p}</span></span> {DE_INDICADOR[ind]}
-      </p>
+      <div className="sc-topo">
+        <span className="sv-num sc-numero" aria-hidden="true">
+          {fora ? (f === 'abaixo-p3' ? '<3' : '>97') : p}
+        </span>
+        <p className="sc-frase">
+          {nome} está {fora ? (f === 'abaixo-p3' ? 'abaixo do' : 'acima do') : 'no'} <strong>percentil {fora ? (f === 'abaixo-p3' ? 3 : 97) : p}</strong> {DE_INDICADOR[ind]}
+          {corrigida && <span className="sc-sub">pela idade corrigida</span>}
+        </p>
+      </div>
       <div className="sc-regua" role="img" aria-label={`Faixas de percentil: abaixo do P3, P3 a P15, P15 a P85, P85 a P97 e acima do P97. ${nome} está em ${f === 'abaixo-p3' ? 'abaixo do P3' : f === 'acima-p97' ? 'acima do P97' : `P${p}`}.`}>
         <div className="sc-regua-faixas" aria-hidden="true">
           {REGUA_FAIXAS.map((r) => (
@@ -144,7 +150,7 @@ function DestaquePercentil({ z, zAnterior, dataAnterior, ind, nome, corrigida }:
         </div>
       </div>
       <p className="texto-2">{explicacao(f, p, ind, nome)}</p>
-      {(zAnterior !== null || corrigida || fora) && (
+      {(zAnterior !== null || fora) && (
         <div className="sc-notas">
           {fora && <span className="etiqueta aviso">Mostrar ao pediatra</span>}
           {zAnterior !== null && dataAnterior && (
@@ -152,7 +158,6 @@ function DestaquePercentil({ z, zAnterior, dataAnterior, ind, nome, corrigida }:
               Na medida de {dataAnterior.slice(0, 5)}: {textoPercentil(zAnterior)}
             </span>
           )}
-          {corrigida && <span className="mudo">Pela idade corrigida</span>}
         </div>
       )}
     </div>

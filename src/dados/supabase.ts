@@ -75,6 +75,8 @@ function paraBebe(d: any): Bebe {
     altura_nascer_cm: num(d.altura_nascer_cm),
     pc_nascer_cm: num(d.pc_nascer_cm),
     calendario_vacinal: d.calendario_vacinal === 'sbp' ? 'sbp' : 'pni',
+    // Coluna nova (migração bebe_foto): ausente no banco antigo = não manda o campo de volta
+    ...('foto' in d ? { foto: d.foto ?? null } : {}),
   };
 }
 
@@ -384,7 +386,9 @@ export class RepositorioSupabase implements Repositorio {
   }
 
   async salvarBebe(b: Bebe) {
-    erro(await this.sb.from('nenem_bebes').upsert(b));
+    // Sem foto conhecida (banco ainda sem a coluna), grava só o resto
+    const { foto, ...resto } = b;
+    erro(await this.sb.from('nenem_bebes').upsert(foto === undefined ? resto : b));
   }
 
   async listarRegistros(desde: string): Promise<Registro[]> {
