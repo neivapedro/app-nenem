@@ -108,9 +108,11 @@
 .sc-faixa { height: 100%; border-radius: 3px; }
 .sc-faixa:first-child { border-radius: 999px 3px 3px 999px; }
 .sc-faixa:last-child { border-radius: 3px 999px 999px 3px; }
-.sc-f-abaixo-p3, .sc-f-acima-p97 { background: color-mix(in srgb, var(--aviso) 34%, var(--superficie)); }
-.sc-f-p3-p15, .sc-f-p85-p97 { background: color-mix(in srgb, var(--bom) 24%, var(--superficie)); }
-.sc-f-p15-p85 { background: color-mix(in srgb, var(--bom) 46%, var(--superficie)); }
+.sc-regua { --sc-fora: 48%; --sc-lado: 34%; --sc-meio: 62%; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .sc-regua { --sc-fora: 34%; --sc-lado: 24%; --sc-meio: 46%; } }
+.sc-f-abaixo-p3, .sc-f-acima-p97 { background: color-mix(in srgb, var(--aviso) var(--sc-fora), var(--superficie)); }
+.sc-f-p3-p15, .sc-f-p85-p97 { background: color-mix(in srgb, var(--bom) var(--sc-lado), var(--superficie)); }
+.sc-f-p15-p85 { background: color-mix(in srgb, var(--bom) var(--sc-meio), var(--superficie)); }
 .sc-marcador {
   position: absolute; top: 0; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%;
   background: var(--texto); border: 3px solid var(--superficie-2); box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
