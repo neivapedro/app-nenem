@@ -100,3 +100,48 @@ export function alimentosProvados(registros: Registro[]): AlimentoProvado[] {
   }
   return [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
+
+/** Situação de uma faixa de idade do calendário de vacinas (para a trilha de idades) */
+export type SituacaoEtapa = 'completa' | 'atrasada' | 'agora' | 'proxima' | 'passou' | 'futura';
+
+/**
+ * Junta as situações das doses de uma idade: atrasada pesa mais, depois "já pode tomar",
+ * "em breve", "passou da idade" e "futura". Completa = tudo aplicado (ou marcado como "não vai tomar").
+ */
+export function situacaoEtapa(doses: { situacao: string }[]): SituacaoEtapa {
+  const tem = (s: string) => doses.some((d) => d.situacao === s);
+  if (tem('atrasada')) return 'atrasada';
+  if (tem('agora')) return 'agora';
+  if (tem('proxima')) return 'proxima';
+  if (tem('passou')) return 'passou';
+  if (tem('futura')) return 'futura';
+  return 'completa';
+}
+
+/** Meses completos de vida em `hoje` (-1 = ainda não nasceu) */
+export function mesesCompletos(nascimento: string, hoje: string): number {
+  if (hoje < nascimento) return -1;
+  const [a1, m1, d1] = nascimento.split('-').map(Number);
+  const [a2, m2, d2] = hoje.split('-').map(Number);
+  // Nascido dia 31: o mesversário de um mês curto é o último dia dele
+  const ultimo = new Date(a2, m2, 0).getDate();
+  return (a2 - a1) * 12 + (m2 - m1) - (d2 < Math.min(d1, ultimo) ? 1 : 0);
+}
+
+/** Índice da última etapa (idade em meses) já alcançada; -1 antes de nascer ou antes da primeira */
+export function etapaAtual(idadesMeses: number[], meses: number): number {
+  let i = -1;
+  idadesMeses.forEach((m, j) => {
+    if (m <= meses) i = j;
+  });
+  return i;
+}
+
+/** Rótulo curto da idade na trilha: "Nascer", "2 m", "15 m", "4 anos", "4a 3m" */
+export function rotuloCurtoIdade(meses: number): string {
+  if (meses === 0) return 'Nascer';
+  if (meses < 24) return `${meses} m`;
+  const a = Math.floor(meses / 12);
+  const r = meses % 12;
+  return r ? `${a}a ${r}m` : `${a} anos`;
+}

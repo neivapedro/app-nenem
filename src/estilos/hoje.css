@@ -1,0 +1,112 @@
+/* Painel ao vivo da tela Hoje (anel da próxima alimentação, faixa de 24 h e
+   mini-anéis do dia). Só usa os tokens globais: funciona no claro e no escuro. */
+
+/* ---------- Anel ---------- */
+.hp-anel { position: relative; display: inline-grid; place-items: center; flex: none; aspect-ratio: 1; }
+.hp-anel svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.hp-trilho { fill: none; stroke: color-mix(in srgb, var(--hp-arco-cor) 17%, transparent); }
+.hp-arco {
+  fill: none; stroke: var(--hp-arco-cor); stroke-linecap: round;
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.2, 0.8, 0.2, 1), stroke 0.5s ease;
+  animation: hp-encher 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@keyframes hp-encher { from { stroke-dashoffset: var(--hp-c); } }
+.hp-anel-centro {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; line-height: 1.05; pointer-events: none;
+}
+
+/* ---------- Cartão da próxima alimentação ---------- */
+.hp-proxima {
+  --hp-cor: var(--c-mamada);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 16px; row-gap: 12px;
+  width: 100%; padding: 16px; text-align: left; cursor: pointer; color: var(--texto);
+  border-radius: calc(var(--raio) + 4px);
+  border: 1px solid color-mix(in srgb, var(--hp-cor) 32%, var(--borda));
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--hp-cor) 13%, transparent), transparent 62%),
+    var(--superficie);
+  box-shadow: var(--sombra);
+  transition: border-color 0.5s ease, transform 0.15s ease;
+  overflow-wrap: normal;
+}
+.hp-proxima:active { transform: scale(0.985); }
+.hp-proxima:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.hp-anel-grande { width: 112px; }
+.hp-centro-valor { font-size: 1.45rem; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hp-centro-legenda { margin-top: 3px; font-size: 0.7rem; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: 0.06em; }
+.hp-centro-icone { color: var(--texto-3); display: grid; place-items: center; }
+.hp-centro-icone svg { width: 30px; height: 30px; }
+
+.hp-proxima-texto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.hp-rotulo { font-size: 0.75rem; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.hp-rotulo.hp-espaco { margin-top: 10px; }
+.hp-ultima { font-size: 1rem; font-weight: 650; line-height: 1.3; }
+.hp-sem-quebra { white-space: nowrap; }
+.hp-hora { font-size: 2rem; font-weight: 750; letter-spacing: -0.03em; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hp-dica { margin-top: 6px; font-size: 0.82rem; color: var(--texto-2); line-height: 1.35; }
+
+.hp-rodape {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-top: 10px; border-top: 1px solid var(--borda); font-size: 0.8rem; color: var(--texto-2);
+}
+.hp-rodape-texto { min-width: 0; font-variant-numeric: tabular-nums; }
+.hp-rodape-acao { display: inline-flex; align-items: center; gap: 2px; flex: none; font-weight: 650; color: var(--texto); }
+.hp-rodape-acao svg { width: 18px; height: 18px; }
+
+/* Perto do horário e depois dele: o anel muda de cor; passou = um leve pulso */
+.hp-passou .hp-anel-grande::before {
+  content: ''; position: absolute; inset: 4px; border-radius: 50%;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--hp-cor) 45%, transparent);
+  animation: hp-halo 2.4s ease-out infinite;
+}
+@keyframes hp-halo {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--hp-cor) 40%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--hp-cor) 0%, transparent); }
+}
+
+/* ---------- Faixa das últimas 24 h ---------- */
+.hp-faixa .cartao-cab { margin-bottom: 10px; }
+.hp-faixa .legenda { margin-top: 4px; }
+
+/* ---------- Números do dia (mini-anéis) ---------- */
+.hp-numeros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 540px) { .hp-numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.hp-numero {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px;
+  border-radius: 14px; background: var(--superficie-2);
+}
+.hp-anel-mini { width: 46px; }
+.hp-numero-texto { min-width: 0; display: flex; flex-direction: column; }
+.hp-numero-rotulo {
+  display: flex; align-items: center; gap: 4px; font-size: 0.74rem; color: var(--texto-2); font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hp-numero-valor { font-size: 1.3rem; font-weight: 720; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hp-numero-ref { font-size: 0.74rem; color: var(--texto-3); white-space: nowrap; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+.hp-ponto { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.hp-numeros-nota { margin-top: 10px; font-size: 0.75rem; color: var(--texto-3); }
+
+/* ---------- Entrada dos cartões ---------- */
+.hp-entra { animation: hp-entra 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--hp-i, 0) * 45ms); }
+@keyframes hp-entra { from { opacity: 0; transform: translateY(8px); } }
+
+/* Telas estreitas (iPhone SE/mini em 320 px) */
+@media (max-width: 360px) {
+  .hp-proxima { column-gap: 12px; padding: 14px; }
+  .hp-anel-grande { width: 96px; }
+  .hp-centro-valor { font-size: 1.25rem; }
+  .hp-centro-legenda { font-size: 0.62rem; }
+  .hp-hora { font-size: 1.75rem; }
+  .hp-ultima { font-size: 0.95rem; }
+  .hp-numero { gap: 8px; padding: 9px 8px; }
+  .hp-anel-mini { width: 40px; }
+  .hp-numero-valor { font-size: 1.15rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-arco { animation: none; transition: none; }
+  .hp-entra { animation: none; }
+  .hp-passou .hp-anel-grande::before { animation: none; }
+  .hp-proxima { transition: none; }
+}

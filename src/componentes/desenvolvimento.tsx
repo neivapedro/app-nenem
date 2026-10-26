@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import { useDados } from '../dados/contexto';
 import { FONTE_MARCOS, MARCOS_CADERNETA, ORIENTACAO_MARCOS } from '../lib/conteudo';
-import { chaveDia, dataBr, hojeLocal } from '../lib/datas';
+import { generoBebe } from '../lib/chegada';
+import { chaveDia, dataBr, diasEntre, hojeLocal } from '../lib/datas';
 import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
 import { reduzirFoto } from '../lib/imagem';
 import type { Marco } from '../lib/tipos';
 import { Campo, Folha, Icone } from './ui';
+import '../estilos/desenvolvimento.css';
 
 /** Mostra uma foto guardada (endereço temporário pedido ao servidor) */
 export function Foto({ caminho, classe, alt = '' }: { caminho: string; classe?: string; alt?: string }) {
@@ -193,67 +195,187 @@ function idadeEmMeses(nascimentoIso: string, hoje: string): number {
   return m;
 }
 
+/** "com 12 dias", "com 1 mês e 3 dias" (idade do bebê numa data); null antes do nascimento */
+function idadeNaData(nascimentoIso: string, dia: string): string | null {
+  const n = chaveDia(nascimentoIso);
+  if (dia < n) return null;
+  const m = idadeEmMeses(nascimentoIso, dia);
+  const d = diasEntre(somarMeses(n, m), dia);
+  if (!m && !d) return 'no dia do nascimento';
+  const meses = m ? `${m} ${m === 1 ? 'mês' : 'meses'}` : '';
+  const dias = d ? `${d} ${d === 1 ? 'dia' : 'dias'}` : '';
+  return `com ${[meses, dias].filter(Boolean).join(' e ')}`;
+}
+
+const FAIXAS = [...new Set(MARCOS_CADERNETA.map((m) => m.idade_meses))];
+
+/** Faixa da Caderneta em que o bebê está hoje (a primeira que termina depois da idade dele) */
+function faixaAtual(nascimento: string | null, hoje: string): number {
+  const idade = nascimento ? idadeEmMeses(nascimento, hoje) : 0;
+  return FAIXAS.find((f) => f > idade) ?? FAIXAS[FAIXAS.length - 1];
+}
+
+/** Para a prévia no Mais: quantos marcos da faixa de idade atual já foram marcados */
+export function progressoMarcos(nascimento: string | null, marcos: Marco[], hoje: string): { feitos: number; total: number; faixa: string } {
+  const atual = faixaAtual(nascimento, hoje);
+  const itens = MARCOS_CADERNETA.filter((m) => m.idade_meses === atual);
+  const marcados = new Set(marcos.filter((m) => m.tipo === 'caderneta').map((m) => m.marco_id));
+  return { feitos: itens.filter((m) => marcados.has(m.id)).length, total: itens.length, faixa: itens[0].faixa };
+}
+
+/** Um emoji por marco: vira o "selo" da conquista */
+const EMOJI_MARCO: Record<string, string> = {
+  'c01-postura': '🛌', 'c01-rosto': '👀', 'c01-som': '👂', 'c01-cabeca': '💪',
+  'c02-sorriso': '😊', 'c02-maos': '✋', 'c02-sons': '🗣️', 'c02-membros': '🦵',
+  'c04-contato': '🤗', 'c04-segura': '✊', 'c04-sons': '🎶', 'c04-brucos': '🙌',
+  'c06-busca': '🔍', 'c06-boca': '👄', 'c06-localiza': '🔔', 'c06-rola': '🔄',
+  'c09-esconde': '🙈', 'c09-transfere': '🤲', 'c09-silabas': '💬', 'c09-senta': '🪑',
+  'c12-imita': '👋', 'c12-pinca': '🤏', 'c12-jargao': '🗨️', 'c12-anda-apoio': '🚶',
+  'c15-mostra': '👉', 'c15-blocos': '🧱', 'c15-palavra': '💬', 'c15-anda': '👣',
+  'c18-colher': '🥄', 'c18-torre2': '🧱', 'c18-palavras': '🔤', 'c18-tras': '↩️',
+  'c24-roupa': '👕', 'c24-torre3': '🧱', 'c24-figuras': '🖼️', 'c24-chuta': '⚽',
+  'c30-veste': '👖', 'c30-torre6': '🏗️', 'c30-frases': '💬', 'c30-pula': '🦘',
+  'c36-brinca': '🧸', 'c36-linha': '✏️', 'c36-acoes': '🎭', 'c36-arremessa': '🏀',
+};
+
+/** Anel de progresso (feitos de total) */
+function Anel({ feitos, total }: { feitos: number; total: number }) {
+  const r = 26;
+  const volta = 2 * Math.PI * r;
+  return (
+    <svg className="dev-anel" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r={r} className="dev-anel-fundo" />
+      <circle cx="32" cy="32" r={r} className="dev-anel-cheio" strokeDasharray={`${(feitos / Math.max(1, total)) * volta} ${volta}`} transform="rotate(-90 32 32)" />
+      <text x="32" y="37" textAnchor="middle">
+        {feitos}/{total}
+      </text>
+    </svg>
+  );
+}
+
 function Marcos() {
   const { bebe, marcos, hoje } = useDados();
   const novoMarco = useNovoMarco();
   const [aberto, setAberto] = useState<{ m: Marco; novo: boolean; titulo: string } | null>(null);
   const [verTodos, setVerTodos] = useState(false);
+  const [expandidas, setExpandidas] = useState<Set<number>>(new Set());
   if (!bebe) return null;
-  const idade = bebe.nascimento ? idadeEmMeses(bebe.nascimento, hoje) : 0;
-  const faixas = [...new Set(MARCOS_CADERNETA.map((m) => m.idade_meses))];
-  // Faixa atual = a primeira que termina depois da idade de hoje
-  const atual = faixas.find((f) => f > idade) ?? faixas[faixas.length - 1];
-  const visiveis = verTodos ? faixas : faixas.filter((f) => f <= atual + 3 && f >= Math.min(atual, faixas[0]));
+  const atual = faixaAtual(bebe.nascimento, hoje);
+  // Antes da faixa atual: resumidas (toque para abrir); depois: até 3 meses à frente, ou todas
+  const visiveis = verTodos ? FAIXAS : FAIXAS.filter((f) => f <= atual + 3);
   const porId = new Map(marcos.filter((m) => m.tipo === 'caderneta').map((m) => [m.marco_id, m]));
+  const itensAtual = MARCOS_CADERNETA.filter((m) => m.idade_meses === atual);
+  const feitosAtual = itensAtual.filter((m) => porId.has(m.id)).length;
+  const feitosTotal = MARCOS_CADERNETA.filter((m) => porId.has(m.id)).length;
+  const conquistas = MARCOS_CADERNETA.filter((m) => porId.has(m.id))
+    .map((mc) => ({ mc, m: porId.get(mc.id)! }))
+    .sort((a, b) => (b.m.data ?? '').localeCompare(a.m.data ?? ''));
+  const abrir = (mc: (typeof MARCOS_CADERNETA)[number]) => {
+    const feito = porId.get(mc.id);
+    const m = feito ?? novoMarco('caderneta', mc.id);
+    if (m) setAberto({ m, novo: !feito, titulo: mc.descricao });
+  };
+  const alternar = (f: number) =>
+    setExpandidas((s) => {
+      const n = new Set(s);
+      if (n.has(f)) n.delete(f);
+      else n.add(f);
+      return n;
+    });
 
   return (
     <div className="pilha">
-      <div className="alerta info">
-        <span>{ORIENTACAO_MARCOS}</span>
-      </div>
-      {visiveis.map((f) => {
-        const itens = MARCOS_CADERNETA.filter((m) => m.idade_meses === f);
-        const feitos = itens.filter((m) => porId.has(m.id)).length;
-        return (
-          <section key={f} className="cartao" aria-label={itens[0].faixa} style={f === atual ? { borderColor: 'color-mix(in srgb, var(--c-agenda) 55%, var(--borda))' } : undefined}>
-            <div className="grupo-cab">
-              <h2>{itens[0].faixa}</h2>
-              <span className="mudo">
-                {f === atual ? 'idade atual · ' : ''}
-                {feitos} de {itens.length}
+      <section className="cartao dev-heroi" aria-label="Faixa de idade atual">
+        <Anel feitos={feitosAtual} total={itensAtual.length} />
+        <div className="cresce">
+          <span className="dev-sobre">Idade atual</span>
+          <h2>{itensAtual[0].faixa}</h2>
+          <p className="texto-2">
+            {feitosAtual === itensAtual.length ? 'Todos os marcos da faixa! 🎉' : `${feitosAtual} de ${itensAtual.length} marcos da faixa`} · {feitosTotal} no total
+          </p>
+        </div>
+      </section>
+      {conquistas.length > 0 && (
+        <div className="dev-selos" aria-label="Últimas conquistas">
+          {conquistas.slice(0, 6).map(({ mc, m }) => (
+            <button key={mc.id} type="button" className="dev-selo" onClick={() => abrir(mc)}>
+              <span aria-hidden="true">{EMOJI_MARCO[mc.id] ?? '⭐'}</span>
+              <span className="dev-selo-texto">{mc.descricao}</span>
+              {m.data && <span className="dev-selo-data">{dataBr(m.data).slice(0, 5)}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      <ol className="trilha" aria-label="Marcos por faixa de idade">
+        {visiveis.map((f) => {
+          const itens = MARCOS_CADERNETA.filter((m) => m.idade_meses === f);
+          const feitos = itens.filter((m) => porId.has(m.id)).length;
+          const passada = f < atual;
+          const resumida = passada && !expandidas.has(f);
+          const estado = f === atual ? 'atual' : passada ? 'passada' : 'futura';
+          return (
+            <li key={f} className={`trilha-etapa ${estado} ${feitos === itens.length ? 'completa' : ''}`}>
+              <span className="trilha-no" aria-hidden="true">
+                {feitos === itens.length ? <Icone nome="check" /> : f === atual ? <span className="trilha-pulso" /> : null}
               </span>
-            </div>
-            <div className="lista">
-              {itens.map((mc) => {
-                const feito = porId.get(mc.id);
-                return (
-                  <button
-                    key={mc.id}
-                    className="item"
-                    onClick={() => {
-                      const m = feito ?? novoMarco('caderneta', mc.id);
-                      if (m) setAberto({ m, novo: !feito, titulo: mc.descricao });
-                    }}
-                  >
-                    <span className={`selo ${feito ? 't-agenda' : ''}`}>{feito ? <Icone nome="check" /> : <span style={{ width: 20 }} />}</span>
-                    <div className="cresce">
-                      <div className="titulo" style={{ fontWeight: feito ? 600 : 500 }}>
-                        {mc.descricao}
-                      </div>
-                      {feito?.data && <div className="detalhe">{dataBr(feito.data)}</div>}
-                    </div>
+              <section className="trilha-cartao" aria-label={itens[0].faixa}>
+                <div className="trilha-cab">
+                  <div className="cresce">
+                    {f === atual && <span className="dev-sobre">Agora</span>}
+                    <h3>{itens[0].faixa}</h3>
+                  </div>
+                  <span className="trilha-conta">
+                    {feitos} de {itens.length}
+                  </span>
+                </div>
+                <div className="trilha-barra" aria-hidden="true">
+                  <span style={{ width: `${(feitos / itens.length) * 100}%` }} />
+                </div>
+                {resumida ? (
+                  <button type="button" className="trilha-resumo" onClick={() => alternar(f)} aria-expanded={false}>
+                    <span className="trilha-emojis" aria-hidden="true">
+                      {itens.map((mc) => (
+                        <span key={mc.id} className={porId.has(mc.id) ? 'sim' : ''}>
+                          {EMOJI_MARCO[mc.id] ?? '⭐'}
+                        </span>
+                      ))}
+                    </span>
+                    <span className="mudo">Ver os marcos</span>
                   </button>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
-      {!verTodos && (
+                ) : (
+                  <div className="trilha-marcos">
+                    {itens.map((mc) => {
+                      const feito = porId.get(mc.id);
+                      return (
+                        <button key={mc.id} type="button" className={`marco ${feito ? 'conquistado' : ''}`} onClick={() => abrir(mc)} aria-label={`${mc.descricao}${feito ? `, conquistado${feito.data ? ` em ${dataBr(feito.data)}` : ''}` : ', marcar'}`}>
+                          <span className="marco-selo" aria-hidden="true">
+                            {feito ? EMOJI_MARCO[mc.id] ?? '⭐' : null}
+                          </span>
+                          <span className="marco-texto">{mc.descricao}</span>
+                          {feito?.data && <span className="marco-data">{dataBr(feito.data).slice(0, 5)}</span>}
+                        </button>
+                      );
+                    })}
+                    {passada && (
+                      <button type="button" className="trilha-fechar mudo" onClick={() => alternar(f)} aria-expanded={true}>
+                        Recolher
+                      </button>
+                    )}
+                  </div>
+                )}
+              </section>
+            </li>
+          );
+        })}
+      </ol>
+      {!verTodos && visiveis.length < FAIXAS.length && (
         <button className="botao" onClick={() => setVerTodos(true)}>
           Ver todas as faixas (até 3 anos)
         </button>
       )}
+      <div className="alerta info">
+        <span>{ORIENTACAO_MARCOS}</span>
+      </div>
       <p className="fonte">
         Marcos do{' '}
         <a href={FONTE_MARCOS.url} target="_blank" rel="noreferrer">
@@ -268,8 +390,32 @@ function Marcos() {
 
 const SUGESTOES = ['Primeiro sorriso', 'Primeiro banho', 'Primeiro passeio', 'Rolou', 'Sentou sozinho', 'Primeiro dentinho', 'Primeira papinha', 'Engatinhou', 'Primeira palavra', 'Primeiros passos'];
 
+/** Emoji pela palavra do título ("Primeiro sorriso" → 😊) */
+const EMOJIS_PRIMEIRA: [RegExp, string][] = [
+  [/sorri/, '😊'],
+  [/banh/, '🛁'],
+  [/passeio|parque|praia/, '🌳'],
+  [/rol/, '🔄'],
+  [/sent/, '🪑'],
+  [/dent/, '🦷'],
+  [/papa|papinha|comeu|fruta|refei/, '🥣'],
+  [/engatinh/, '🐾'],
+  [/palavra|falou|mam[aã]e|papai/, '💬'],
+  [/passo|andou/, '👣'],
+  [/viag|avi[aã]o/, '✈️'],
+  [/risad|riu/, '😂'],
+  [/cabelo|corte/, '✂️'],
+  [/natal|anivers|festa/, '🎉'],
+  [/vov[oóô]|av[oóô]/, '👵'],
+  [/dorm|noite/, '🌙'],
+];
+const emojiPrimeira = (titulo: string | null) => EMOJIS_PRIMEIRA.find(([r]) => r.test((titulo ?? '').toLocaleLowerCase('pt-BR')))?.[1] ?? '⭐';
+
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
 function PrimeirasVezes() {
-  const { marcos } = useDados();
+  const { marcos, bebe } = useDados();
   const novoMarco = useNovoMarco();
   const [aberto, setAberto] = useState<{ m: Marco; novo: boolean } | null>(null);
   const lista = marcos.filter((m) => m.tipo === 'primeira-vez').sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''));
@@ -278,6 +424,16 @@ function PrimeirasVezes() {
     const m = novoMarco('primeira-vez', null, { titulo });
     if (m) setAberto({ m, novo: true });
   };
+  // Agrupa por mês do calendário (o mais recente em cima)
+  const grupos: { chave: string; itens: Marco[] }[] = [];
+  for (const m of lista) {
+    const chave = m.data?.slice(0, 7) ?? '';
+    const g = grupos[grupos.length - 1];
+    if (g && g.chave === chave) g.itens.push(m);
+    else grupos.push({ chave, itens: [m] });
+  }
+  const nomeMes = (chave: string) => (chave ? `${MESES[Number(chave.slice(5, 7)) - 1]} de ${chave.slice(0, 4)}` : 'Sem data');
+
   return (
     <div className="pilha">
       <button className="botao primario" onClick={() => abrirNovo(null)}>
@@ -286,39 +442,140 @@ function PrimeirasVezes() {
       <div className="chips">
         {SUGESTOES.filter((s) => !usados.has(s.toLocaleLowerCase('pt-BR'))).map((s) => (
           <button key={s} className="chip" onClick={() => abrirNovo(s)}>
-            + {s}
+            <span aria-hidden="true">{emojiPrimeira(s)}</span> {s}
           </button>
         ))}
       </div>
       {lista.length ? (
-        <section className="cartao">
-          <div className="lista">
-            {lista.map((m) => (
-              <button key={m.id} className="item" onClick={() => setAberto({ m, novo: false })}>
-                {m.foto ? (
-                  <span className="selo" style={{ overflow: 'hidden', padding: 0 }}>
-                    <Foto caminho={m.foto} classe="foto-mini" />
-                  </span>
-                ) : (
-                  <span className="selo t-mamadeira">
-                    <Icone nome="estrela" />
-                  </span>
-                )}
-                <div className="cresce">
-                  <div className="titulo">{m.titulo}</div>
-                  <div className="detalhe">
-                    {m.data ? dataBr(m.data) : ''}
-                    {m.observacao ? ` · ${m.observacao}` : ''}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
+        <div className="pv-tempo">
+          {grupos.map((g) => (
+            <section key={g.chave} className="pv-grupo" aria-label={nomeMes(g.chave)}>
+              <h3 className="pv-mes">{nomeMes(g.chave)}</h3>
+              <ol className="pv-lista">
+                {g.itens.map((m) => {
+                  const idade = bebe?.nascimento && m.data ? idadeNaData(bebe.nascimento, m.data) : null;
+                  return (
+                    <li key={m.id} className="pv-item">
+                      <span className="pv-dia" aria-hidden="true">
+                        {m.data ? (
+                          <>
+                            <strong>{Number(m.data.slice(8, 10))}</strong>
+                            {MESES_CURTOS[Number(m.data.slice(5, 7)) - 1]}
+                          </>
+                        ) : (
+                          '–'
+                        )}
+                      </span>
+                      <span className="pv-no" aria-hidden="true">
+                        {emojiPrimeira(m.titulo)}
+                      </span>
+                      <button type="button" className="pv-cartao" onClick={() => setAberto({ m, novo: false })}>
+                        <span className="pv-titulo">{m.titulo}</span>
+                        <span className="pv-detalhe">{[m.data ? dataBr(m.data) : null, idade].filter(Boolean).join(' · ')}</span>
+                        {m.observacao && <span className="pv-obs">{m.observacao}</span>}
+                        {m.foto && <Foto caminho={m.foto} classe="pv-foto" />}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ))}
+        </div>
       ) : (
-        <div className="cartao mudo">Guardem aqui as primeiras vezes, com data e foto.</div>
+        <div className="cartao dev-vazio">
+          <span aria-hidden="true">🌟</span>
+          <p className="texto-2">Guardem aqui as primeiras vezes, com data e foto. Elas viram uma linha do tempo.</p>
+        </div>
       )}
       {aberto && <FolhaMarco inicial={aberto.m} novo={aberto.novo} titulo={aberto.novo ? 'Primeira vez' : aberto.m.titulo ?? 'Primeira vez'} aoFechar={() => setAberto(null)} />}
+    </div>
+  );
+}
+
+const reduzMovimento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const TEMPO_SLIDE = 2800;
+
+/** "Ver como ele cresceu": as fotos do mês em sequência, em tela cheia */
+function VerCrescer({ fotos, aoFechar }: { fotos: { id: string; foto: string; rotulo: string; data: string | null }[]; aoFechar: () => void }) {
+  const [i, setI] = useState(0);
+  const [tocando, setTocando] = useState(() => !reduzMovimento());
+  const ultimo = fotos.length - 1;
+  const ir = useCallback((n: number) => setI(Math.max(0, Math.min(ultimo, n))), [ultimo]);
+
+  useEffect(() => {
+    if (!tocando) return;
+    if (i >= ultimo) {
+      setTocando(false);
+      return;
+    }
+    const t = setTimeout(() => setI((x) => Math.min(ultimo, x + 1)), TEMPO_SLIDE);
+    return () => clearTimeout(t);
+  }, [tocando, i, ultimo]);
+
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') aoFechar();
+      else if (e.key === 'ArrowRight') ir(i + 1);
+      else if (e.key === 'ArrowLeft') ir(i - 1);
+    };
+    document.addEventListener('keydown', tecla);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', tecla);
+      document.body.style.overflow = overflow;
+    };
+  }, [aoFechar, ir, i]);
+
+  const atual = fotos[i];
+  return (
+    <div className="crescer" role="dialog" aria-modal="true" aria-label="Ver como cresceu">
+      <div className="crescer-barras" aria-hidden="true">
+        {fotos.map((f, n) => (
+          <span key={f.id} className={n < i ? 'cheia' : n === i ? (tocando ? 'andando' : 'cheia') : ''}>
+            <span key={n === i ? `${i}-${tocando}` : 'x'} />
+          </span>
+        ))}
+      </div>
+      <div className="crescer-topo">
+        <button type="button" className="crescer-botao" onClick={() => setTocando((t) => !t)} aria-label={tocando ? 'Pausar' : 'Tocar'}>
+          <Icone nome={tocando ? 'pausar' : 'tocar'} />
+        </button>
+        <span className="crescer-conta" aria-live="polite">
+          {i + 1} de {fotos.length}
+        </span>
+        <button type="button" className="crescer-botao" onClick={aoFechar} aria-label="Fechar">
+          <Icone nome="fechar" />
+        </button>
+      </div>
+      <div className="crescer-palco">
+        {fotos.map((f, n) => (
+          <div key={f.id} className={`crescer-foto ${n === i ? 'ativa' : ''}`} aria-hidden={n !== i}>
+            <Foto caminho={f.foto} alt={f.rotulo} />
+          </div>
+        ))}
+        <button type="button" className="crescer-zona voltar" aria-label="Foto anterior" disabled={i === 0} onClick={(e) => (e.stopPropagation(), ir(i - 1))} />
+        <button type="button" className="crescer-zona avancar" aria-label="Próxima foto" disabled={i === ultimo} onClick={(e) => (e.stopPropagation(), ir(i + 1))} />
+      </div>
+      <div className="crescer-legenda">
+        <strong key={atual.id}>{atual.rotulo}</strong>
+        {atual.data && <span>{dataBr(atual.data)}</span>}
+        {i === ultimo && fotos.length > 1 ? (
+          <button
+            type="button"
+            className="botao pequeno crescer-denovo"
+            onClick={() => {
+              setI(0);
+              setTocando(!reduzMovimento());
+            }}
+          >
+            Ver de novo
+          </button>
+        ) : (
+          <span className="crescer-dica">Toque para avançar · na esquerda, volta</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -329,27 +586,50 @@ function FotosDoMes() {
   const entrada = useRef<HTMLInputElement>(null);
   const [alvo, setAlvo] = useState<number | null>(null);
   const [aberta, setAberta] = useState<Marco | null>(null);
+  const [vendo, setVendo] = useState(false);
   const { enviar, enviando } = useEnviarFoto();
+  const porMes = useMemo(() => new Map(marcos.filter((m) => m.tipo === 'mes').map((m) => [m.marco_id, m])), [marcos]);
   if (!bebe) return null;
-  if (!bebe.nascimento) return <div className="cartao mudo">As fotos do mês começam depois do nascimento.</div>;
+  if (!bebe.nascimento)
+    return (
+      <div className="cartao dev-vazio">
+        <span aria-hidden="true">📸</span>
+        <p className="texto-2">As fotos do mês começam depois do nascimento: uma por mês, para ver o crescimento.</p>
+      </div>
+    );
   const nasc = chaveDia(bebe.nascimento);
   const idade = idadeEmMeses(bebe.nascimento, hoje);
   const ate = Math.min(24, Math.max(idade + 1, 3));
-  const porMes = new Map(marcos.filter((m) => m.tipo === 'mes').map((m) => [m.marco_id, m]));
   const meses = Array.from({ length: ate + 1 }, (_, i) => i);
+  const rotuloMes = (n: number) => (n === 0 ? 'Nascimento' : n === 1 ? '1 mês' : `${n} meses`);
+  // Todas as fotos guardadas, em ordem de idade (inclusive as de meses depois dos que aparecem na grade)
+  const sequencia = [...porMes.values()]
+    .filter((m) => m.foto && m.marco_id?.startsWith('mes-'))
+    .map((m) => ({ n: Number(m.marco_id!.slice(4)), m }))
+    .sort((a, b) => a.n - b.n)
+    .map(({ n, m }) => ({ id: m.id, foto: m.foto!, rotulo: rotuloMes(n), data: m.data }));
+  const g = generoBebe(bebe.sexo, !!bebe.nome?.trim());
 
   return (
     <div className="pilha">
       <p className="texto-2">Uma foto por mês (de preferência no mesmo lugar ou com o mesmo bichinho, para ver o crescimento).</p>
-      <div className="foto-grade">
+      {sequencia.length >= 2 && (
+        <button className="botao primario crescer-abrir" onClick={() => setVendo(true)}>
+          <Icone nome="tocar" /> Ver como {g.ele} cresceu
+        </button>
+      )}
+      <div className="fotos-mes">
         {meses.map((n) => {
           const m = porMes.get(`mes-${n}`);
-          const rotulo = n === 0 ? 'Nascimento' : n === 1 ? '1 mês' : `${n} meses`;
-          const futuro = somarMeses(nasc, n) > hoje;
+          const rotulo = rotuloMes(n);
+          const dia = somarMeses(nasc, n);
+          const futuro = dia > hoje;
+          const proximo = !m?.foto && !futuro && n === idade;
           return (
             <button
               key={n}
-              className={`foto-slot ${m?.foto ? 'cheio' : ''}`}
+              type="button"
+              className={`foto-mes ${m?.foto ? 'cheio' : ''} ${futuro ? 'futuro' : ''} ${proximo ? 'proximo' : ''}`}
               disabled={enviando || (futuro && !m)}
               onClick={() => {
                 if (m?.foto) setAberta(m);
@@ -358,17 +638,20 @@ function FotosDoMes() {
                   entrada.current?.click();
                 }
               }}
-              aria-label={`${rotulo}${m?.foto ? ', ver foto' : ', adicionar foto'}`}
+              aria-label={`${rotulo}${m?.foto ? ', ver foto' : futuro ? `, a partir de ${dataBr(dia)}` : ', adicionar foto'}`}
             >
               {m?.foto ? (
                 <Foto caminho={m.foto} />
               ) : (
-                <>
-                  <Icone nome="camera" />
-                  {futuro ? dataBr(somarMeses(nasc, n)).slice(0, 5) : enviando && alvo === n ? 'enviando…' : 'adicionar'}
-                </>
+                <span className="foto-mes-vazio">
+                  <Icone nome={futuro ? 'agenda' : 'camera'} />
+                  <span>{futuro ? dataBr(dia).slice(0, 5) : enviando && alvo === n ? 'enviando…' : 'adicionar'}</span>
+                </span>
               )}
-              <span className="legenda">{rotulo}</span>
+              <span className="foto-mes-rotulo">
+                <strong>{rotulo}</strong>
+                {m?.foto && <span>{dataBr(m.data ?? dia).slice(0, 5)}</span>}
+              </span>
             </button>
           );
         })}
@@ -390,6 +673,7 @@ function FotosDoMes() {
           mostrarAviso({ texto: 'Foto guardada 📸' });
         }}
       />
+      {vendo && sequencia.length > 0 && <VerCrescer fotos={sequencia} aoFechar={() => setVendo(false)} />}
       {aberta?.foto && (
         <Folha titulo={aberta.titulo ?? 'Foto'} aoFechar={() => setAberta(null)}>
           <div className="pilha">

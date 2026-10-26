@@ -1,15 +1,23 @@
-import { useState } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { SecaoChegada } from '../componentes/chegada';
+import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
+import { TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
+import { SecaoChegada, useProgressoFamilia } from '../componentes/chegada';
 import { compartilhar, obterArquivo } from '../componentes/doc-arquivos';
-import { SecaoDesenvolvimento } from '../componentes/desenvolvimento';
+import { Foto, progressoMarcos, SecaoDesenvolvimento } from '../componentes/desenvolvimento';
 import { SecaoAlimentacao, SecaoLeite } from '../componentes/leite-alimentacao';
 import { SecaoPrimeirosDias } from '../componentes/primeiros-dias';
 import { Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
+import { IDADE_INTRODUCAO_MESES } from '../lib/conteudo';
+import { chaveDia, dataBr, somarDiasLocal } from '../lib/datas';
 import { traduzirErro } from '../lib/erros';
 import { csvCofrinho, csvRegistros, juntarRegistros, listaDocumentos, MontadorZip, planejarArquivos } from '../lib/exportar';
+import { diasDoPeriodo, media } from '../lib/padroes';
+import { inicioDosDados } from '../lib/painel';
+import { alimentosProvados, emEstoque, situacaoPote } from '../lib/saude';
 import { Ajustes } from './Ajustes';
+import '../estilos/mais.css';
 import { Resumo } from './Resumo';
 
 export const SECOES_MAIS: { id: string; titulo: string; detalhe: string; icone: string; tipo: Parameters<typeof Selo>[0]['tipo'] }[] = [
@@ -23,24 +31,143 @@ export const SECOES_MAIS: { id: string; titulo: string; detalhe: string; icone: 
   { id: 'ajustes', titulo: 'Ajustes', detalhe: 'Bebê, família, avisos, calendário e conta', icone: 'ajustes', tipo: 'saude' },
 ];
 
-function Menu() {
+type Previa = {
+  /** Linha curta com o dado vivo (ou um convite quando ainda não há dado) */
+  texto: ReactNode;
+  /** 0 a 1: barrinha de progresso */
+  progresso?: number;
+  /** Série curta para a minibarra (gráficos) */
+  serie?: number[];
+  /** Foto no lugar do ícone */
+  foto?: string | null;
+  alerta?: boolean;
+  convite?: boolean;
+};
+
+const um = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+/** O dado vivo de cada seção, tirado do que já está carregado no app (leve: nada de buscar no servidor) */
+function usePrevias(): Record<string, Previa> {
+  const { bebe, marcos, tarefas, leite, registros, membros, hoje } = useDados();
+  const agora = useAgora(60_000);
+  const chegada = useProgressoFamilia();
+  const minuto = Math.floor(agora.getTime() / 60_000);
+
+  const semana = useMemo(() => {
+    const nasc = bebe?.nascimento ? chaveDia(bebe.nascimento) : null;
+    const dias = diasDoPeriodo(registros, somarDiasLocal(hoje, -6), hoje, new Date(minuto * 60_000));
+    // Igual aos Gráficos: dias antes do nascimento não contam e hoje (ainda pela metade) fica fora da média
+    const desde = inicioDosDados(nasc, registros, hoje);
+    const validos = desde ? dias.filter((d) => d.dia >= desde) : dias;
+    const completos = validos.length > 1 ? validos.filter((d) => d.dia !== hoje) : validos;
+    return { media: media(completos.map((d) => d.alimentacoes)), serie: dias.map((d) => d.alimentacoes), tem: completos.some((d) => d.alimentacoes > 0) };
+  }, [registros, hoje, minuto, bebe?.nascimento]);
+
+  const r: Record<string, Previa> = {};
+  const nasceu = !!bebe?.nascimento;
+
+  // Chegada do bebê: vacinas da família conferidas
+  r.chegada = chegada.feitas
+    ? { texto: <><strong>{chegada.feitas} de {chegada.total}</strong> vacinas conferidas</>, progresso: chegada.feitas / chegada.total }
+    : { texto: 'Monte o casulo de vacinas da família', convite: true };
+
+  // Primeiros dias: tarefas feitas (lista padrão + as criadas por vocês)
+  const porItem = new Map(tarefas.filter((t) => t.item_id).map((t) => [t.item_id!, t]));
+  const livres = tarefas.filter((t) => !t.item_id);
+  const totalTarefas = TAREFAS_PADRAO.length + livres.length;
+  const feitas = TAREFAS_PADRAO.filter((p) => porItem.get(p.id)?.feito_em).length + livres.filter((t) => t.feito_em).length;
+  r['primeiros-dias'] =
+    feitas || nasceu
+      ? { texto: <><strong>{feitas} de {totalTarefas}</strong> feitos</>, progresso: feitas / totalTarefas }
+      : { texto: 'Testes, consultas e documentos', convite: true };
+
+  // Gráficos: alimentações por dia na semana
+  r.resumo = semana.tem
+    ? { texto: <><strong>{um(semana.media)}</strong> alimentações/dia na semana</>, serie: semana.serie }
+    : { texto: 'Padrões da semana e PDF para o pediatra', convite: true };
+
+  // Desenvolvimento: marcos da faixa de idade atual (e a foto mais recente)
+  const comFoto = marcos.filter((m) => m.foto).sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''));
+  if (nasceu) {
+    const p = progressoMarcos(bebe!.nascimento, marcos, hoje);
+    r.desenvolvimento = { texto: <><strong>{p.feitos} de {p.total}</strong> marcos da idade</>, progresso: p.feitos / p.total, foto: comFoto[0]?.foto };
+  } else r.desenvolvimento = { texto: 'Marcos, 1ª vez e foto do mês', convite: true, foto: comFoto[0]?.foto };
+
+  // Leite materno: o que está no estoque e ainda vale
+  const estoque = emEstoque(leite);
+  const validos = estoque.filter((p) => situacaoPote(p, agora) !== 'vencido');
+  const ml = validos.reduce((s, p) => s + p.ml, 0);
+  const venceLogo = validos.filter((p) => situacaoPote(p, agora) === 'vence-logo').length;
+  const vencidos = estoque.length - validos.length;
+  if (ml || vencidos) {
+    const nota = vencidos ? ` · ${vencidos} ${vencidos === 1 ? 'venceu' : 'venceram'}` : venceLogo ? ` · ${venceLogo} vence${venceLogo === 1 ? '' : 'm'} logo` : '';
+    r.leite = { texto: <><strong>{ml} ml</strong> no estoque{nota}</>, alerta: !!(vencidos || venceLogo) };
+  } else r.leite = { texto: 'Registre extrações e o estoque', convite: true };
+
+  // Introdução alimentar: quantos alimentos ou quando começa
+  const provados = alimentosProvados(registros).length;
+  const inicio = bebe?.nascimento ? somarMeses(chaveDia(bebe.nascimento), IDADE_INTRODUCAO_MESES) : null;
+  if (provados) r.alimentacao = { texto: <><strong>{provados}</strong> {provados === 1 ? 'alimento oferecido' : 'alimentos oferecidos'}</> };
+  else if (inicio && inicio > hoje) r.alimentacao = { texto: <>A partir de <strong>{dataBr(inicio).slice(0, inicio.slice(0, 4) === hoje.slice(0, 4) ? 5 : 10)}</strong></> };
+  else if (inicio) r.alimentacao = { texto: 'Registre a primeira refeição', convite: true };
+  else r.alimentacao = { texto: 'A partir dos 6 meses', convite: true };
+
+  r.exportar = { texto: 'Planilha e cópia em .zip', convite: true };
+
+  const nome = bebe?.nome?.trim().split(' ')[0];
+  const familia = membros.length > 1 ? `${membros.length} na família` : 'convide a família';
+  r.ajustes = { texto: nome ? <><strong>{nome}</strong> · {familia}</> : familia, convite: !nome };
+  return r;
+}
+
+/** Minibarras dos últimos 7 dias (hoje mais clarinho: ainda não acabou) */
+function MiniBarras({ serie }: { serie: number[] }) {
+  const max = Math.max(1, ...serie);
+  const larg = 100 / serie.length;
   return (
-    <section className="cartao">
-      <nav className="menu-lista" aria-label="Mais">
-        {SECOES_MAIS.map((s) => (
-          <Link key={s.id} to={`/mais/${s.id}`}>
-            <Selo tipo={s.tipo} icone={s.icone} />
-            <span className="cresce">
-              <span style={{ display: 'block', fontWeight: 600 }}>{s.titulo}</span>
-              <span className="texto-2">{s.detalhe}</span>
+    <svg className="mais-barras" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true">
+      {serie.map((v, i) => {
+        const h = Math.max(2, (v / max) * 24);
+        return <rect key={i} x={i * larg + larg * 0.18} y={24 - h} width={larg * 0.64} height={h} rx={1.5} opacity={i === serie.length - 1 ? 0.4 : 1} />;
+      })}
+    </svg>
+  );
+}
+
+function Menu() {
+  const previas = usePrevias();
+  return (
+    <nav className="mais-grade" aria-label="Mais">
+      {SECOES_MAIS.map((s, i) => {
+        const p = previas[s.id];
+        return (
+          <Link key={s.id} to={`/mais/${s.id}`} className={`mais-cartao t-${s.tipo} ${p?.convite ? 'convite' : ''}`} style={{ '--i': i } as CSSProperties}>
+            <span className="mais-cartao-topo">
+              {p?.foto ? (
+                <span className="selo mais-foto">
+                  <Foto caminho={p.foto} classe="foto-mini" />
+                </span>
+              ) : (
+                <Selo tipo={s.tipo} icone={s.icone} />
+              )}
+              <span className="mais-seta" aria-hidden="true">
+                <Icone nome="seta" />
+              </span>
             </span>
-            <span className="seta">
-              <Icone nome="seta" />
+            <span className="mais-corpo">
+              <span className="mais-titulo">{s.titulo}</span>
+              {p && <span className={`mais-previa ${p.alerta ? 'alerta' : ''}`}>{p.texto}</span>}
+              {p?.progresso !== undefined && (
+                <span className="mais-progresso" aria-hidden="true">
+                  <span style={{ width: `${Math.round(Math.min(1, p.progresso) * 100)}%` }} />
+                </span>
+              )}
+              {p?.serie && <MiniBarras serie={p.serie} />}
             </span>
           </Link>
-        ))}
-      </nav>
-    </section>
+        );
+      })}
+    </nav>
   );
 }
 
