@@ -134,7 +134,7 @@ export function ColunasEmpilhadas({
   // Ao trocar de período, um toque antigo pode apontar para fora: ignora
   const ativo = (toque !== null && toque < n ? toque : null) ?? (selecionado !== null && selecionado < n ? selecionado : null);
   const mostrarRotulo = (i: number) => n <= 14 || i % Math.ceil(n / 7) === 0 || i === n - 1;
-  const eixo = formatarEixo ?? ((v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1)));
+  const eixo = formatarEixo ?? ((v: number) => v.toLocaleString('pt-BR', { maximumFractionDigits: 1 }));
   const fora = foraDoPadrao && foraDoPadrao.indice < n ? foraDoPadrao : null;
   const nomeDia = (i: number) => (n <= 7 ? semana(dias[i]) : diaCurto(dias[i]));
   const motivo = fora ? `${fora.acima ? 'bem acima' : 'bem abaixo'} da média (${formatar(fora.media)})` : '';

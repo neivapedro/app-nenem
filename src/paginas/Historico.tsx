@@ -181,6 +181,10 @@ function ListaDias({
   const comLegenda = linhas.findIndex((l) => l.lista.some((r) => r.tipo === 'mamada' || r.tipo === 'mamadeira' || r.tipo === 'fralda' || r.tipo === 'sono'));
   const noComeco = !!inicio && janela.de <= inicio;
   const vazio = `${f.nenhum} neste dia.`;
+  // Nenhum registro em todos os dias carregados: um aviso só, no lugar de 7 cartões vazios
+  const semNada = linhas.length === 0 || linhas.every((l) => l.lista.length === 0);
+  // Sem nascimento e sem nada registrado: não há semana anterior para ver
+  const semAnterior = noComeco || (!inicio && !carregando && (regs ?? []).length === 0);
 
   return (
     <>
@@ -191,7 +195,7 @@ function ListaDias({
 
       {erro && <div className="alerta erro">Não deu para buscar os dias mais antigos: {erro}</div>}
 
-      {!carregando && linhas.length === 0 && (
+      {!carregando && semNada && (
         <div className="cartao">
           <p className="mudo" style={{ margin: 0 }}>
             {filtro === 'todos'
@@ -201,7 +205,7 @@ function ListaDias({
         </div>
       )}
 
-      {linhas.map((l, k) => (
+      {!semNada && linhas.map((l, k) => (
         <div key={l.dia === alvo?.dia ? `${l.dia}-${alvo.n}` : l.dia} className="hist-bloco">
           {l.i > 0 && l.i % DIAS_SEMANA === 0 && (
             <div className="hist-semana" role="separator">
@@ -226,8 +230,8 @@ function ListaDias({
 
       {carregando && !erro && <p className="mudo hist-carregando">Carregando os dias mais antigos…</p>}
 
-      {noComeco ? (
-        <p className="mudo hist-fim">Começo do histórico: nascimento em {dataBr(inicio!)}.</p>
+      {semAnterior ? (
+        noComeco && <p className="mudo hist-fim">Começo do histórico: nascimento em {dataBr(inicio!)}.</p>
       ) : (
         <button type="button" className="botao" disabled={carregando && !erro} onClick={aoVerAnterior}>
           {carregando && !erro ? 'Carregando…' : 'Ver semana anterior'}

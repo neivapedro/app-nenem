@@ -107,6 +107,23 @@ export function Resumo() {
       </div>
     );
 
+  // Nada registrado (bebê ainda não nasceu ou conta nova): um aviso no lugar do painel zerado
+  const semDados = !!registros && !regs.some((r) => r.tipo === 'mamada' || r.tipo === 'mamadeira' || r.tipo === 'fralda' || r.tipo === 'sono');
+  if (semDados)
+    return (
+      <div className="pilha painel">
+        <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
+        <div className="cartao">
+          <p className="mudo" style={{ margin: 0 }}>
+            {bebe?.nascimento
+              ? `Nenhuma mamada, fralda ou sono registrado de ${dataBr(deAnterior)} a ${dataBr(hoje)}. Os gráficos aparecem aqui assim que vocês registrarem na tela Hoje.`
+              : 'Depois do nascimento, os gráficos aparecem aqui com o que vocês registrarem na tela Hoje.'}
+          </p>
+        </div>
+        <RelatorioPediatra />
+      </div>
+    );
+
   return (
     <div className="pilha painel">
       <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
@@ -146,7 +163,7 @@ export function Resumo() {
       {selDia && (
         <section className="cartao pilha-p detalhe-dia" aria-label="Dia selecionado">
           <div className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-            <h2 style={{ margin: 0 }}>{nomeDia(selDia.dia, hoje)}</h2>
+            <h2 className="maiuscula-inicial" style={{ margin: 0 }}>{nomeDia(selDia.dia, hoje)}</h2>
             <button className="botao pequeno" onClick={() => setSel(null)}>
               Limpar filtro
             </button>
@@ -317,7 +334,7 @@ export function Resumo() {
           <tbody>
             {[...dias].reverse().map((d) => (
               <tr key={d.dia}>
-                <td>{nomeDia(d.dia, hoje)}</td>
+                <td className="maiuscula-inicial">{nomeDia(d.dia, hoje)}</td>
                 <td>{d.alimentacoes}</td>
                 <td>{d.ml || '—'}</td>
                 <td>

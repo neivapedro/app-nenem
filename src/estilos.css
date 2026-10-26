@@ -399,6 +399,9 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .tabela-simples { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .tabela-simples th, .tabela-simples td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--borda); white-space: nowrap; }
 .tabela-simples th:first-child, .tabela-simples td:first-child { text-align: left; white-space: normal; }
+/* Nome do dia: quebra só entre palavras (nunca "Hoj/e") */
+.tabela-simples th:first-child, .tabela-simples td:first-child { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.maiuscula-inicial::first-letter { text-transform: uppercase; }
 .tabela-simples th { color: var(--texto-2); font-weight: 600; font-size: 0.75rem; }
 .tabela-simples tr.clicavel { cursor: pointer; }
 .chips-rolagem { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }

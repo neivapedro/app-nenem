@@ -202,3 +202,9 @@
 .kpis .kpi-rodape { gap: 8px; }
 .kpis .kpi-spark { max-width: 52%; }
 .narrativa-texto strong { white-space: nowrap; }
+
+/* Tela estreita: a leitura do toque fica mais larga e compacta para caber dentro do gráfico */
+@media (max-width: 360px) {
+  .painel-grafico .leitura { max-width: 90%; padding: 6px 8px; font-size: 0.72rem; gap: 2px; }
+  .painel-grafico .leitura-fora { font-size: 0.68rem; margin-top: 2px; padding-top: 3px; }
+}
