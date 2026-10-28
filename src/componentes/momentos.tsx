@@ -394,7 +394,11 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
 
 /** Mesversário de hoje: abre a comemoração uma vez por aparelho; depois, um cartão pequeno */
 function MesversarioDoDia({ bebe, mv }: { bebe: Bebe; mv: Mesversario }) {
-  const [aberta, setAberta] = useState(() => !comemoracaoVista(bebe.id, mv.meses));
+  // De madrugada (22h–6h, mamada no escuro) não abre sozinha: fica o cartão pequeno até de manhã
+  const [aberta, setAberta] = useState(() => {
+    const h = new Date().getHours();
+    return h >= 6 && h < 22 && !comemoracaoVista(bebe.id, mv.meses);
+  });
   useEffect(() => {
     if (aberta) marcarComemoracaoVista(bebe.id, mv.meses);
   }, [aberta, bebe.id, mv.meses]);

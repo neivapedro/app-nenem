@@ -58,3 +58,8 @@
 
 /* Sono fora do lugar: a faixa clara ocupa o item todo (sem o "fio" na beira da linha do tempo) */
 .tq-movendo .hist-item.sono::before { left: 0; border-radius: 12px; }
+
+/* O item corta o que passa da borda: o contorno de foco fica para dentro */
+.tq-deslize .hist-item:focus-visible { outline-offset: -2px; }
+/* Noite âmbar: o fundo da folha também clareia ao arrastar */
+:root[data-tema="noite"] .folha-fundo.tq-movendo { background: rgb(0 0 0 / calc(0.7 * var(--tq-fundo, 1))); }

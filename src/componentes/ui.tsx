@@ -315,6 +315,7 @@ function useArrastarParaFechar(fundoRef: RefObject<HTMLDivElement | null>, folha
     };
 
     const comecar = (x: number, y: number, alvo: EventTarget | null, t: number) => {
+      arrastou = false; // toque novo: o clique do arrasto anterior já não vem
       g = null;
       if (fechando || !(alvo instanceof Element) || alvo.closest('.folha') !== folha) return;
       const topo = !!alvo.closest('.tq-folha-topo');
@@ -328,7 +329,7 @@ function useArrastarParaFechar(fundoRef: RefObject<HTMLDivElement | null>, folha
       const dy = y - g.y0;
       if (g.estado === 'espera') {
         // Para baixo e mais vertical: já segura a rolagem nativa (no topo não há o que rolar para cima)
-        if (dy > 0 && Math.abs(dy) >= Math.abs(dx) && e.cancelable) e.preventDefault();
+        if (dy >= 3 && dy > Math.abs(dx) * 1.2 && e.cancelable) e.preventDefault();
         const eixo = decidirEixo(dx, dy);
         if (eixo === 'espera') return;
         if (eixo !== 'vertical' || dy < 0 || (!g.topo && folha.scrollTop > 0)) {

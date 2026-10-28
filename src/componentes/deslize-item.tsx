@@ -34,6 +34,7 @@ export function ItemDeslizavel({ children, aoEditar, aoApagar }: { children: Rea
     let x = 0; // posição atual (negativa = aberto para a esquerda)
     let base = 0;
     let vivo = true;
+    let apagarPendente = false;
     let engolirClique = false;
     const timers: number[] = [];
     type Gesto = { x0: number; y0: number; estado: 'espera' | 'deslizando' | 'ignorar'; dx0: number; largura: number; amostras: { v: number; t: number }[] };
@@ -95,7 +96,10 @@ export function ItemDeslizavel({ children, aoEditar, aoApagar }: { children: Rea
       if (fecharAberto === fechar) fecharAberto = null;
       document.removeEventListener('pointerdown', fora, true);
       const largura = medidas().largura;
+      apagarPendente = true;
       const fim = () => {
+        if (!apagarPendente) return;
+        apagarPendente = false;
         apagar.current();
         // Se o item não sumiu (ex.: a lista ainda vai buscar de novo), volta ao normal
         timers.push(
@@ -121,6 +125,8 @@ export function ItemDeslizavel({ children, aoEditar, aoApagar }: { children: Rea
     api.current = { fechar, apagar: apagarAgora };
 
     const comecar = (cx: number, cy: number, t: number) => {
+      // Um toque novo: o clique "fantasma" do gesto anterior já não vem (no iOS ele nem sai)
+      engolirClique = false;
       li.classList.remove('tq-solto');
       g = { x0: cx, y0: cy, estado: 'espera', dx0: 0, largura: medidas().largura, amostras: [{ v: base, t }] };
     };
@@ -213,6 +219,11 @@ export function ItemDeslizavel({ children, aoEditar, aoApagar }: { children: Rea
     return () => {
       vivo = false;
       timers.forEach(clearTimeout);
+      // Saiu da tela no meio da animação de apagar: apaga mesmo assim (o item já sumiu da vista)
+      if (apagarPendente) {
+        apagarPendente = false;
+        apagar.current();
+      }
       if (fecharAberto === fechar) fecharAberto = null;
       document.removeEventListener('pointerdown', fora, true);
       frente.removeEventListener('touchstart', tInicio);
