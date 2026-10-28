@@ -63,3 +63,6 @@
 .tq-deslize .hist-item:focus-visible { outline-offset: -2px; }
 /* Noite âmbar: o fundo da folha também clareia ao arrastar */
 :root[data-tema="noite"] .folha-fundo.tq-movendo { background: rgb(0 0 0 / calc(0.7 * var(--tq-fundo, 1))); }
+
+/* Botões nunca quebram uma palavra ao meio ("Finali/zar"): o .cartao usa overflow-wrap: anywhere para textos longos */
+.cartao .botao { overflow-wrap: normal; word-break: normal; }
