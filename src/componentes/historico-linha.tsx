@@ -7,6 +7,7 @@ import { alturaSono, detalheSemHora, fitaDoDia, textoFimSono, type ItemDia } fro
 import { descrever, resumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
 import { ItemDeslizavel } from './deslize-item';
+import { SeloQuem, useQuemRegistrou } from './quem';
 import { LinhaTempo } from './painel';
 import { Selo } from './ui';
 import '../estilos/historico.css';
@@ -139,7 +140,9 @@ function ItemLinha({
   const sono = r.tipo === 'sono';
   const duracao = sono ? (item.continuacao ? item.sonoMs : (r.fim ? new Date(r.fim).getTime() : agora.getTime()) - new Date(r.inicio).getTime()) : 0;
   const detalhe = sono ? textoFimSono(item, dia) : detalheSemHora(d.detalhe);
-  const partes = [detalhe, r.observacao, r.criado_por ? nomeDe(r.criado_por) : null].filter(Boolean);
+  // Com 2+ pessoas na família, quem registrou vira o selo com a inicial (e o nome vai só para o leitor de tela)
+  const quem = useQuemRegistrou(r.criado_por);
+  const partes = [detalhe, r.observacao, r.criado_por && !quem ? nomeDe(r.criado_por) : null].filter(Boolean);
   const titulo = item.continuacao ? `Sono · ${textoDuracao(item.sonoMs)} neste dia` : d.titulo;
   const hora = item.continuacao ? '00:00' : horaCurta(r.inicio);
   const estilo = { '--j': Math.min(ordem, 12), ...(sono ? { minHeight: alturaSono(duracao) } : {}) } as CSSProperties;
@@ -153,12 +156,14 @@ function ItemLinha({
           {sono && <span className="hist-barra" />}
           <span className="hist-icone">
             <Selo tipo={r.tipo} />
+            <SeloQuem id={r.criado_por} className="quem-no-icone" decorativo />
           </span>
         </span>
         <span className="hist-hora">{hora}</span>
         <span className="hist-texto">
           <span className="hist-titulo">{titulo}</span>
           {partes.length > 0 && <span className="hist-detalhe">{partes.join(' · ')}</span>}
+          {quem && <span className="oculto-visual">{quem}</span>}
         </span>
       </button>
     </ItemDeslizavel>

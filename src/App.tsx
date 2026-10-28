@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AvatarBebe, FotoCapa } from './componentes/avatar';
 import { Ilustracao } from './componentes/ilustracoes';
@@ -9,6 +9,7 @@ import { useAgora, useDados } from './dados/contexto';
 import { idadeBebe, semanasGestacao } from './lib/datas';
 import { limparConvite } from './lib/convite';
 import { telaTrocada, trocarComTransicao, type Direcao } from './lib/transicao';
+import { acompanharTamanhoDoTexto, observarRolagem, rolagemReiniciada } from './lib/vidro';
 import { Agenda } from './paginas/Agenda';
 import { Configurar } from './paginas/Configurar';
 import { SincronizarDocumentos } from './componentes/doc-offline';
@@ -32,6 +33,16 @@ const ABAS = [
 ];
 
 const semBarra = (p: string) => p.replace(/\/+$/, '') || '/';
+
+// Texto do app no tamanho escolhido no iPhone (Ajustes → Tela e Brilho → Tamanho do Texto), antes do 1º desenho
+acompanharTamanhoDoTexto();
+
+/** Aba acesa na barra (subtelas de "Mais" acendem "Mais"); -1 quando nenhuma */
+function abaAtiva(p: string): number {
+  const i = ABAS.findIndex((a) => a.para === p);
+  if (i >= 0) return i;
+  return p.startsWith('/mais/') ? ABAS.length - 1 : -1;
+}
 
 /** Posição da tela na ordem das abas (subtelas de "Mais" ficam depois de "Mais") */
 function ordemTela(p: string): number {
@@ -256,8 +267,12 @@ function Estrutura() {
   // Cada aba abre do topo; antes da tela aparecer, para a transição já mostrar o topo da tela nova
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
+    rolagemReiniciada();
     telaTrocada();
   }, [pathname]);
+  // Barra de abas encolhe ao rolar para baixo; o topo vira vidro com conteúdo passando por baixo
+  useEffect(() => observarRolagem(), []);
+  const ativa = abaAtiva(semBarra(pathname));
   return (
     <>
       <div className="app">
@@ -296,19 +311,21 @@ function Estrutura() {
         }}
       />
       <nav className="nav" aria-label="Navegação principal">
-        <div className="nav-itens">
+        {/* Pílula de vidro; a bolha atrás da aba acesa desliza até a nova ao trocar */}
+        <div className={`nav-itens${ativa < 0 ? ' sem-bolha' : ''}`} style={{ '--aba-i': Math.max(0, ativa) } as CSSProperties}>
+          <span className="nav-bolha" aria-hidden="true" />
           {ABAS.map((a) => (
             <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} className={({ isActive }) => (isActive ? 'ativo' : '')} onClick={comTransicao(a.para)}>
               <Icone nome={a.icone} />
               {'curto' in a && a.curto ? (
-                <>
+                <span className="nav-rotulo">
                   <span className="rotulo-longo">{a.rotulo}</span>
                   <span className="rotulo-curto" aria-hidden="true">
                     {a.curto}
                   </span>
-                </>
+                </span>
               ) : (
-                a.rotulo
+                <span className="nav-rotulo">{a.rotulo}</span>
               )}
             </NavLink>
           ))}

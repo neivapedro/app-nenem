@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
@@ -10,6 +10,8 @@ import { DivisaoDaSemana } from '../componentes/divisao';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
 import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
+import { FolhaEditarHoje } from '../componentes/editar-hoje';
+import { MenuRapido, useSegurar, type Ponto } from '../componentes/menu-rapido';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { mediasUltimosDias } from '../lib/hoje';
@@ -18,8 +20,20 @@ import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
 import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
 import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
+import { aplicarAtalho, atalhosPara, type Atalho, type TipoAtalho } from '../lib/atalhos-rapidos';
+import { CHAVE_LAYOUT_HOJE, ehPadrao, layoutPadrao, lerLayout, ordemNaTela, serializarLayout, type IdCartaoHoje, type LayoutHoje } from '../lib/hoje-layout';
 
 type Folhas = TipoRegistro | null;
+
+const TITULO_ATALHO: Record<TipoAtalho, string> = { mamada: 'Mamada', mamadeira: 'Mamadeira', fralda: 'Fralda', sono: 'Sono', remedio: 'Remédio', extracao: 'Extração' };
+
+function lerLayoutSalvo(): LayoutHoje {
+  try {
+    return lerLayout(localStorage.getItem(CHAVE_LAYOUT_HOJE));
+  } catch {
+    return layoutPadrao();
+  }
+}
 
 /** No Safari (ainda não instalado): como colocar na Tela de Início */
 function DicaInstalar() {
@@ -163,7 +177,7 @@ function AntesDoParto() {
 }
 
 export function Hoje() {
-  const { bebe, registros, compromissos, hoje, gravar, mostrarAviso, nomeDe } = useDados();
+  const { bebe, registros, compromissos, remedios, hoje, gravar, mostrarAviso, nomeDe, baseRegistro } = useDados();
   const agora = useAgora(30_000);
   const [folha, setFolha] = useState<Folhas>(null);
   const [mais, setMais] = useState<'remedio' | 'temperatura' | 'extracao' | 'refeicao' | null>(null);
@@ -196,49 +210,77 @@ export function Hoje() {
     mostrarAviso({ texto: `Sono salvo (${textoDuracao(new Date(fim.fim).getTime() - new Date(r.inicio).getTime(), true)})`, desfazer: () => gravar({ tipo: 'registro', dado: r }) });
   }
 
-  return (
-    <div className="pilha">
-      <DicaInstalar />
-      <MomentosDoDia />
-      {!bebe?.nascimento && <AntesDoParto />}
+  // ---------- Hoje do jeito de vocês (ordem, escondidos e fixados; por aparelho) ----------
+  const [layout, setLayout] = useState<LayoutHoje>(lerLayoutSalvo);
+  const [editarHoje, setEditarHoje] = useState(false);
+  function mudarLayout(l: LayoutHoje) {
+    setLayout(l);
+    try {
+      if (ehPadrao(l)) localStorage.removeItem(CHAVE_LAYOUT_HOJE);
+      else localStorage.setItem(CHAVE_LAYOUT_HOJE, serializarLayout(l));
+    } catch {
+      /* sem armazenamento: vale só até fechar */
+    }
+  }
 
-      {andamento.mamada && <CartaoMamadaAtiva r={andamento.mamada} />}
-      {andamento.sono && <CartaoSonoAtivo r={andamento.sono} />}
-      {perguntarSono && andamento.sono && <FolhaQueHorasTerminou r={andamento.sono} aoFechar={() => setPerguntarSono(false)} aoSalvar={(q) => acordou(q)} />}
+  // ---------- Registro rápido: segurar o botão abre os atalhos de um toque ----------
+  const [menu, setMenu] = useState<{ tipo: TipoAtalho; el: HTMLElement; dedo: Ponto | null; atalhos: Atalho[] } | null>(null);
+  const segurar = useSegurar((chave, el, dedo) => {
+    const tipo = chave as TipoAtalho;
+    const atalhos = atalhosPara(tipo, { registros, agora: new Date(), remedios, hoje });
+    if (!atalhos.length) return false;
+    setMenu({ tipo, el, dedo, atalhos });
+    return true;
+  });
+  function usarAtalho(a: Atalho) {
+    const res = aplicarAtalho(a.acao, { registros, base: baseRegistro(), agora: new Date() });
+    if (!res.ok) return mostrarAviso({ texto: res.texto });
+    gravar(...res.ops);
+    mostrarAviso({ texto: res.texto, desfazer: () => gravar(...res.desfazer) });
+  }
+  function abrirFormulario(tipo: TipoAtalho) {
+    if (tipo === 'remedio' || tipo === 'extracao') setMais(tipo);
+    else setFolha(tipo);
+  }
+  const dicaSegurar = { 'aria-describedby': 'hoje-dica-segurar' };
 
-      {/* Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela */}
-      {nascido && !andamento.mamada && <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} />}
-      {nascido && <Faixa24h registros={registros} agora={agora} />}
-      {nascido && <RelogioDia registros={registros} agora={agora} />}
-
+  const cartoes: Record<IdCartaoHoje, ReactNode> = {
+    momentos: <MomentosDoDia />,
+    // Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela
+    proxima: nascido && !andamento.mamada ? <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} /> : null,
+    faixa24h: nascido ? <Faixa24h registros={registros} agora={agora} /> : null,
+    relogio: nascido ? <RelogioDia registros={registros} agora={agora} /> : null,
+    registrar: (
       <section className="acoes" aria-label="Registrar">
-        <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada}>
+        <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada} {...segurar('mamada', !andamento.mamada)} {...dicaSegurar}>
           <Selo tipo="mamada" />
           <span className="nome">Mamada</span>
           <span className="desde">{andamento.mamada ? 'em andamento' : alimentacao ? `Última ${desdeAlimentacao}` : desdeAlimentacao}</span>
         </button>
-        <button className="acao t-mamadeira" onClick={() => setFolha('mamadeira')}>
+        <button className="acao t-mamadeira" onClick={() => setFolha('mamadeira')} {...segurar('mamadeira')} {...dicaSegurar}>
           <Selo tipo="mamadeira" />
           <span className="nome">Mamadeira</span>
           <span className="desde">{resumo.mamadeiras ? `${resumo.ml} ml hoje` : 'leite materno ou fórmula'}</span>
         </button>
-        <button className="acao t-fralda" onClick={() => setFolha('fralda')}>
+        <button className="acao t-fralda" onClick={() => setFolha('fralda')} {...segurar('fralda')} {...dicaSegurar}>
           <Selo tipo="fralda" />
           <span className="nome">Fralda</span>
           <span className="desde">{fralda ? `Última ${haQuanto(fralda.inicio, agora)}` : 'nenhuma ainda'}</span>
         </button>
-        <button className={`acao t-sono ${andamento.sono ? 'ativa' : ''}`} onClick={() => (andamento.sono ? acordou() : setFolha('sono'))}>
+        <button className={`acao t-sono ${andamento.sono ? 'ativa' : ''}`} onClick={() => (andamento.sono ? acordou() : setFolha('sono'))} {...segurar('sono')} {...dicaSegurar}>
           <Selo tipo="sono" />
           <span className="nome">{andamento.sono ? 'Acordou' : 'Sono'}</span>
-          <span className="desde">
-            {andamento.sono ? 'tocar para encerrar o sono' : sono?.fim ? `Acordado ${haQuanto(sono.fim, agora)}` : 'nenhum ainda'}
-          </span>
+          <span className="desde">{andamento.sono ? 'tocar para encerrar o sono' : sono?.fim ? `Acordado ${haQuanto(sono.fim, agora)}` : 'nenhum ainda'}</span>
         </button>
+        <span id="hoje-dica-segurar" className="oculto-visual">
+          Segure para ver atalhos de um toque.
+        </span>
       </section>
-
+    ),
+    outros: (
       <section className="mais-registros" aria-label="Outros registros">
         {(['remedio', 'temperatura', 'extracao', ...(comeIntroducao ? (['refeicao'] as const) : [])] as const).map((t) => (
-          <button key={t} className={`t-${t}`} onClick={() => setMais(t)}>
+          <button key={t} className={`t-${t}`} onClick={() => setMais(t)} {...(t === 'remedio' || t === 'extracao' ? { ...segurar(t), ...dicaSegurar } : {})}>
             <Selo tipo={t} />
             {t === 'remedio' ? 'Remédio' : t === 'temperatura' ? 'Febre' : t === 'extracao' ? 'Extração' : 'Refeição'}
           </button>
@@ -250,9 +292,9 @@ export function Hoje() {
           </Link>
         )}
       </section>
-
-      <Pendencias />
-
+    ),
+    avisos: <Pendencias />,
+    resumo: (
       <section className="cartao" aria-label="Resumo de hoje">
         <div className="cartao-cab">
           <h2>Hoje</h2>
@@ -262,21 +304,21 @@ export function Hoje() {
         </div>
         <NumerosDoDia resumo={resumo} medias={medias} nascido={nascido} />
       </section>
-      {nascido && <DivisaoDaSemana />}
-
-      {proximo && (
-        <Link to="/agenda" className="cartao linha" style={{ textDecoration: 'none', color: 'inherit', flexWrap: 'nowrap' }}>
-          <Selo tipo="agenda" />
-          <div className="cresce">
-            <div className="rotulo">Próximo compromisso</div>
-            <div style={{ fontWeight: 600 }}>{proximo.titulo}</div>
-            <div className="texto-2">{textoQuando(proximo, hoje)}</div>
-          </div>
-          <Icone nome="seta" />
-        </Link>
-      )}
-
-      {recentes.length > 0 && (
+    ),
+    divisao: nascido ? <DivisaoDaSemana /> : null,
+    compromisso: proximo ? (
+      <Link to="/agenda" className="cartao linha" style={{ textDecoration: 'none', color: 'inherit', flexWrap: 'nowrap' }}>
+        <Selo tipo="agenda" />
+        <div className="cresce">
+          <div className="rotulo">Próximo compromisso</div>
+          <div style={{ fontWeight: 600 }}>{proximo.titulo}</div>
+          <div className="texto-2">{textoQuando(proximo, hoje)}</div>
+        </div>
+        <Icone nome="seta" />
+      </Link>
+    ) : null,
+    recentes:
+      recentes.length > 0 ? (
         <section className="cartao" aria-label="Últimos registros">
           <h2>Últimos registros</h2>
           <div className="lista">
@@ -295,7 +337,29 @@ export function Hoje() {
             })}
           </div>
         </section>
-      )}
+      ) : null,
+  };
+
+  return (
+    <div className="pilha">
+      {/* O que depende do momento fica sempre por cima e não se esconde: dica de instalar, antes do parto e cronômetros */}
+      <DicaInstalar />
+      {!bebe?.nascimento && <AntesDoParto />}
+
+      {andamento.mamada && <CartaoMamadaAtiva r={andamento.mamada} />}
+      {andamento.sono && <CartaoSonoAtivo r={andamento.sono} />}
+      {perguntarSono && andamento.sono && <FolhaQueHorasTerminou r={andamento.sono} aoFechar={() => setPerguntarSono(false)} aoSalvar={(q) => acordou(q)} />}
+
+      {/* Cartões na ordem escolhida (fixados primeiro); display: contents, então os vazios não ocupam espaço */}
+      {ordemNaTela(layout).map((id) => (
+        <div key={id} className="he-bloco" data-cartao={id}>
+          {cartoes[id as IdCartaoHoje]}
+        </div>
+      ))}
+
+      <button type="button" className="he-editar" onClick={() => setEditarHoje(true)}>
+        <Icone nome="editar" /> Editar o Hoje
+      </button>
 
       {folha === 'mamada' && <FolhaMamada aoFechar={() => setFolha(null)} />}
       {folha === 'mamadeira' && <FolhaMamadeira aoFechar={() => setFolha(null)} />}
@@ -303,6 +367,19 @@ export function Hoje() {
       {folha === 'sono' && <FolhaSono aoFechar={() => setFolha(null)} />}
       {editando && <FolhaEditar r={editando} aoFechar={() => setEditando(null)} />}
       {mais && <FolhaRegistroMais tipo={mais} aoFechar={() => setMais(null)} />}
+      {editarHoje && <FolhaEditarHoje layout={layout} aoMudar={mudarLayout} nascido={nascido} aoFechar={() => setEditarHoje(false)} />}
+      {menu && (
+        <MenuRapido
+          ancora={menu.el}
+          titulo={TITULO_ATALHO[menu.tipo]}
+          classe={`t-${menu.tipo}`}
+          atalhos={menu.atalhos}
+          dedo={menu.dedo}
+          aoEscolher={usarAtalho}
+          aoMais={() => abrirFormulario(menu.tipo)}
+          aoFechar={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }

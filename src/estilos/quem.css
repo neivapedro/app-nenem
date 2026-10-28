@@ -1,0 +1,101 @@
+/* ---------- Quem fez o quê: selo de quem registrou e "Divisão da semana" ----------
+   Uma cor por pessoa, de um grupo próprio (não reaproveita as cores dos tipos de registro):
+   0 petróleo/turquesa · 1 mostarda/dourado · 2 vinho/ameixa · 3 grafite.
+   As duas primeiras são o par mais distinto (normal e daltonismo protan/deutan, ΔE OKLab >= 13).
+   Cada uma tem a cor da letra que dá >= 4,5:1 sobre ela, em claro, escuro e noite âmbar. */
+:root {
+  --quem-0: #5ccbc2; --quem-0-letra: #0e0f13;
+  --quem-1: #e2c25a; --quem-1-letra: #0e0f13;
+  --quem-2: #8a5a86; --quem-2-letra: #ffffff;
+  --quem-3: #9a9ba3; --quem-3-letra: #0e0f13;
+}
+:root[data-tema="claro"] {
+  --quem-0: #0d5266; --quem-0-letra: #ffffff;
+  --quem-1: #9a960f; --quem-1-letra: #1b1a1f;
+  --quem-2: #5e2b52; --quem-2-letra: #ffffff;
+  --quem-3: #8a8c96; --quem-3-letra: #1b1a1f;
+}
+/* Noite âmbar: tons apagados, nada de azul forte nem branco */
+:root[data-tema="noite"] {
+  --quem-0: #5fa59e; --quem-0-letra: #15100c;
+  --quem-1: #d0b45a; --quem-1-letra: #15100c;
+  --quem-2: #9a88aa; --quem-2-letra: #15100c;
+  --quem-3: #a59f96; --quem-3-letra: #15100c;
+}
+.quem-c0 { --quem: var(--quem-0); --quem-letra: var(--quem-0-letra); }
+.quem-c1 { --quem: var(--quem-1); --quem-letra: var(--quem-1-letra); }
+.quem-c2 { --quem: var(--quem-2); --quem-letra: var(--quem-2-letra); }
+.quem-c3 { --quem: var(--quem-3); --quem-letra: var(--quem-3-letra); }
+.quem-neutra { --quem: var(--superficie-2); --quem-letra: var(--texto-2); }
+
+/* Selo: bolinha com a inicial */
+.quem-selo {
+  display: inline-grid; place-items: center; flex: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--quem); color: var(--quem-letra);
+  font: 700 0.62rem/1 var(--fonte-numeros); letter-spacing: 0;
+  text-transform: none; user-select: none;
+}
+.quem-selo.duas { font-size: 0.52rem; letter-spacing: -0.02em; }
+
+/* No Histórico: o selo encosta no canto do ícone do registro, com um anel da cor do cartão */
+.hist-icone .quem-selo.quem-no-icone {
+  position: absolute; right: -5px; bottom: -3px; z-index: 2;
+  width: 17px; height: 17px;
+  box-shadow: 0 0 0 2px var(--superficie);
+}
+
+/* ---------- Cartão "Divisão da semana" ---------- */
+.quem-divisao .cartao-cab { margin-bottom: 6px; }
+.quem-janela { white-space: nowrap; font-size: 0.8rem; }
+.quem-frase { color: var(--texto); font-size: 0.9rem; line-height: 1.4; margin-bottom: 12px; text-wrap: pretty; }
+.quem-legenda { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--texto-2); }
+.quem-legenda li { display: inline-flex; align-items: center; gap: 6px; }
+.quem-linhas { list-style: none; margin: 0; padding: 0; display: grid; }
+.quem-linha + .quem-linha { border-top: 1px solid var(--borda); }
+.quem-linha-botao {
+  display: grid; gap: 6px; width: 100%; padding: 10px 2px; margin: 0;
+  border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.quem-linha-botao:focus-visible { outline: 2px solid var(--texto-2); outline-offset: 2px; }
+@media (hover: hover) { .quem-linha-botao:hover .quem-barra { filter: brightness(1.04); } }
+.quem-linha-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
+.quem-cat { font-weight: 600; font-size: 0.9rem; min-width: 0; overflow-wrap: anywhere; }
+.quem-sub { font-weight: 400; color: var(--texto-3); font-size: 0.75rem; margin-left: 2px; }
+.quem-total { flex: none; white-space: nowrap; font: 650 0.95rem/1 var(--fonte-numeros); color: var(--texto); font-variant-numeric: tabular-nums; }
+/* Barra empilhada: cada pedaço é uma pessoa; 2 px da cor do cartão entre os pedaços; pontas arredondadas */
+.quem-barra {
+  display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden;
+  background: var(--superficie-2);
+}
+.quem-pedaco { flex: 1 1 0; min-width: 4px; background: var(--quem); }
+.quem-pedaco:first-child { border-radius: 5px 0 0 5px; }
+.quem-pedaco:last-child { border-radius: 0 5px 5px 0; }
+.quem-pedaco:only-child { border-radius: 5px; }
+.quem-nums { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 0.8rem; color: var(--texto-2); }
+.quem-num { display: inline-flex; align-items: center; gap: 5px; }
+.quem-num b { color: var(--texto); font: 650 0.85rem/1 var(--fonte-numeros); font-variant-numeric: tabular-nums; }
+.quem-ponto { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--quem); }
+
+/* Detalhe (ao tocar) */
+.quem-detalhe { padding: 0 2px 12px; animation: quem-abre 0.22s var(--curva) both; }
+.quem-detalhe ul { list-style: none; margin: 0; padding: 10px 12px; display: grid; gap: 8px; border-radius: 12px; background: var(--superficie-2); }
+.quem-detalhe li { display: flex; align-items: baseline; gap: 8px; font-size: 0.85rem; }
+.quem-detalhe li .quem-ponto { transform: translateY(-1px); }
+.quem-det-texto { display: grid; gap: 1px; min-width: 0; }
+.quem-det-extra { color: var(--texto-2); font-size: 0.78rem; overflow-wrap: anywhere; }
+.quem-nota { margin-top: 6px; font-size: 0.78rem; }
+@keyframes quem-abre { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .quem-detalhe { animation: none; } }
+@media (forced-colors: active) {
+  .quem-selo, .quem-pedaco, .quem-ponto { forced-color-adjust: none; }
+}
+
+/* Modo noite (tela preta própria, qualquer tema): selo apagado, ao lado de "Última alimentação" */
+.noite {
+  --quem-0: #5fa59e; --quem-0-letra: #000000;
+  --quem-1: #d0b45a; --quem-1-letra: #000000;
+  --quem-2: #9a88aa; --quem-2-letra: #000000;
+  --quem-3: #a59f96; --quem-3-letra: #000000;
+}
+.quem-selo.quem-noite { margin-left: 8px; vertical-align: 1px; opacity: 0.8; }

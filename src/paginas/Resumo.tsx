@@ -3,6 +3,7 @@ import { EstadoVazio } from '../componentes/ilustracoes';
 import { GraficosMeses } from '../componentes/meses';
 import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Narrativa, Proporcao } from '../componentes/painel';
 import { RelatorioPediatra } from '../componentes/relatorio-pediatra';
+import { RelogioPadrao } from '../componentes/relogio-dia';
 import { useAgora, useDados } from '../dados/contexto';
 import { useRegistrosDesde } from '../dados/historico';
 import { chaveDia, dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
@@ -261,6 +262,9 @@ export function Resumo() {
           aoSelecionar={(i) => setSel(i === null ? null : i + deslocamento)}
         />
       </section>
+
+      {/* Dia típico: o relógio de 24 h com a média dos últimos 7 dias inteiros */}
+      <RelogioPadrao registros={regs} hoje={hoje} inicio={inicioDados} agora={agora} />
 
       {/* Sono */}
       <section className="cartao pilha-p" aria-label="Sono por dia">

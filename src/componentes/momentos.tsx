@@ -298,6 +298,7 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
           <h1 id="mom-titulo">{titulo}</h1>
           <p className="mom-frase">{frase}</p>
           <p className="mom-data">{dataExtenso(hoje)}</p>
+          {ano && <BotaoRetrospectiva ano={mv.meses / 12} aoAbrir={() => setRetro(true)} />}
         </header>
 
         {fotoUrl ? (

@@ -49,12 +49,30 @@
   --fonte-titulos: var(--fonte-numeros);
   /* Movimento */
   --curva: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --nav-altura: 64px;
+  /* Barra de abas: pílula de vidro flutuante (src/estilos/vidro.css). --nav-altura é a altura da
+     pílula; --nav-base, a distância dela até a borda de baixo; --nav-espaco, o total que ela ocupa
+     a partir da borda de baixo (use para nada ficar escondido atrás da barra) */
+  --nav-altura: 60px;
+  --nav-base: max(10px, calc(env(safe-area-inset-bottom) - 10px));
+  --nav-espaco: calc(var(--nav-base) + var(--nav-altura));
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  font-size: 16px;
+  /* Tamanho do texto: o padrão do navegador (16 px), com limites. No iPhone a base acompanha
+     Ajustes → Tela e Brilho → Tamanho do Texto (abaixo e em src/lib/vidro.ts). Tudo em rem. */
+  font-size: clamp(14px, 100%, 22px);
   line-height: 1.45;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* iPhone (Safari): a fonte do sistema no tamanho escolhido em Ajustes (Dynamic Type). O script de
+   src/lib/vidro.ts refina antes do primeiro desenho: mantém a base de 16 px no tamanho padrão do
+   iPhone (que é 17) e limita entre 14 e 22 px; aí marca data-texto e este bloco deixa de valer. */
+@supports (font: -apple-system-body) {
+  :root:not([data-texto]) {
+    font: -apple-system-body;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.45;
+  }
 }
 
 /* Claro. O tema vem do atributo data-tema no <html> (claro, escuro, noite), que o script do
@@ -114,7 +132,7 @@ h3 { font-size: 0.95rem; }
 p { margin: 0; }
 a { color: var(--destaque); }
 
-.app { max-width: 640px; margin: 0 auto; padding: 0 16px calc(var(--nav-altura) + 28px + env(safe-area-inset-bottom)); }
+.app { max-width: 640px; margin: 0 auto; padding: 0 16px calc(var(--nav-espaco) + 28px); }
 
 /* O cabeçalho ocupa a largura inteira da tela (sem as margens de 16px), com fundo sólido:
    assim o iOS 26 usa a cor dele no topo em vez de desfocar o cabeçalho ("scroll edge effect") */
@@ -139,30 +157,7 @@ a { color: var(--destaque); }
 .avatar-grande { width: 64px; height: 64px; border-radius: 18px; }
 .avatar-grande.avatar-foto { border-radius: 50%; box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px var(--anel); }
 
-.nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
-  display: flex; justify-content: center;
-  background: var(--superficie); border-top: 1px solid var(--borda);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-.nav-itens { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: 100%; max-width: 640px; }
-.nav a {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  height: var(--nav-altura); text-decoration: none; color: var(--texto-3); font-size: 0.62rem; font-weight: 500; min-width: 0; white-space: nowrap; letter-spacing: -0.02em;
-}
-.nav a.ativo { color: var(--destaque); }
-/* 7 abas: em telas estreitas (iPhone SE/mini) a letra e o ícone encolhem um pouco */
-.rotulo-curto { display: none; }
-/* Com 7 abas, "Documentos" só cabe a partir de ~410 px (Pro Max): antes vira "Docs" (o leitor de tela lê o nome inteiro) */
-@media (max-width: 409px) {
-  .rotulo-longo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .rotulo-curto { display: inline; }
-}
-@media (max-width: 380px) {
-  .nav a { font-size: 0.58rem; letter-spacing: -0.02em; }
-  .nav svg { width: 20px; height: 20px; }
-}
-.nav svg { width: 22px; height: 22px; }
+/* Barra de abas (pílula de vidro flutuante, que encolhe ao rolar): src/estilos/vidro.css */
 
 .pilha { display: flex; flex-direction: column; gap: 14px; }
 .pilha-p { display: flex; flex-direction: column; gap: 8px; }
@@ -239,7 +234,7 @@ a { color: var(--destaque); }
 .campo > span, .campo > legend { font-size: 0.8rem; color: var(--texto-2); font-weight: 500; padding: 0; margin-bottom: 4px; }
 .campo input, .campo select, .campo textarea {
   width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px;
-  border: 1px solid var(--borda); background: var(--superficie-2); font-size: 16px; min-width: 0;
+  border: 1px solid var(--borda); background: var(--superficie-2); font-size: max(16px, 1rem); min-width: 0;
 }
 /* Data/hora do iOS: sem largura mínima própria, não estoura o cartão */
 .campo input[type="datetime-local"], .campo input[type="date"], .campo input[type="time"] { -webkit-appearance: none; appearance: none; display: block; text-align: left; }
@@ -355,7 +350,7 @@ a { color: var(--destaque); }
 /* Aviso rápido no rodapé ("Fralda registrada · Desfazer") */
 .aviso-rapido {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 90;
-  bottom: calc(var(--nav-altura) + env(safe-area-inset-bottom) + 12px);
+  bottom: calc(var(--nav-espaco) + 12px);
   width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 16px;
   border-radius: 14px; background: var(--texto); color: var(--fundo); box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); font-size: 0.92rem;
 }
@@ -734,7 +729,7 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .esq-capa .capa-grande { gap: 10px; }
 .esq-capa-nome { height: 30px; border-radius: 10px; }
 .esq-capa-idade { height: 26px; border-radius: 999px; background: var(--superficie); }
-.esq-aba { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: var(--nav-altura); }
+.esq-aba { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 100%; min-width: 0; }
 .esq-icone { width: 22px; height: 22px; border-radius: 7px; }
 .esq-rotulo { width: 30px; height: 7px; border-radius: 4px; }
 @keyframes esq-brilho { to { transform: translateX(100%); } }

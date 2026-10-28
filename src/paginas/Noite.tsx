@@ -4,6 +4,7 @@ import { useAgora, useDados } from '../dados/contexto';
 import { agoraIso, haQuanto, horaCurta, relogio, textoDuracao } from '../lib/datas';
 import { FolhaQueHorasTerminou } from '../componentes/registrar';
 import { useUmToque } from '../componentes/ui';
+import { SeloQuem } from '../componentes/quem';
 import { aplicarTemaAgora } from '../lib/tema';
 import {
   duracaoPorLado,
@@ -150,8 +151,10 @@ export function Noite() {
           <>Dormindo há {textoDuracao(agora.getTime() - new Date(sono.inicio).getTime())}</>
         ) : (
           <>
-            Última alimentação: {alimentacao ? `${haQuanto(alimentacao.inicio, agora)}${ultimo ? ` · terminou no ${ultimo}` : ''}` : '—'}
-            <br />
+            <span>
+              Última alimentação: {alimentacao ? `${haQuanto(alimentacao.inicio, agora)}${ultimo ? ` · terminou no ${ultimo}` : ''}` : '—'}
+              {alimentacao && <SeloQuem id={alimentacao.criado_por} className="quem-noite" />}
+            </span>
             Última fralda: {fralda ? haQuanto(fralda.inicio, agora) : '—'}
           </>
         )}
