@@ -48,7 +48,7 @@ export const CORES: { valor: CorDestaque; rotulo: string; claro: string; escuro:
   { valor: 'azul', rotulo: 'Azul', claro: '#245bc0', escuro: '#8fb5ff' },
   { valor: 'verde', rotulo: 'Verde', claro: '#1f7356', escuro: '#66d1a4' },
   { valor: 'lilas', rotulo: 'Lilás', claro: '#7446c0', escuro: '#c8adf7' },
-  { valor: 'terracota', rotulo: 'Terracota', claro: '#ab452a', escuro: '#f4a284' },
+  { valor: 'terracota', rotulo: 'Terracota', claro: '#98502f', escuro: '#e0a88c' },
 ];
 export const COR_NOITE = '#c9935a';
 

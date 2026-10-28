@@ -24,6 +24,22 @@ function passoBonito(max: number): number {
 const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 /**
+ * Valor em cima da coluna marcada. Centralizado na coluna, mas sem sair da área do gráfico:
+ * perto da borda direita fica alinhado pelo fim, perto do eixo, pelo começo (ex.: "R$ 300,00"
+ * numa coluna estreita no fim do gráfico).
+ */
+function RotuloValor({ texto, cx, y }: { texto: string; cx: number; y: number }) {
+  // Largura aproximada do texto (10px, semi-negrito, números tabulares)
+  const meia = (texto.length * 6) / 2;
+  const [x, ancora]: [number, 'start' | 'middle' | 'end'] = cx + meia > W - R ? [W - R, 'end'] : cx - meia < L ? [L, 'start'] : [cx, 'middle'];
+  return (
+    <text x={x} y={y} textAnchor={ancora} className="eixo-texto" style={{ fill: 'var(--texto)', fontWeight: 650 }}>
+      {texto}
+    </text>
+  );
+}
+
+/**
  * Colunas por dia (uma série só: o título diz o que é). Valor no topo da coluna
  * de hoje; toque numa coluna para ver o valor dela.
  */
@@ -93,11 +109,7 @@ export function BarrasDiarias({
                   d={`M${x},${y(0)} V${y(0) - h + r} Q${x},${y(0) - h} ${x + r},${y(0) - h} H${x + largura - r} Q${x + largura},${y(0) - h} ${x + largura},${y(0) - h + r} V${y(0)} Z`}
                 />
               )}
-              {i === marcado && (
-                <text x={cx} y={Math.max(y(d.valor) - 5, 10)} textAnchor="middle" className="eixo-texto" style={{ fill: 'var(--texto)', fontWeight: 650 }}>
-                  {formatar(d.valor)}
-                </text>
-              )}
+              {i === marcado && <RotuloValor texto={formatar(d.valor)} cx={cx} y={Math.max(y(d.valor) - 5, 10)} />}
               {mostrarDia(i) && (
                 <text x={cx} y={H - 6} textAnchor="middle" className="eixo-texto">
                   {rotulos ? rotulos[i] : dados.length <= 7 ? DIAS[dia.getDay()] : dia.getDate()}

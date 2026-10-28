@@ -57,11 +57,11 @@
 :root[data-cor="azul"] { --destaque: #8fb5ff; --destaque-texto: #0e0f13; }
 :root[data-cor="verde"] { --destaque: #66d1a4; --destaque-texto: #0e0f13; }
 :root[data-cor="lilas"] { --destaque: #c8adf7; --destaque-texto: #0e0f13; }
-:root[data-cor="terracota"] { --destaque: #f4a284; --destaque-texto: #0e0f13; }
+:root[data-cor="terracota"] { --destaque: #e0a88c; --destaque-texto: #0e0f13; }
 :root[data-tema="claro"][data-cor="azul"] { --destaque: #245bc0; --destaque-texto: #ffffff; }
 :root[data-tema="claro"][data-cor="verde"] { --destaque: #1f7356; --destaque-texto: #ffffff; }
 :root[data-tema="claro"][data-cor="lilas"] { --destaque: #7446c0; --destaque-texto: #ffffff; }
-:root[data-tema="claro"][data-cor="terracota"] { --destaque: #ab452a; --destaque-texto: #ffffff; }
+:root[data-tema="claro"][data-cor="terracota"] { --destaque: #98502f; --destaque-texto: #ffffff; }
 /* Com uma cor escolhida, o cartão principal e o anel da foto puxam para ela */
 :root[data-cor]:not([data-cor="padrao"]) {
   --destaque-a: color-mix(in oklab, var(--destaque) 13%, var(--superficie));
@@ -78,6 +78,10 @@
   --destaque-borda: color-mix(in oklab, #c9935a 14%, var(--borda-cartao));
   --anel: color-mix(in oklab, #c9935a 70%, var(--fundo));
 }
+
+/* Marcador "Hoje" da trilha de vacinas: além da cor, um anel em volta (no Verde, a cor é quase a
+   do "Tudo aplicado"; a forma diferente separa os dois sem depender só da cor) */
+:root[data-cor] .sv-hoje-no { box-shadow: 0 0 0 2.5px var(--superficie), 0 0 0 4.5px var(--destaque), 0 0 0 7px var(--superficie); }
 
 /* ---------- Ajustes de componentes na noite âmbar ---------- */
 /* Selo do tipo: fundo apagado com o ícone na cor (sem quadrado aceso com ícone branco) */
@@ -150,7 +154,7 @@
 .ap-agora { display: flex; align-items: flex-start; gap: 8px; }
 .ap-agora::before { content: ''; width: 8px; height: 8px; margin-top: 0.45em; border-radius: 50%; background: var(--destaque); flex: none; }
 /* Na noite âmbar as amostras também ficam baixas (sem azul aceso) */
-:root[data-tema="noite"] .ap-amostra { filter: brightness(0.72) saturate(0.75); }
+:root[data-tema="noite"] :is(.ap-amostra, .ap-previa) { filter: brightness(0.72) saturate(0.75); }
 @media (max-width: 380px) { .ap-cores { gap: 2px; } .ap-cor { font-size: 0.68rem; letter-spacing: -0.02em; } }
 @media (max-width: 359px) {
   .ap-temas { grid-template-columns: minmax(0, 1fr); gap: 6px; }

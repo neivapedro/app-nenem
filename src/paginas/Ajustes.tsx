@@ -349,6 +349,15 @@ function IconePaleta() {
   );
 }
 
+/** O que a noite âmbar faz agora, no modo escolhido (o interruptor mostra o estado que vale) */
+function textoAmbar(modo: ModoTema, escolha: boolean | null, ligada: boolean): string {
+  const tema = modo === 'sistema' ? 'o tema do iPhone' : modo === 'claro' ? 'o claro' : 'o escuro';
+  if (modo === 'auto') return ligada ? 'Ligada: de madrugada o automático passa para ela.' : 'Desligada: de madrugada fica o escuro.';
+  if (ligada) return `Ligada: das 22h às 6h ela vale no lugar d${tema}.`;
+  if (escolha === null) return `Fora do automático ela começa desligada (de madrugada fica ${tema}). Ligue para usar também neste tema.`;
+  return `Desligada: de madrugada fica ${tema}.`;
+}
+
 /** Tema e cor do app: escolha de cada aparelho (fica guardada só neste iPhone) */
 function CartaoAparencia() {
   const { aparencia, estado } = useAparencia();
@@ -416,8 +425,8 @@ function CartaoAparencia() {
         <input type="checkbox" checked={ambar} onChange={(e) => salvarAparencia({ ambar: e.target.checked })} />
         <span>
           Noite âmbar das 22h às 6h
-          <small className="texto-2" style={{ display: 'block' }}>
-            Tela bem escura, em tons quentes, que não ofusca na madrugada. Vale em qualquer tema.
+          <small className="texto-2" style={{ display: 'block' }} aria-live="polite">
+            Tela bem escura, em tons quentes, que não ofusca na madrugada. {textoAmbar(aparencia.modo, aparencia.ambar, ambar)}
           </small>
         </span>
       </label>

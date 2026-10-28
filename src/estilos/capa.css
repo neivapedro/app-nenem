@@ -53,14 +53,14 @@
 .capa-grande::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
   left: calc(-1 * max(16px, env(safe-area-inset-left))); right: calc(-1 * (max(16px, env(safe-area-inset-right)) + 52px));
-  top: -30px; bottom: -12px;
+  top: -36px; bottom: -12px;
   background: linear-gradient(to top,
     color-mix(in srgb, var(--fundo) var(--capa-veu), transparent) 0,
-    color-mix(in srgb, var(--fundo) var(--capa-veu), transparent) calc(100% - 30px),
+    color-mix(in srgb, var(--fundo) var(--capa-veu), transparent) calc(100% - 36px),
     transparent 100%);
 }
-.topo.capa { --capa-veu: 74%; }
-:root[data-tema="noite"] .topo.capa { --capa-veu: 82%; }
+.topo.capa { --capa-veu: 64%; }
+:root[data-tema="noite"] .topo.capa { --capa-veu: 76%; }
 .capa-nome {
   font-size: 2rem; line-height: 1.08; font-weight: 750; letter-spacing: -0.03em; color: var(--texto);
   /* No máximo 2 linhas (o resto com reticências). Sem sombra: o véu dá o contraste, e a sombra
@@ -103,29 +103,34 @@
 }
 
 /* ---------- Encolher com a rolagem ---------- */
-/* Nome grande e compacto nunca aparecem juntos: o grande some até 34% do percurso, o compacto
-   só começa a surgir aos 50% (sem "texto fantasma" no meio da rolagem) */
+/* Nome grande e compacto nunca aparecem juntos: o grande some até 30% do percurso, o compacto
+   só começa a surgir aos 50% (sem "texto fantasma" no meio da rolagem). O véu atrás do nome
+   some junto com a foto (e não com o nome): o texto que está sumindo não fica sobre a foto clara. */
 @keyframes capa-foto-sai { 72%, to { opacity: 0; } }
 @keyframes capa-img-desce { to { transform: translateY(calc(var(--capa-extra) * 0.4)) scale(1.05); } }
-@keyframes capa-grande-sai { 34% { opacity: 0; transform: translateY(-4px) scale(0.95); } to { opacity: 0; transform: translateY(-10px) scale(0.86); } }
+@keyframes capa-grande-sai { 34% { transform: translateY(-4px) scale(0.95); } to { transform: translateY(-10px) scale(0.86); } }
+@keyframes capa-texto-sai { 30%, to { opacity: 0; } }
 @keyframes capa-compacta-entra { 0%, 50% { opacity: 0; transform: translateY(8px) scale(0.96); } 90%, to { opacity: 1; transform: none; } }
 
 /* Navegadores com rolagem animada por CSS (Chrome, Safari 26) */
 @supports (animation-timeline: scroll()) {
-  .capa:not(.capa-js) .capa-foto { animation: capa-foto-sai linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
-  .capa:not(.capa-js) .capa-img { animation: capa-img-desce linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
-  .capa:not(.capa-js) .capa-grande { animation: capa-grande-sai linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
-  .capa:not(.capa-js) .capa-compacta { animation: capa-compacta-entra linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
+  .capa:not(.capa-js) :is(.capa-foto, .capa-img, .capa-grande, .capa-nome, .capa-idade, .capa-compacta),
+  .capa:not(.capa-js) .capa-grande::before {
+    animation-timing-function: linear; animation-fill-mode: both;
+    animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra);
+  }
 }
 /* Sem o recurso: a mesma animação parada, posicionada pelo andamento da rolagem (--capa-p) */
-.capa-js .capa-foto, .capa-js .capa-img, .capa-js .capa-grande, .capa-js .capa-compacta {
+.capa-js :is(.capa-foto, .capa-img, .capa-grande, .capa-nome, .capa-idade, .capa-compacta), .capa-js .capa-grande::before {
   animation-duration: 1s; animation-timing-function: linear; animation-fill-mode: both;
   animation-play-state: paused; animation-delay: calc(var(--capa-p, 0) * -1s);
 }
-.capa-js .capa-foto { animation-name: capa-foto-sai; }
-.capa-js .capa-img { animation-name: capa-img-desce; }
-.capa-js .capa-grande { animation-name: capa-grande-sai; }
-.capa-js .capa-compacta { animation-name: capa-compacta-entra; }
+.capa .capa-foto { animation-name: capa-foto-sai; }
+.capa .capa-img { animation-name: capa-img-desce; }
+.capa .capa-grande { animation-name: capa-grande-sai; }
+.capa .capa-grande::before { animation-name: capa-foto-sai; }
+.capa :is(.capa-nome, .capa-idade) { animation-name: capa-texto-sai; }
+.capa .capa-compacta { animation-name: capa-compacta-entra; }
 
 /* "Reduzir movimento": nada desliza nem cresce, só troca a transparência */
 @media (prefers-reduced-motion: reduce) {

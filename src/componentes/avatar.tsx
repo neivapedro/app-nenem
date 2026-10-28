@@ -146,20 +146,26 @@ export function useFotoBebe(variante: VarianteFoto = 'mini'): [string | null, ()
 }
 
 /**
+ * Cópia guardada no aparelho (data URL): decodifica antes do primeiro desenho, para a tela já abrir
+ * com a foto (é pequena e já está na memória: não trava). Endereço do servidor: em segundo plano.
+ */
+const decodificar = (src: string) => (src.startsWith('data:') ? 'sync' : 'async');
+
+/**
  * Foto redonda do bebê; sem foto (ou sem conseguir carregar), a ilustração do app.
  * `classe` dá o tamanho (ex.: "marca-mini" no topo, "avatar-grande" em Ajustes).
  */
 export function AvatarBebe({ classe }: { classe: string }) {
   const [src, falhou] = useFotoBebe('mini');
   if (!src) return <Marca classe={`avatar ${classe}`} />;
-  return <img className={`avatar avatar-foto ${classe}`} src={src} alt="" decoding="async" onError={falhou} />;
+  return <img className={`avatar avatar-foto ${classe}`} src={src} alt="" decoding={decodificar(src)} onError={falhou} />;
 }
 
 /** Foto grande da capa do Hoje (sem foto, a ilustração do app) */
 export function FotoCapa({ classe }: { classe: string }) {
   const [src, falhou] = useFotoBebe('capa');
   if (!src) return <Marca classe={`${classe} capa-ilustracao`} />;
-  return <img className={classe} src={src} alt="" decoding="async" onError={falhou} />;
+  return <img className={classe} src={src} alt="" decoding={decodificar(src)} onError={falhou} />;
 }
 
 /** Escolher, trocar ou tirar a foto do bebê (grava na hora; precisa de internet para enviar) */

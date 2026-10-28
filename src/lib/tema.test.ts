@@ -112,11 +112,14 @@ describe('script do index.html (antes do primeiro desenho)', () => {
     expect(rodar(null, 9, true).attrs).toMatchObject({ 'data-tema': 'claro', 'data-tom': 'frio', 'data-cor': 'padrao' });
     expect(rodar('{quebrado', 23, false).attrs['data-tema']).toBe('noite');
   });
-  it('tem a tela de abertura de cada iPhone, clara e escura, e os arquivos existem', () => {
+  it('tem a tela de abertura de cada iPhone (sempre a escura) e os arquivos existem', () => {
     const links = [...html.matchAll(/<link rel="apple-touch-startup-image" media="([^"]+)" href="\/([^"]+)"/g)];
-    expect(links.length).toBeGreaterThanOrEqual(24);
+    expect(links.length).toBeGreaterThanOrEqual(12);
     for (const [, media, arq] of links) {
-      expect(media).toMatch(/device-width: \d+px\) and \(device-height: \d+px\) and \(-webkit-device-pixel-ratio: [23]\) and \(orientation: portrait\) and \(prefers-color-scheme: (light|dark)\)/);
+      expect(media).toMatch(/device-width: \d+px\) and \(device-height: \d+px\) and \(-webkit-device-pixel-ratio: [23]\) and \(orientation: portrait\)$/);
+      // O tema padrão é pela hora: a abertura não pode seguir o modo do iPhone (clarão de madrugada)
+      expect(media).not.toMatch(/prefers-color-scheme/);
+      expect(arq).toMatch(/-escuro\.png$/);
       expect(ABERTURAS, arq).toContain(arq);
     }
     expect(new Set(links.map((l) => l[1])).size).toBe(links.length);
