@@ -9,8 +9,8 @@ import { abaVizinha, decidirTroca, deslocamentoLado, intencao, LIMIAR_PUXAR, naB
  * num gráfico, numa fileira que rola para os lados ou em algo marcado com data-sem-gesto.
  */
 
-// Onde o dedo é de outro (gráficos com toque/arrasto, campos, deslizadores)
-const ALVOS_PROPRIOS = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [data-sem-gesto], svg[role="img"], canvas, [role="slider"], .grafico-area';
+// Onde o dedo é de outro (gráficos com toque/arrasto, campos, deslizadores); os anéis do Hoje são só desenho
+const ALVOS_PROPRIOS = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [data-sem-gesto], svg[role="img"]:not(.hp-anel svg), canvas, [role="slider"], .grafico-area';
 // Folhas, telas cheias e diálogos abertos
 const ABERTOS = '[aria-modal="true"], .folha-fundo, .crescer, .visualizador, .editor-foto';
 
@@ -108,6 +108,8 @@ export function GestosNavegacao({ abas, atual, irPara, atualizar }: Props) {
     };
 
     const inicio = (e: TouchEvent) => {
+      // Um 2º dedo no meio do gesto: cancela o que estava em andamento (volta a tela e o indicador ao lugar)
+      if (toque) fimDoToque({ type: 'touchcancel', timeStamp: e.timeStamp } as TouchEvent);
       toque = null;
       if (e.touches.length !== 1 || algoAberto()) return;
       const t = e.touches[0];
