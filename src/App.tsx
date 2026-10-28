@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { AvatarBebe, FotoCapa } from './componentes/avatar';
+import { Ilustracao } from './componentes/ilustracoes';
 import { GestosNavegacao } from './componentes/navegacao-gestos';
 import { Protecao } from './componentes/Protecao';
 import { Icone } from './componentes/ui';
@@ -320,19 +321,33 @@ function Estrutura() {
 /** Enquanto carrega: o formato da tela (topo, cartões e abas) com um brilho suave, no lugar de "Carregando…" */
 function Esqueleto() {
   const linha = (largura: string, classe = '') => <span className={`esq esq-linha ${classe}`} style={{ width: largura }} />;
+  // Fora do roteador: a rota vem do endereço (o Hoje tem a capa alta)
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const naCapa = semBarra(location.pathname.slice(base.length) || '/') === '/';
   return (
     <div className="esqueleto" role="status" aria-busy="true">
       <span className="oculto-visual">Carregando…</span>
       <div className="app" aria-hidden="true">
-        <div className="topo">
-          <div className="topo-marca">
-            <span className="esq esq-avatar" />
-            <div className="pilha-p" style={{ gap: 8 }}>
-              {linha('120px', 'esq-titulo')}
-              {linha('84px')}
+        {naCapa ? (
+          // No Hoje, a mesma altura da capa (foto grande): o conteúdo não pula quando os dados chegam
+          <div className="topo capa esq-capa">
+            <span className="esq esq-capa-foto" />
+            <div className="capa-grande">
+              {linha('150px', 'esq-capa-nome')}
+              {linha('76px', 'esq-capa-idade')}
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="topo">
+            <div className="topo-marca">
+              <span className="esq esq-avatar" />
+              <div className="pilha-p" style={{ gap: 8 }}>
+                {linha('120px', 'esq-titulo')}
+                {linha('84px')}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="pilha">
           <div className="cartao destaque pilha-p">
             {linha('40%')}
@@ -381,6 +396,7 @@ function SemConexao() {
   return (
     <div className="centro">
       <div className="entrada pilha" style={{ textAlign: 'center' }}>
+        <Ilustracao nome="sem-internet" classe="sem-conexao-ilustracao" />
         <h1>Sem conexão com o servidor</h1>
         <p className="mudo">Confira a internet. Se estiver com sinal, o servidor pode estar pausado ou fora do ar.</p>
         <button className="botao primario" disabled={carregando} onClick={() => void recarregar()}>

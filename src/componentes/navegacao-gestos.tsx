@@ -128,7 +128,7 @@ export function GestosNavegacao({ abas, atual, irPara, atualizar }: Props) {
       if (toque.estado === 'indefinido') {
         // No topo, puxando para baixo: segura o "elástico" do iOS desde o 1º movimento
         // (depois que a rolagem nativa começa, não dá mais para segurá-la)
-        if (toque.podePuxar && toque.dy > 0 && toque.dy >= Math.abs(toque.dx) && e.cancelable) e.preventDefault();
+        if (toque.podePuxar && toque.dy >= 3 && toque.dy > Math.abs(toque.dx) * 1.2 && e.cancelable) e.preventDefault();
         const i = intencao(toque.dx, toque.dy);
         if (!i) return;
         if (i === 'lado' && toque.podeLado) toque.estado = 'lado';
@@ -177,10 +177,11 @@ export function GestosNavegacao({ abas, atual, irPara, atualizar }: Props) {
             setPuxado(0);
             setAtualizando(false);
           });
-        } else {
+        } else if (valor > 0) {
+          // Sem deslocamento não há transição (nem transitionend para tirar o "soltando")
           setSoltando(true);
           setPuxado(0);
-        }
+        } else setPuxado(0);
       }
     };
 

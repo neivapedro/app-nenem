@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { EstadoVazio } from '../componentes/ilustracoes';
 import { Campo, Escolhas, Folha, Icone, Selo } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
 import {
@@ -287,7 +288,7 @@ export function Agenda() {
             )}
           </div>
         ) : (
-          <p className="mudo">Nada marcado. Consultas, exames e vacinas que vocês marcarem aqui aparecem no Calendário do iPhone dos dois.</p>
+          <EstadoVazio compacto solto ilustracao="agenda" titulo="Nada marcado" texto="Consultas, exames e vacinas que vocês marcarem aqui aparecem no Calendário do iPhone dos dois." />
         )}
         {automaticos.length > 0 && (
           <label className="marcar" style={{ marginTop: 8 }}>

@@ -70,6 +70,16 @@
 .sv-proxima .sv-no, .sv-no.sv-proxima { background: color-mix(in srgb, var(--aviso) 12%, var(--superficie)); border-color: var(--aviso); color: var(--texto); }
 .sv-passou .sv-no, .sv-no.sv-passou { background: var(--superficie-2); border: 2px dashed color-mix(in srgb, var(--aviso) 75%, var(--texto-3)); color: var(--texto-2); }
 .sv-futura .sv-no, .sv-no.sv-futura { border-color: color-mix(in srgb, var(--texto-3) 45%, var(--borda)); color: var(--texto-2); }
+/* Noite âmbar: nada de bolinha acesa com ícone claro; fundo apagado e o ícone na cor */
+:root[data-tema="noite"] .sv-no:is(.sv-completa, .sv-atrasada, .sv-agora),
+:root[data-tema="noite"] :is(.sv-completa, .sv-atrasada, .sv-agora) > .sv-no {
+  background: color-mix(in oklab, var(--sv-cor) 20%, var(--superficie));
+  border-color: color-mix(in oklab, var(--sv-cor) 60%, var(--superficie));
+  color: var(--sv-cor);
+}
+:root[data-tema="noite"] :is(.sv-completa, .sv-no.sv-completa) { --sv-cor: var(--bom); }
+:root[data-tema="noite"] :is(.sv-atrasada, .sv-no.sv-atrasada) { --sv-cor: var(--ruim); }
+:root[data-tema="noite"] :is(.sv-agora, .sv-no.sv-agora) { --sv-cor: var(--aviso); }
 .sv-etapa.sv-futura .sv-etapa-rot { color: var(--texto-2); font-weight: 600; }
 .sv-etapa:active .sv-no { transform: scale(0.92); }
 

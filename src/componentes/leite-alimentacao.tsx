@@ -8,6 +8,7 @@ import { alimentosProvados, emEstoque, situacaoPote, validadeLeite } from '../li
 import type { PoteLeite, Registro, RegistroDe } from '../lib/tipos';
 import { FolhaEditar } from './registrar';
 import { FolhaRegistroMais } from './registrar-mais';
+import { EstadoVazio } from './ilustracoes';
 import { Campo, Escolhas, Folha, Icone, Selo } from './ui';
 
 // ---------- Leite materno: extrações e estoque ----------
@@ -147,7 +148,7 @@ export function SecaoLeite() {
             })}
           </div>
         ) : (
-          <p className="mudo">Sem leite guardado. Ao registrar uma extração, escolha "Geladeira" ou "Freezer" para entrar no estoque.</p>
+          <EstadoVazio compacto solto ilustracao="leite" titulo="Sem leite guardado" texto="Ao registrar uma extração, escolha “Geladeira” ou “Freezer” para entrar no estoque." />
         )}
         <p className="mudo">Use primeiro o que vence antes (a lista já está nessa ordem).</p>
       </section>

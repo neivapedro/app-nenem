@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { DiaHistorico } from '../componentes/historico-linha';
+import { EstadoVazio } from '../componentes/ilustracoes';
 import { FolhaEditar } from '../componentes/registrar';
 import { Icone } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
@@ -218,13 +219,11 @@ function ListaDias({
       {erro && <div className="alerta erro">Não deu para buscar os dias mais antigos: {erro}</div>}
 
       {!carregando && semNada && (
-        <div className="cartao">
-          <p className="mudo" style={{ margin: 0 }}>
-            {filtro === 'todos'
-              ? 'Nenhum registro nestes dias. O que vocês registrarem na tela Hoje aparece aqui.'
-              : `${f.nenhum} de ${textoSemana(janela.de, janela.ate)}.`}
-          </p>
-        </div>
+        <EstadoVazio
+          ilustracao={filtro === 'alimentacao' ? 'mamadeira' : filtro === 'sono' ? 'sono' : filtro === 'saude' ? 'remedios' : 'historico'}
+          titulo={filtro === 'todos' ? 'Nenhum registro nestes dias' : `${f.nenhum} nestes dias`}
+          texto={filtro === 'todos' ? 'O que vocês registrarem na tela Hoje aparece aqui.' : 'Os outros registros continuam em “Tudo”.'}
+        />
       )}
 
       {!semNada && linhas.map((l, k) => (

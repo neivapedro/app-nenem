@@ -51,14 +51,8 @@
   display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--raio);
   border: 1.5px dashed var(--borda); background: var(--superficie); overflow-wrap: anywhere;
 }
-.carteira-vazia svg { width: 92px; height: auto; flex: none; }
+.carteira-vazia .ilustracao { width: 96px; }
 .carteira-vazia strong { display: block; font-weight: 650; margin-bottom: 2px; }
-.cv-c1 { fill: var(--c-fralda); }
-.cv-c2 { fill: var(--c-agenda); opacity: 0.8; }
-.cv-c3 { fill: var(--c-sono); opacity: 0.6; }
-.cv-linha { fill: #fff; opacity: 0.85; }
-.cv-mais { fill: var(--superficie); }
-.cv-mais-x { fill: none; stroke: var(--c-fralda); stroke-width: 2.4; stroke-linecap: round; }
 
 @media (max-width: 359px) {
   .carteira-pilha { --faixa: 44px; }
@@ -66,7 +60,7 @@
   .cc-topo { padding: 0 14px; }
   .cc-topo strong { font-size: 0.92rem; }
   .carteira-vazia { gap: 12px; padding: 12px; }
-  .carteira-vazia svg { width: 72px; }
+  .carteira-vazia .ilustracao { width: 76px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

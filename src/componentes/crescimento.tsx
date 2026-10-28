@@ -4,6 +4,7 @@ import { diasPrematuridade, escoreZ, faixaDetalhada, ganhoPorDia, idadeParaOms, 
 import { chaveDia, dataBr, diasEntre, hojeLocal } from '../lib/datas';
 import type { Medida } from '../lib/tipos';
 import { GraficoCrescimento, type PontoCrescimento } from './grafico-crescimento';
+import { EstadoVazio } from './ilustracoes';
 import { Campo, Folha, Icone } from './ui';
 import '../estilos/saude.css';
 
@@ -245,7 +246,7 @@ export function SecaoCrescimento() {
       <button className="botao primario" onClick={() => setAberta('nova')}>
         <Icone nome="mais" /> Nova medida
       </button>
-      {!nasc && <div className="cartao mudo">As curvas aparecem depois que vocês registrarem o nascimento.</div>}
+      {!nasc && <EstadoVazio ilustracao="crescimento" titulo="As curvas começam no nascimento" texto="Elas aparecem depois que vocês registrarem o nascimento, com o peso e a altura de quando ele nasceu." />}
       {nasc && !sexo && <div className="alerta">As curvas da OMS são diferentes para meninos e meninas. Informe o sexo em Ajustes → bebê → Editar.</div>}
       {nasc && sexo && (
         <section className="cartao pilha sc-cartao" aria-label="Curva de crescimento">
@@ -283,7 +284,7 @@ export function SecaoCrescimento() {
               </div>
             </>
           ) : (
-            <p className="mudo">Sem medidas de {NOMES_INDICADOR[ind].toLowerCase()} ainda.</p>
+            <EstadoVazio compacto solto ilustracao="crescimento" titulo={`Sem medidas de ${NOMES_INDICADOR[ind].toLowerCase()} ainda`} texto="Toque em “Nova medida” depois da consulta ou da pesagem." />
           )}
           {prematuridade > 0 && (
             <p className="mudo">

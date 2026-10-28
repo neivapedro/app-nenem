@@ -175,6 +175,11 @@ function aplicar(suave: boolean) {
   }
 }
 
+/** Reaplica o tema já (ex.: ao sair da tela do modo noite, que pinta a barra de preto) */
+export function aplicarTemaAgora() {
+  if (typeof document !== 'undefined') aplicar(false);
+}
+
 export function salvarAparencia(p: Partial<Aparencia>) {
   atual = normalizarAparencia({ ...atual, ...p });
   try {

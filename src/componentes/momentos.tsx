@@ -291,7 +291,7 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
           </figure>
         ) : (
           !resumo.foto && (
-            <button type="button" className="mom-sem-foto" onClick={() => ir('/mais/desenvolvimento')}>
+            <button type="button" className="mom-sem-foto" onClick={() => ir('/mais/desenvolvimento?aba=fotos')}>
               <span aria-hidden="true">📸</span>
               <span className="cresce">
                 <strong>Hoje é dia da foto do mês</strong>
@@ -453,7 +453,7 @@ function FolhaLembranca({ l, aoFechar }: { l: Lembranca; aoFechar: () => void })
             <Icone nome="compartilhar" /> Compartilhar cartão
           </button>
         )}
-        <Link to={l.tipo === 'registro' ? '/historico' : '/mais/desenvolvimento'} className="botao" onClick={aoFechar}>
+        <Link to={l.tipo === 'registro' ? '/historico' : `/mais/desenvolvimento${l.tipo === 'mes' ? '?aba=fotos' : l.tipo === 'primeira-vez' ? '?aba=primeiras' : ''}`} className="botao" onClick={aoFechar}>
           {l.tipo === 'registro' ? 'Ver no Histórico' : 'Ver em Desenvolvimento'}
         </Link>
       </div>

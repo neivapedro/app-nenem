@@ -39,7 +39,13 @@ export function gravarFila(usuario: string, fila: ItemFila[]) {
     if (fila.length) localStorage.setItem(PREFIXO_FILA + usuario, JSON.stringify(fila));
     else localStorage.removeItem(PREFIXO_FILA + usuario);
   } catch {
-    /* armazenamento indisponível: a fila segue só na memória */
+    // Sem espaço: a fila vale mais que a foto guardada da capa (ela é baixada de novo depois)
+    try {
+      localStorage.removeItem('heitor:foto-bebe');
+      if (fila.length) localStorage.setItem(PREFIXO_FILA + usuario, JSON.stringify(fila));
+    } catch {
+      /* armazenamento indisponível: a fila segue só na memória */
+    }
   }
 }
 

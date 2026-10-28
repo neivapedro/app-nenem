@@ -7,6 +7,7 @@ import { doseRecente, prazoAcabou, proximaDose, remedioEmUso, ultimaDose, ultimo
 import type { RegistroDe, Remedio } from '../lib/tipos';
 import { FolhaRegistroMais } from './registrar-mais';
 import { FolhaEditar } from './registrar';
+import { EstadoVazio } from './ilustracoes';
 import { Campo, Escolhas, Folha, Icone, Selo } from './ui';
 import '../estilos/saude.css';
 
@@ -246,7 +247,14 @@ export function SecaoRemedios() {
       {ativos.map((r) => (
         <CartaoRemedio key={r.id} r={r} />
       ))}
-      {!ativos.length && <div className="cartao mudo">Nenhum remédio em uso. Cadastre os receitados (ex.: vitamina) para lembrar a hora e ver quem deu a última dose.</div>}
+      {!ativos.length && (
+        <EstadoVazio
+          ilustracao="remedios"
+          compacto={doses.length > 0}
+          titulo="Nenhum remédio em uso"
+          texto="Cadastre os receitados (ex.: vitamina) para lembrar a hora e ver quem deu a última dose."
+        />
+      )}
       {doses.length > 0 && (
         <section className="cartao" aria-label="Doses dadas">
           <h2>Doses dadas</h2>
@@ -347,7 +355,7 @@ export function SecaoTemperatura() {
           </div>
         </section>
       ) : (
-        <div className="cartao mudo">Nenhuma medição ainda. Meça na axila com termômetro digital.</div>
+        <EstadoVazio ilustracao="termometro" titulo="Nenhuma medição ainda" texto="Meça na axila com termômetro digital." />
       )}
       <p className="fonte">
         Febre a partir de 37,5 °C na axila, pela SBP.{' '}

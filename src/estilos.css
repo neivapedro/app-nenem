@@ -576,7 +576,6 @@ button.doc-arquivo { cursor: pointer; font: inherit; }
 
 /* Cofrinho */
 .cofrinho-heroi { background: linear-gradient(160deg, color-mix(in srgb, var(--c-rendimento) 12%, var(--superficie)), var(--superficie) 70%); }
-.cofrinho-emoji { font-size: 3.2rem; line-height: 1; }
 .cofrinho-saldo { font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; overflow-wrap: anywhere; }
 .cofrinho-projecao { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 .cofrinho-sub { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--texto-2); font-size: 0.88rem; }
@@ -724,6 +723,15 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .esq-numero { height: 34px; border-radius: 10px; }
 .esq-avatar { width: 42px; height: 42px; border-radius: 50%; }
 .esq-selo { width: 42px; height: 42px; border-radius: 12px; }
+/* Hoje: a capa alta (src/estilos/capa.css) com a mesma altura, a "foto" sumindo para o fundo */
+.esq-capa .esq-capa-foto {
+  position: absolute; inset: 0; border-radius: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 100%);
+}
+.esq-capa .capa-grande { gap: 10px; }
+.esq-capa-nome { height: 30px; border-radius: 10px; }
+.esq-capa-idade { height: 26px; border-radius: 999px; background: var(--superficie); }
 .esq-aba { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: var(--nav-altura); }
 .esq-icone { width: 22px; height: 22px; border-radius: 7px; }
 .esq-rotulo { width: 30px; height: 7px; border-radius: 4px; }

@@ -136,6 +136,56 @@ const caminhos: Record<string, ReactNode> = {
   qr: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4z" />,
   subir: <path d="m18 15-6-6-6 6" />,
   vacina: <path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6" />,
+  editar: <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />,
+};
+
+/**
+ * Duas cores (duotone): a camada de preenchimento suave de cada ícone, desenhada atrás do traço.
+ * Fica escondida por padrão e aparece nos selos, nos cartões do Mais e na aba ativa
+ * (src/estilos/icones.css). Formas fechadas, no mesmo desenho do traço.
+ */
+const preenchimentos: Record<string, ReactNode> = {
+  hoje: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
+  historico: <circle cx="12" cy="12" r="9" />,
+  agenda: <path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4H3z" />,
+  ajustes: <circle cx="12" cy="12" r="7" />,
+  mamada: <path d="M12 2.7s-6.5 6.6-6.5 11.6a6.5 6.5 0 0 0 13 0c0-5-6.5-11.6-6.5-11.6z" />,
+  mamadeira: <path d="M8 12h8v8a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z" />,
+  fralda: <path d="M3 6h18v3.5c0 5.2-4 9.5-9 9.5s-9-4.3-9-9.5z" />,
+  sono: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  lua: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  sino: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9z" />,
+  bebe: <circle cx="12" cy="12" r="9" />,
+  pessoas: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0z" />
+    </>
+  ),
+  remedio: <path d="M8.5 8.5 13.5 3.5a4.95 4.95 0 0 1 7 7l-5 5z" />,
+  temperatura: <path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z" />,
+  extracao: (
+    <>
+      <path d="M8 3h8l-1 5H9z" />
+      <path d="M9 13h6v6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z" />
+    </>
+  ),
+  refeicao: <path d="M4 11h16a8 8 0 0 1-16 0z" />,
+  saude: <path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z" />,
+  grafico: <path d="M6.5 12h3v5h-3zM11.5 8h3v9h-3zM16.5 9h3v8h-3z" />,
+  estrela: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" />,
+  lista: <rect x="2" y="3.5" width="20" height="17" rx="3" />,
+  camera: <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />,
+  regua: <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z" />,
+  documento: <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />,
+  imagem: <rect x="3" y="3" width="18" height="18" rx="2" />,
+  pasta: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+  carteira: <path d="M21 9h-5a3 3 0 0 0 0 6h5z" />,
+  nuvem: <path d="M17.5 19H8a6 6 0 1 1 5.7-7.9A4.5 4.5 0 1 1 17.5 19z" />,
+  cofrinho: <path d="M4.5 12.5c0-3.6 3.4-6.5 7.5-6.5 1.4 0 2.7.3 3.8.9L19 5.5v3.6c.7.6 1.2 1.4 1.5 2.3H22v3.2h-1.7a6.6 6.6 0 0 1-2.3 2.6V20h-3v-1.9a9 9 0 0 1-4 0V20H8v-2.4a6.2 6.2 0 0 1-3.5-5.1z" />,
+  vacina: <path d="M15 5 19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4z" />,
+  editar: <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />,
+  alerta: <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />,
 };
 
 /**
@@ -156,9 +206,19 @@ export function useUmToque(intervalo = 700) {
   );
 }
 
-export function Icone({ nome }: { nome: string }) {
+/**
+ * Ícone de traço. A camada de duas cores (preenchimento suave atrás do traço) aparece sozinha
+ * nos selos, nos cartões do Mais e na aba ativa; `duo` a liga em qualquer lugar, `duo={false}` a tira.
+ */
+export function Icone({ nome, duo }: { nome: string; duo?: boolean }) {
+  const fundo = duo === false ? null : preenchimentos[nome];
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={duo ? 'duo' : undefined}>
+      {fundo && (
+        <g className="ic-duo" fill="currentColor" stroke="none">
+          {fundo}
+        </g>
+      )}
       {caminhos[nome]}
     </svg>
   );

@@ -4,6 +4,7 @@ import { useAgora, useDados } from '../dados/contexto';
 import { agoraIso, haQuanto, horaCurta, relogio, textoDuracao } from '../lib/datas';
 import { FolhaQueHorasTerminou } from '../componentes/registrar';
 import { useUmToque } from '../componentes/ui';
+import { aplicarTemaAgora } from '../lib/tema';
 import {
   duracaoPorLado,
   emAndamento,
@@ -95,6 +96,8 @@ export function Noite() {
     return () => {
       if (antes) meta.setAttribute('content', antes);
       else meta.remove();
+      // O tema pode ter virado enquanto a tela estava aberta (ex.: 22h): reaplica já, depois que esta tela sai
+      setTimeout(aplicarTemaAgora, 0);
     };
   }, []);
 
