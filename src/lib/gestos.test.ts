@@ -17,12 +17,12 @@ describe('intencao', () => {
 });
 
 describe('naBorda', () => {
-  it('reserva as bordas para os gestos do sistema', () => {
-    expect(naBorda(10, 390)).toBe(true);
-    expect(naBorda(23, 390)).toBe(true);
-    expect(naBorda(24, 390)).toBe(false);
-    expect(naBorda(200, 390)).toBe(false);
-    expect(naBorda(380, 390)).toBe(true);
+  it('reserva a borda esquerda para o voltar do iPhone', () => {
+    expect(naBorda(10)).toBe(true);
+    expect(naBorda(23)).toBe(true);
+    expect(naBorda(24)).toBe(false);
+    expect(naBorda(200)).toBe(false);
+    expect(naBorda(380)).toBe(false);
   });
 });
 

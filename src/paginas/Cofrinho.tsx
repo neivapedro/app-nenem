@@ -47,6 +47,7 @@ import { nomeArquivo } from '../lib/documentos';
 import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
 import type { ArquivoDocumento, ContaCofrinho, Documento, MetaCofrinho, MovimentoCofrinho, PlanoCofrinho } from '../lib/tipos';
+import { NumeroAnimado } from '../componentes/numero-animado';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const nomeMes = (mes: string, ano = true) => `${MESES[Number(mes.slice(5, 7)) - 1]}${ano ? `/${mes.slice(0, 4)}` : ''}`;
@@ -1366,7 +1367,8 @@ export function Cofrinho() {
             <Icone nome={oculto ? 'olho_fechado' : 'olho'} />
           </button>
         </div>
-        <div className="cofrinho-saldo">{$(r.saldo)}</div>
+        {/* Conta até o saldo na 1ª vez que aparece; escondido, nada de número (nem no meio da conta) */}
+        <div className="cofrinho-saldo">{oculto ? $(r.saldo) : <NumeroAnimado valor={r.saldo} formatar={(c) => reais(Math.round(c))} chave="cofrinho:saldo" duracao={900} />}</div>
         <div className="cofrinho-sub">
           <span>
             Colocado <strong>{$(r.aportado)}</strong>

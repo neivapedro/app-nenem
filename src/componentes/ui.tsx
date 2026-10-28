@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
+import { decidirEixo, deveFecharFolha, FOLGA_GESTO, opacidadeFundo, posicaoFolha, velocidade } from '../lib/toque';
 import type { TipoRegistro } from '../lib/tipos';
 
 const caminhos: Record<string, ReactNode> = {
@@ -172,7 +173,195 @@ export function Selo({ tipo, icone }: { tipo: TipoRegistro | 'agenda' | 'saude';
   );
 }
 
+/** Onde o toque não vira arrasto da folha: campos, seletores, sliders e o que se marcar com data-sem-gesto */
+const SEM_GESTO = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="slider"], [data-sem-gesto]';
+
+/** O toque começou em algo com gesto próprio (campo, área que não rola na vertical, rolagem interna fora do topo) */
+function temGestoProprio(alvo: Element, folha: HTMLElement): boolean {
+  for (let el: Element | null = alvo; el && el !== folha; el = el.parentElement) {
+    if (el.matches(SEM_GESTO)) return true;
+    const cs = getComputedStyle(el);
+    const ta = cs.touchAction;
+    if (ta === 'none' || ta === 'pinch-zoom' || (ta.includes('pan-x') && !ta.includes('pan-y'))) return true;
+    if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight && el.scrollTop > 0) return true;
+  }
+  return false;
+}
+
+const reduzMovimento = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Arrastar a folha para baixo para fechar (como no iPhone): pela alça/cabeçalho
+ * sempre; pelo conteúdo só quando ele está rolado no topo. Soltar além do
+ * limiar (ou rápido) fecha com animação e chama `aoFechar`; senão a folha volta.
+ */
+function useArrastarParaFechar(fundoRef: RefObject<HTMLDivElement | null>, folhaRef: RefObject<HTMLDivElement | null>, aoFechar: () => void) {
+  const fechar = useRef(aoFechar);
+  useEffect(() => {
+    fechar.current = aoFechar;
+  }, [aoFechar]);
+
+  useEffect(() => {
+    const fundo = fundoRef.current;
+    const folha = folhaRef.current;
+    if (!fundo || !folha) return;
+    type Gesto = { x0: number; y0: number; topo: boolean; estado: 'espera' | 'arrastando' | 'ignorar'; dy0: number; pos: number; amostras: { v: number; t: number }[] };
+    let g: Gesto | null = null;
+    let arrastou = false;
+    let fechando = false;
+    let vivo = true;
+    const timers: number[] = [];
+
+    const aplicar = (y: number) => {
+      folha.style.translate = y ? `0 ${y.toFixed(1)}px` : '';
+      fundo.style.setProperty('--tq-fundo', String(opacidadeFundo(y, folha.offsetHeight)));
+    };
+    const limpar = () => {
+      folha.style.transition = '';
+      fundo.style.transition = '';
+      fundo.classList.remove('tq-movendo');
+      fundo.style.removeProperty('--tq-fundo');
+      folha.style.translate = '';
+    };
+    const voltar = () => {
+      if (reduzMovimento()) return limpar();
+      folha.style.transition = 'translate 0.32s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      fundo.style.transition = '--tq-fundo 0.32s';
+      aplicar(0);
+      timers.push(window.setTimeout(limpar, 340));
+    };
+    const fecharAnimado = (vel: number) => {
+      fechando = true;
+      const depois = () => {
+        fechar.current();
+        // Se a tela não fechou a folha (aoFechar não a tirou), ela volta ao lugar
+        timers.push(
+          window.setTimeout(() => {
+            if (!vivo) return;
+            fechando = false;
+            limpar();
+          }, 120),
+        );
+      };
+      if (reduzMovimento()) return depois();
+      const destino = folha.offsetHeight + 40;
+      const falta = Math.max(0, destino - (g?.pos ?? 0));
+      const dur = Math.round(Math.min(300, Math.max(160, falta / Math.max(1.4, vel))));
+      folha.style.transition = `translate ${dur}ms cubic-bezier(0.3, 0.6, 0.4, 1)`;
+      fundo.style.transition = `--tq-fundo ${dur}ms`;
+      folha.style.translate = `0 ${destino}px`;
+      fundo.style.setProperty('--tq-fundo', '0');
+      timers.push(window.setTimeout(depois, dur));
+    };
+
+    const comecar = (x: number, y: number, alvo: EventTarget | null, t: number) => {
+      g = null;
+      if (fechando || !(alvo instanceof Element) || alvo.closest('.folha') !== folha) return;
+      const topo = !!alvo.closest('.tq-folha-topo');
+      if (!topo && (folha.scrollTop > 0 || temGestoProprio(alvo, folha))) return;
+      // A 1ª amostra é o ponto de partida: gesto rápido conta a velocidade desde o começo
+      g = { x0: x, y0: y, topo, estado: 'espera', dy0: 0, pos: 0, amostras: [{ v: 0, t }] };
+    };
+    const mover = (x: number, y: number, t: number, e: Event) => {
+      if (!g || g.estado === 'ignorar') return;
+      const dx = x - g.x0;
+      const dy = y - g.y0;
+      if (g.estado === 'espera') {
+        // Para baixo e mais vertical: já segura a rolagem nativa (no topo não há o que rolar para cima)
+        if (dy > 0 && Math.abs(dy) >= Math.abs(dx) && e.cancelable) e.preventDefault();
+        const eixo = decidirEixo(dx, dy);
+        if (eixo === 'espera') return;
+        if (eixo !== 'vertical' || dy < 0 || (!g.topo && folha.scrollTop > 0)) {
+          g.estado = 'ignorar';
+          return;
+        }
+        g.estado = 'arrastando';
+        // Desconta só a folga de decidir (a folha não pula, e o gesto curto não perde distância)
+        g.dy0 = Math.min(dy, FOLGA_GESTO);
+        folha.style.transition = '';
+        fundo.style.transition = '';
+        fundo.classList.add('tq-movendo');
+      }
+      if (e.cancelable) e.preventDefault();
+      g.pos = posicaoFolha(dy - g.dy0);
+      g.amostras.push({ v: g.pos, t });
+      if (g.amostras.length > 8) g.amostras.shift();
+      aplicar(g.pos);
+    };
+    const soltar = (cancelado: boolean) => {
+      const s = g;
+      if (!s || s.estado !== 'arrastando') {
+        g = null;
+        return;
+      }
+      arrastou = true;
+      timers.push(window.setTimeout(() => (arrastou = false), 400));
+      const vel = velocidade(s.amostras);
+      if (!cancelado && deveFecharFolha(s.pos, vel, folha.offsetHeight)) fecharAnimado(vel);
+      else voltar();
+      g = null;
+    };
+
+    // Toque (iPhone)
+    const tInicio = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return soltar(true);
+      comecar(e.touches[0].clientX, e.touches[0].clientY, e.target, e.timeStamp);
+    };
+    const tMover = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return soltar(true);
+      mover(e.touches[0].clientX, e.touches[0].clientY, e.timeStamp, e);
+    };
+    const tFim = (e: TouchEvent) => soltar(e.type === 'touchcancel');
+    // Mouse (computador): só pela alça/cabeçalho
+    const pMover = (e: PointerEvent) => mover(e.clientX, e.clientY, e.timeStamp, e);
+    const pFim = () => {
+      window.removeEventListener('pointermove', pMover);
+      window.removeEventListener('pointerup', pFim);
+      window.removeEventListener('pointercancel', pFim);
+      soltar(false);
+    };
+    const pInicio = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || !(e.target instanceof Element) || !e.target.closest('.tq-folha-topo')) return;
+      comecar(e.clientX, e.clientY, e.target, e.timeStamp);
+      if (!g) return;
+      window.addEventListener('pointermove', pMover);
+      window.addEventListener('pointerup', pFim);
+      window.addEventListener('pointercancel', pFim);
+    };
+    // Depois de arrastar, o "clique" de soltar o dedo não aperta botão nem fecha pelo fundo
+    const clique = (e: MouseEvent) => {
+      if (!arrastou) return;
+      arrastou = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+
+    folha.addEventListener('touchstart', tInicio, { passive: true });
+    folha.addEventListener('touchmove', tMover, { passive: false });
+    folha.addEventListener('touchend', tFim);
+    folha.addEventListener('touchcancel', tFim);
+    folha.addEventListener('pointerdown', pInicio);
+    fundo.addEventListener('click', clique, true);
+    return () => {
+      vivo = false;
+      timers.forEach(clearTimeout);
+      folha.removeEventListener('touchstart', tInicio);
+      folha.removeEventListener('touchmove', tMover);
+      folha.removeEventListener('touchend', tFim);
+      folha.removeEventListener('touchcancel', tFim);
+      folha.removeEventListener('pointerdown', pInicio);
+      fundo.removeEventListener('click', clique, true);
+      window.removeEventListener('pointermove', pMover);
+      window.removeEventListener('pointerup', pFim);
+      window.removeEventListener('pointercancel', pFim);
+    };
+  }, [fundoRef, folhaRef]);
+}
+
 export function Folha({ titulo, aoFechar, children, classe }: { titulo: string; aoFechar: () => void; children: ReactNode; classe?: string }) {
+  const fundoRef = useRef<HTMLDivElement>(null);
+  const folhaRef = useRef<HTMLDivElement>(null);
+  useArrastarParaFechar(fundoRef, folhaRef, aoFechar);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
     document.addEventListener('keydown', esc);
@@ -184,13 +373,17 @@ export function Folha({ titulo, aoFechar, children, classe }: { titulo: string; 
     };
   }, [aoFechar]);
   return (
-    <div className="folha-fundo" onClick={aoFechar}>
-      <div className={`folha ${classe ?? ''}`} role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.stopPropagation()}>
-        <div className="cartao-cab">
-          <h2>{titulo}</h2>
-          <button className="icone-botao" onClick={aoFechar} aria-label="Fechar">
-            <Icone nome="fechar" />
-          </button>
+    // data-sem-gesto: com a folha aberta, o gesto de trocar de aba não age por baixo dela
+    <div ref={fundoRef} className="folha-fundo" onClick={aoFechar} data-sem-gesto="">
+      <div ref={folhaRef} className={`folha ${classe ?? ''}`} role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.stopPropagation()}>
+        <div className="tq-folha-topo">
+          <span className="tq-alca" aria-hidden="true" />
+          <div className="cartao-cab">
+            <h2>{titulo}</h2>
+            <button className="icone-botao" onClick={aoFechar} aria-label="Fechar">
+              <Icone nome="fechar" />
+            </button>
+          </div>
         </div>
         {children}
       </div>

@@ -1,0 +1,53 @@
+/* Toque natural: arrastar a folha para fechar e deslizar itens do Histórico (prefixo tq-) */
+
+/* ---------- Folha: alça e arrasto ---------- */
+@property --tq-fundo { syntax: '<number>'; inherits: true; initial-value: 1; }
+
+.folha { position: relative; }
+/* Alça + cabeçalho: a área de onde dá para puxar a folha (cobre também o respiro de cima) */
+.tq-folha-topo { margin: -18px -16px 0; padding: 18px 16px 0; -webkit-user-select: none; user-select: none; }
+.tq-alca {
+  position: absolute; top: 6px; left: 50%; width: 38px; height: 5px; margin-left: -19px; border-radius: 3px;
+  background: color-mix(in srgb, var(--texto-3) 55%, transparent); pointer-events: none;
+}
+/* Enquanto o dedo segura a folha: o fundo clareia junto */
+.folha-fundo.tq-movendo { background: rgb(0 0 0 / calc(0.55 * var(--tq-fundo, 1))); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .folha-fundo { animation: tq-fundo-entra 0.24s ease-out backwards; }
+  .folha { animation: tq-folha-sobe 0.34s cubic-bezier(0.2, 0.85, 0.25, 1) backwards; }
+  @media (min-width: 600px) { .folha { animation-name: tq-folha-aparece; } }
+}
+@keyframes tq-fundo-entra { from { background-color: rgb(0 0 0 / 0); } }
+@keyframes tq-folha-sobe { from { transform: translateY(100%); } }
+@keyframes tq-folha-aparece { from { opacity: 0; transform: translateY(16px) scale(0.98); } }
+
+/* ---------- Deslizar item do Histórico ---------- */
+.tq-deslize { position: relative; overflow: hidden; border-radius: 12px; touch-action: pan-y; }
+.tq-frente { position: relative; z-index: 1; border-radius: 12px; }
+/* Fora do lugar, o item fica opaco (desliza por cima da linha do tempo, como uma peça só) */
+.tq-movendo .tq-frente { background: var(--superficie); }
+.tq-solto .tq-frente { transition: translate 0.28s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.tq-acoes {
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 0; display: flex; overflow: hidden;
+  width: var(--tq-x, 0px); border-radius: 0 12px 12px 0;
+}
+.tq-solto .tq-acoes { transition: width 0.28s cubic-bezier(0.2, 0.9, 0.3, 1); }
+.tq-acao {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 0 6px; border: 0; color: #fff; font: inherit; font-size: 0.78rem; font-weight: 650; white-space: nowrap; overflow: hidden; cursor: pointer;
+  transition: flex-grow 0.2s var(--curva, ease);
+}
+.tq-acao svg { width: 20px; height: 20px; flex: none; }
+.tq-editar { background: #636366; }
+.tq-apagar { background: #d92d20; }
+/* Passou do ponto de apagar: o "Apagar" toma conta da faixa */
+.tq-apagando .tq-editar { flex-grow: 0; padding: 0; }
+.tq-apagando .tq-apagar { flex-grow: 1; }
+.tq-acao:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
+/* Saindo da lista depois de apagar */
+.tq-sumindo { transition: height 0.2s ease-in, opacity 0.2s ease-in; opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tq-solto .tq-frente, .tq-solto .tq-acoes, .tq-acao, .tq-sumindo { transition: none; }
+}

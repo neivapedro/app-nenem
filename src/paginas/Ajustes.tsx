@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { AvatarBebe, EscolherFotoBebe } from '../componentes/avatar';
 import { FolhaBebe } from '../componentes/bebe';
 import { CartaoCalendario } from '../componentes/calendario';
@@ -17,6 +17,7 @@ import {
   notificacaoTeste,
   type EstadoNotificacao,
 } from '../lib/notificacoes';
+import { ambarLigado, CORES, descreverTema, MODOS, salvarAparencia, useAparencia, type ModoTema } from '../lib/tema';
 import type { Convite, Membro, PreferenciasMembro } from '../lib/tipos';
 
 function preferencias(m: Membro): PreferenciasMembro {
@@ -337,6 +338,94 @@ function CartaoAvisos() {
   );
 }
 
+function IconePaleta() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3a9 9 0 0 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.8-1.7H17a4 4 0 0 0 4-4c0-4.5-4-8.2-9-8.2z" />
+      <circle cx="7.5" cy="11" r="1" fill="currentColor" />
+      <circle cx="10.5" cy="7" r="1" fill="currentColor" />
+      <circle cx="15" cy="7.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+/** Tema e cor do app: escolha de cada aparelho (fica guardada só neste iPhone) */
+function CartaoAparencia() {
+  const { aparencia, estado } = useAparencia();
+  const ambar = ambarLigado(aparencia);
+  // A amostra mostra a cor como ela fica no tema de agora (na noite âmbar, como no escuro)
+  const lado = estado.tema === 'claro' ? 'claro' : 'escuro';
+  return (
+    <section className="cartao pilha" aria-label="Aparência">
+      <div className="linha">
+        <IconePaleta />
+        <h2>Aparência</h2>
+      </div>
+      <fieldset className="campo">
+        <legend>Tema</legend>
+        <div className="ap-temas" role="radiogroup" aria-label="Tema">
+          {MODOS.map((m) => (
+            <button
+              key={m.valor}
+              type="button"
+              role="radio"
+              aria-checked={aparencia.modo === m.valor}
+              className="ap-tema"
+              onClick={() => salvarAparencia({ modo: m.valor as ModoTema })}
+            >
+              <span className={`ap-previa ap-previa-${m.valor}`} aria-hidden="true" />
+              <span className="ap-tema-texto">
+                <strong>{m.rotulo}</strong>
+                <small>{m.dica}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </fieldset>
+      {aparencia.modo === 'auto' && <p className="texto-2">Manhã clara e levemente fria, tarde clara e levemente quente, escuro a partir das 18h.</p>}
+      <p className="texto-2 ap-agora" role="status">
+        {descreverTema(estado)}
+      </p>
+      <fieldset className="campo">
+        <legend>Cor do app</legend>
+        <div className="ap-cores" role="radiogroup" aria-label="Cor do app">
+          {CORES.map((c) => {
+            const marcada = aparencia.cor === c.valor;
+            const amostra = c[lado];
+            return (
+              <button
+                key={c.valor}
+                type="button"
+                role="radio"
+                aria-checked={marcada}
+                className="ap-cor"
+                onClick={() => salvarAparencia({ cor: c.valor })}
+                style={{ '--amostra': amostra, '--amostra-texto': lado === 'claro' ? '#fff' : '#0e0f13' } as CSSProperties}
+              >
+                <span className="ap-amostra" aria-hidden="true">
+                  {marcada && <Icone nome="check" />}
+                </span>
+                {c.rotulo}
+              </button>
+            );
+          })}
+        </div>
+        <small>Muda os botões, as abas e os destaques. As cores de mamada, fralda e sono continuam as mesmas.</small>
+      </fieldset>
+      <label className="marcar">
+        <input type="checkbox" checked={ambar} onChange={(e) => salvarAparencia({ ambar: e.target.checked })} />
+        <span>
+          Noite âmbar das 22h às 6h
+          <small className="texto-2" style={{ display: 'block' }}>
+            Tela bem escura, em tons quentes, que não ofusca na madrugada. Vale em qualquer tema.
+          </small>
+        </span>
+      </label>
+      <p className="mudo">Cada aparelho guarda a sua escolha.</p>
+    </section>
+  );
+}
+
 function CartaoConta() {
   const { usuario, membro, executar, sair, pendentes } = useDados();
   const [nome, setNome] = useState(membro?.nome ?? '');
@@ -382,6 +471,7 @@ export function Ajustes() {
       <CartaoBebe />
       <CartaoFamilia />
       <CartaoAvisos />
+      <CartaoAparencia />
       <CartaoCalendario />
       <CartaoConta />
       <p className="mudo" style={{ textAlign: 'center' }}>

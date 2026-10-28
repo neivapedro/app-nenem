@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { AvatarBebe } from './componentes/avatar';
+import { AvatarBebe, FotoCapa } from './componentes/avatar';
+import { GestosNavegacao } from './componentes/navegacao-gestos';
 import { Protecao } from './componentes/Protecao';
 import { Icone } from './componentes/ui';
 import { useAgora, useDados } from './dados/contexto';
@@ -135,6 +136,78 @@ function AvisoRapido() {
   );
 }
 
+/** Capa encolhe com a rolagem por CSS (animation-timeline: scroll()); sem esse recurso (Safari até o 18), um ouvinte leve de rolagem */
+const capaPorCss = () => {
+  try {
+    return CSS.supports('animation-timeline: scroll()');
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Capa do Hoje: foto grande do bebê (ou a ilustração) que se funde com o fundo, nome e idade em
+ * destaque. Ao rolar, encolhe até o topo compacto (foto redonda + nome), que fica grudado.
+ * A altura é fixa desde o início (a foto chegando depois não empurra a tela).
+ */
+function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
+  const ref = useRef<HTMLElement>(null);
+  const [porJs] = useState(() => !capaPorCss());
+  useEffect(() => {
+    const el = ref.current;
+    if (!porJs || !el) return;
+    let quadro = 0;
+    let percurso = 1;
+    const medir = () => {
+      percurso = Math.max(1, -parseFloat(getComputedStyle(el).top) || 1);
+    };
+    const pintar = () => {
+      quadro = 0;
+      const p = Math.min(1, Math.max(0, window.scrollY / percurso));
+      el.style.setProperty('--capa-p', p.toFixed(4));
+    };
+    const rolar = () => {
+      if (!quadro) quadro = requestAnimationFrame(pintar);
+    };
+    const redimensionar = () => {
+      medir();
+      rolar();
+    };
+    medir();
+    pintar();
+    window.addEventListener('scroll', rolar, { passive: true });
+    window.addEventListener('resize', redimensionar);
+    return () => {
+      cancelAnimationFrame(quadro);
+      window.removeEventListener('scroll', rolar);
+      window.removeEventListener('resize', redimensionar);
+    };
+  }, [porJs]);
+  return (
+    <header ref={ref} className={`topo capa${porJs ? ' capa-js' : ''}`}>
+      <div className="capa-foto" aria-hidden="true">
+        <FotoCapa classe="capa-img" />
+      </div>
+      <div className="capa-grande" aria-hidden="true">
+        <span className="capa-nome">{nome}</span>
+        {sub && <span className="capa-idade">{sub}</span>}
+      </div>
+      <div className="capa-barra">
+        <div className="topo-marca capa-compacta">
+          <AvatarBebe classe="marca-mini" />
+          <div style={{ minWidth: 0 }}>
+            <h1>{nome}</h1>
+            {sub && <div className="sub">{sub}</div>}
+          </div>
+        </div>
+        <Link to="/noite" className="icone-botao capa-lua" aria-label="Modo noite">
+          <Icone nome="lua" />
+        </Link>
+      </div>
+    </header>
+  );
+}
+
 function Cabecalho() {
   const { bebe, hoje } = useDados();
   const { pathname: bruto } = useLocation();
@@ -151,6 +224,7 @@ function Cabecalho() {
     const g = semanasGestacao(bebe.data_prevista, hoje);
     sub = g.faltam > 0 ? `chega em ${g.faltam} ${g.faltam === 1 ? 'dia' : 'dias'}` : 'chegando!';
   }
+  if (pathname === '/') return <CapaHoje nome={nome} sub={sub} />;
   return (
     <header className="topo">
       <div className="topo-marca">
@@ -164,21 +238,19 @@ function Cabecalho() {
           <AvatarBebe classe="marca-mini" />
         )}
         <div style={{ minWidth: 0 }}>
-          <h1>{pathname === '/' ? nome : (secao?.titulo ?? aba?.rotulo ?? 'Mais')}</h1>
-          {pathname === '/' && sub && <div className="sub">{sub}</div>}
+          <h1>{secao?.titulo ?? aba?.rotulo ?? 'Mais'}</h1>
         </div>
       </div>
-      {pathname === '/' && (
-        <Link to="/noite" className="icone-botao" aria-label="Modo noite">
-          <Icone nome="lua" />
-        </Link>
-      )}
     </header>
   );
 }
 
+const ROTAS_ABAS = ABAS.map((a) => a.para);
+
 function Estrutura() {
   const { pathname } = useLocation();
+  const { recarregar } = useDados();
+  const navegar = useNavigate();
   const comTransicao = useLinkComTransicao();
   // Cada aba abre do topo; antes da tela aparecer, para a transição já mostrar o topo da tela nova
   useLayoutEffect(() => {
@@ -210,6 +282,18 @@ function Estrutura() {
       </div>
       <AvisoRapido />
       <SincronizarDocumentos />
+      <GestosNavegacao
+        abas={ROTAS_ABAS}
+        atual={semBarra(pathname)}
+        atualizar={recarregar}
+        irPara={(para, sentido, antes) => {
+          const ir = () => {
+            antes();
+            navegar(para);
+          };
+          if (!trocarComTransicao(ir, sentido === 'proxima' ? 'frente' : 'tras')) ir();
+        }}
+      />
       <nav className="nav" aria-label="Navegação principal">
         <div className="nav-itens">
           {ABAS.map((a) => (

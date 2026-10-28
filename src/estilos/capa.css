@@ -1,0 +1,113 @@
+/* Capa do Hoje: foto grande do bebê que se funde com o fundo, nome e idade em destaque.
+   Ao rolar, encolhe até o topo compacto (foto redonda + nome), que fica grudado no alto.
+   Como funciona: a capa é "sticky" com top negativo, então rolar `--capa-extra` px esconde a
+   parte de cima e sobra só a faixa compacta (com a área do notch). A foto e o nome grande somem
+   e o nome pequeno aparece no mesmo percurso: por CSS (animation-timeline: scroll()) ou,
+   sem esse recurso, pelo App (classe capa-js + --capa-p de 0 a 1). Altura fixa: sem saltos. */
+
+.topo.capa {
+  --capa-extra: clamp(92px, 18svh, 150px);
+  --capa-barra: 66px;
+  display: block;
+  top: calc(-1 * var(--capa-extra));
+  height: calc(env(safe-area-inset-top) + var(--capa-barra) + var(--capa-extra));
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--fundo);
+}
+
+/* ---------- Foto ---------- */
+.capa-foto {
+  position: absolute; inset: 0; z-index: -1; overflow: hidden;
+  /* Some aos poucos de cima para baixo e se funde com o fundo da tela */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 34%, rgb(0 0 0 / 0.55) 64%, rgb(0 0 0 / 0.16) 84%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 34%, rgb(0 0 0 / 0.55) 64%, rgb(0 0 0 / 0.16) 84%, transparent 100%);
+}
+.capa-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  object-fit: cover; object-position: 50% 30%;
+  transform-origin: 50% 0;
+}
+/* A ilustração (sem foto): um pouco mais suave, para não brigar com o nome */
+.capa-ilustracao { object-position: 50% 22%; filter: saturate(0.92); }
+/* Barra de status do iPhone (texto branco): um véu escuro bem leve só no alto */
+.capa-foto::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 0;
+  height: calc(env(safe-area-inset-top) + 36px);
+  background: linear-gradient(to bottom, rgb(0 0 0 / 0.28), transparent);
+}
+
+/* ---------- Nome e idade grandes ---------- */
+.capa-grande {
+  position: absolute; z-index: 1;
+  left: max(16px, env(safe-area-inset-left)); right: calc(max(16px, env(safe-area-inset-right)) + 52px);
+  bottom: 12px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  transform-origin: 0 100%;
+  pointer-events: none;
+}
+.capa-nome {
+  font-size: 2rem; line-height: 1.08; font-weight: 750; letter-spacing: -0.03em; color: var(--texto);
+  text-shadow: 0 0 18px var(--fundo), 0 0 4px color-mix(in srgb, var(--fundo) 70%, transparent);
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.capa-idade {
+  display: inline-flex; align-items: center; max-width: 100%;
+  padding: 4px 11px; border-radius: 999px;
+  font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em; color: var(--texto);
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--superficie) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--borda) 70%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (max-width: 360px) {
+  .capa-nome { font-size: 1.7rem; }
+  .capa-idade { font-size: 0.88rem; }
+}
+
+/* ---------- Faixa compacta (fica grudada no alto ao rolar) ---------- */
+.capa-barra {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+  height: var(--capa-barra);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+}
+.capa-compacta { transform-origin: 0 50%; }
+/* Lua sempre à mão: por cima da foto, com fundo levemente translúcido */
+.capa-lua {
+  position: relative; z-index: 3;
+  background: color-mix(in srgb, var(--superficie) 86%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+
+/* ---------- Encolher com a rolagem ---------- */
+@keyframes capa-foto-sai { 75%, to { opacity: 0; } }
+@keyframes capa-img-desce { to { transform: translateY(calc(var(--capa-extra) * 0.4)) scale(1.05); } }
+@keyframes capa-grande-sai { 50% { opacity: 0; } to { opacity: 0; transform: translateY(-10px) scale(0.86); } }
+@keyframes capa-compacta-entra { 0%, 45% { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* Navegadores com rolagem animada por CSS (Chrome, Safari 26) */
+@supports (animation-timeline: scroll()) {
+  .capa:not(.capa-js) .capa-foto { animation: capa-foto-sai linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
+  .capa:not(.capa-js) .capa-img { animation: capa-img-desce linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
+  .capa:not(.capa-js) .capa-grande { animation: capa-grande-sai linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
+  .capa:not(.capa-js) .capa-compacta { animation: capa-compacta-entra linear both; animation-timeline: scroll(root block); animation-range: 0 var(--capa-extra); }
+}
+/* Sem o recurso: a mesma animação parada, posicionada pelo andamento da rolagem (--capa-p) */
+.capa-js .capa-foto, .capa-js .capa-img, .capa-js .capa-grande, .capa-js .capa-compacta {
+  animation-duration: 1s; animation-timing-function: linear; animation-fill-mode: both;
+  animation-play-state: paused; animation-delay: calc(var(--capa-p, 0) * -1s);
+}
+.capa-js .capa-foto { animation-name: capa-foto-sai; }
+.capa-js .capa-img { animation-name: capa-img-desce; }
+.capa-js .capa-grande { animation-name: capa-grande-sai; }
+.capa-js .capa-compacta { animation-name: capa-compacta-entra; }
+
+/* "Reduzir movimento": nada desliza nem cresce, só troca a transparência */
+@media (prefers-reduced-motion: reduce) {
+  .capa-img, .capa-grande, .capa-compacta { transform: none !important; }
+}

@@ -3,6 +3,7 @@
 // gráficos), mapa de horários, linha do tempo e proporção do peito.
 // Marcas finas, grade discreta, legenda com 2+ séries, toque para ver valores.
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useTextoAnimado } from '../lib/animar';
 import { inicioDoDia } from '../lib/datas';
 import type { ForaDoPadrao, FraseNarrativa, IconeFrase } from '../lib/painel';
 import '../estilos/painel.css';
@@ -41,8 +42,10 @@ export function Kpi({
   const pts = serie && serie.length > 1 ? serie : null;
   const max = pts ? Math.max(...pts, 1e-9) : 1;
   const caminho = pts ? pts.map((v, i) => `${i ? 'L' : 'M'}${((i / (pts.length - 1)) * 100).toFixed(1)},${(26 - (v / max) * 24).toFixed(1)}`).join('') : '';
+  // Conta até o valor (na 1ª vez e quando o período muda); o leitor de tela lê só o final
+  const exibido = useTextoAnimado(valor, { chave: `kpi:${rotulo}` });
   // "14,2 h" → número grande + unidade menor (hierarquia); "2h34" fica inteiro
-  const partes = /^([\d.,]+)\s(h|ml|min)$/.exec(valor);
+  const partes = /^([\d.,]+)\s(h|ml|min)$/.exec(exibido);
   return (
     <div className="kpi" style={{ '--kpi-cor': cor } as CSSProperties}>
       <div className="kpi-rotulo">
@@ -50,14 +53,17 @@ export function Kpi({
         {rotulo}
       </div>
       <div className="kpi-valor">
-        {partes ? (
-          <>
-            {partes[1]}
-            <span className="kpi-unidade"> {partes[2]}</span>
-          </>
-        ) : (
-          valor
-        )}
+        <span aria-hidden={exibido !== valor || undefined}>
+          {partes ? (
+            <>
+              {partes[1]}
+              <span className="kpi-unidade"> {partes[2]}</span>
+            </>
+          ) : (
+            exibido
+          )}
+        </span>
+        {exibido !== valor && <span className="oculto-visual">{valor}</span>}
       </div>
       <div className="kpi-rodape">
         {delta !== undefined && delta !== null && isFinite(delta) ? (

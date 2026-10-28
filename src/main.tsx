@@ -8,7 +8,11 @@ import { Protecao } from './componentes/Protecao';
 import { ProvedorDados } from './dados/contexto';
 import { capturarConviteDaUrl } from './lib/convite';
 import { registrarServiceWorker, vigiarVersaoNova } from './lib/notificacoes';
+import { iniciarTema } from './lib/tema';
 
+// Tema e cor do app (o index.html já pôs o tema antes do primeiro desenho): daqui em diante
+// acompanha a hora, a volta ao app e o modo do iPhone, e alinha os @media (prefers-color-scheme) das telas
+iniciarTema();
 capturarConviteDaUrl();
 registrarServiceWorker();
 vigiarVersaoNova();

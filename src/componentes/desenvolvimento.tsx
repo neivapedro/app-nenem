@@ -8,6 +8,7 @@ import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
 import { reduzirFoto } from '../lib/imagem';
 import type { Marco } from '../lib/tipos';
+import { FolhaCartaoMes } from './momentos';
 import { Campo, Folha, Icone } from './ui';
 import '../estilos/desenvolvimento.css';
 
@@ -604,6 +605,7 @@ function FotosDoMes() {
   const [alvo, setAlvo] = useState<number | null>(null);
   const [aberta, setAberta] = useState<Marco | null>(null);
   const [vendo, setVendo] = useState(false);
+  const [cartao, setCartao] = useState<number | null>(null);
   const { enviar, enviando } = useEnviarFoto();
   const porMes = useMemo(() => new Map(marcos.filter((m) => m.tipo === 'mes').map((m) => [m.marco_id, m])), [marcos]);
   if (!bebe) return null;
@@ -694,10 +696,22 @@ function FotosDoMes() {
         }}
       />
       {vendo && sequencia.length > 0 && <VerCrescer fotos={sequencia} aoFechar={() => setVendo(false)} />}
+      {cartao !== null && <FolhaCartaoMes meses={cartao} aoFechar={() => setCartao(null)} />}
       {aberta?.foto && (
         <Folha titulo={aberta.titulo ?? 'Foto'} aoFechar={() => setAberta(null)}>
           <div className="pilha">
             <Foto caminho={aberta.foto} classe="foto-grande" />
+            {Number.isFinite(Number(aberta.marco_id?.replace('mes-', ''))) && (
+              <button
+                className="botao primario"
+                onClick={() => {
+                  setCartao(Number(aberta.marco_id?.replace('mes-', '')));
+                  setAberta(null);
+                }}
+              >
+                <Icone nome="compartilhar" /> Compartilhar cartão
+              </button>
+            )}
             <button
               className="botao"
               disabled={enviando}

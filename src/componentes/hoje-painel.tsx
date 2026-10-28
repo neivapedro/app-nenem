@@ -7,6 +7,7 @@ import { linhaDoTempo } from '../lib/painel';
 import { aproximar, duracaoCurta, horaPrevista, painelAlimentacao, progresso, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
 import type { ResumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
+import { NumeroAnimado } from './numero-animado';
 import { LinhaTempo } from './painel';
 import { Icone } from './ui';
 
@@ -82,10 +83,10 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
   const cor = COR_ESTADO[p.estado];
   const centro =
     p.faltaMs === null
-      ? { valor: duracaoCurta(p.desdeMs), legenda: 'desde' }
+      ? { valor: duracaoCurta(p.desdeMs), ms: p.desdeMs, sinal: '', legenda: 'desde' }
       : p.faltaMs > 0
-        ? { valor: duracaoCurta(p.faltaMs), legenda: 'faltam' }
-        : { valor: `+${duracaoCurta(-p.faltaMs)}`, legenda: 'passou' };
+        ? { valor: duracaoCurta(p.faltaMs), ms: p.faltaMs, sinal: '', legenda: 'faltam' }
+        : { valor: `+${duracaoCurta(-p.faltaMs)}`, ms: -p.faltaMs, sinal: '+', legenda: 'passou' };
   const rotuloAnel =
     p.faltaMs === null
       ? `${nome} ${ha}`
@@ -94,7 +95,9 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
   return (
     <button type="button" className={`hp-proxima hp-entra hp-${p.estado}`} style={{ '--hp-cor': cor } as CSSProperties} onClick={aoTocar}>
       <Anel arcos={[{ fracao: p.fracao, cor }]} espessura={9} rotulo={rotuloAnel} classe="hp-anel-grande">
-        <span className={`hp-centro-valor ${centro.valor.length >= 7 ? 'hp-longo' : ''}`}>{centro.valor}</span>
+        <span className={`hp-centro-valor ${centro.valor.length >= 7 ? 'hp-longo' : ''}`}>
+          <NumeroAnimado valor={centro.ms} formatar={(n) => `${centro.sinal}${duracaoCurta(n)}`} chave="hoje:proxima" minimo={60_000} />
+        </span>
         <span className="hp-centro-legenda">{centro.legenda}</span>
       </Anel>
       <span className="hp-proxima-texto">
@@ -169,12 +172,21 @@ interface Numero {
   rotulo: ReactNode;
   nomeLido: string;
   valor: string;
+  /** O valor na tela (conta até o número na 1ª vez que a tela aparece) */
+  exibir: ReactNode;
   /** "de ~9" */
   referencia: string | null;
   arcos: Arco[];
 }
 
+const contagem = (n: number) => String(Math.round(n));
+const duracaoOuNada = (ms: number) => (ms ? duracaoCurta(ms) : '—');
+const mlOuNada = (ml: number) => (ml ? `${Math.round(ml)} ml` : '—');
+
 export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean }) {
+  const anima = (chave: string, valor: number, formatar: (n: number) => string, minimo?: number) => (
+    <NumeroAnimado valor={valor} formatar={formatar} chave={`hoje:${chave}`} minimo={minimo} />
+  );
   const ref = (v: number, tipo: 'contagem' | 'ml' | 'duracao') => (medias && v > 0 ? `de ~${aproximar(v, tipo)}` : null);
   const itens: Numero[] = [
     {
@@ -182,6 +194,7 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
       rotulo: 'Alimentações',
       nomeLido: 'Alimentações',
       valor: String(resumo.alimentacoes),
+      exibir: anima('alimentacoes', resumo.alimentacoes, contagem),
       referencia: ref(medias?.alimentacoes ?? 0, 'contagem'),
       arcos: [{ fracao: progresso(resumo.alimentacoes, medias?.alimentacoes), cor: 'var(--c-mamada)' }],
     },
@@ -189,7 +202,8 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
       chave: 'peito',
       rotulo: 'No peito',
       nomeLido: 'No peito',
-      valor: resumo.peitoMs ? duracaoCurta(resumo.peitoMs) : '—',
+      valor: duracaoOuNada(resumo.peitoMs),
+      exibir: anima('peito', resumo.peitoMs, duracaoOuNada, 60_000),
       referencia: ref(medias?.peitoMs ?? 0, 'duracao'),
       arcos: [{ fracao: progresso(resumo.peitoMs, medias?.peitoMs), cor: 'var(--c-mamada)' }],
     },
@@ -197,7 +211,8 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
       chave: 'mamadeira',
       rotulo: 'Mamadeira',
       nomeLido: 'Mamadeira',
-      valor: resumo.ml ? `${resumo.ml} ml` : '—',
+      valor: mlOuNada(resumo.ml),
+      exibir: anima('ml', resumo.ml, mlOuNada),
       referencia: ref(medias?.ml ?? 0, 'ml'),
       arcos: [{ fracao: progresso(resumo.ml, medias?.ml), cor: 'var(--c-mamadeira)' }],
     },
@@ -206,6 +221,7 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
       rotulo: 'Fraldas',
       nomeLido: 'Fraldas',
       valor: String(resumo.fraldas),
+      exibir: anima('fraldas', resumo.fraldas, contagem),
       referencia: ref(medias?.fraldas ?? 0, 'contagem'),
       arcos: [{ fracao: progresso(resumo.fraldas, medias?.fraldas), cor: 'var(--c-fralda)' }],
     },
@@ -221,6 +237,11 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
       ),
       nomeLido: 'Xixi e cocô',
       valor: `${resumo.xixi} · ${resumo.coco}`,
+      exibir: (
+        <>
+          {anima('xixi', resumo.xixi, contagem)} · {anima('coco', resumo.coco, contagem)}
+        </>
+      ),
       referencia: medias && medias.xixi + medias.coco > 0 ? `de ~${aproximar(medias.xixi, 'contagem')} · ~${aproximar(medias.coco, 'contagem')}` : null,
       arcos: [
         { fracao: progresso(resumo.xixi, medias?.xixi), cor: 'var(--c-fralda)' },
@@ -231,7 +252,8 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
       chave: 'sono',
       rotulo: 'Sono',
       nomeLido: 'Sono',
-      valor: resumo.sonoMs ? duracaoCurta(resumo.sonoMs) : '—',
+      valor: duracaoOuNada(resumo.sonoMs),
+      exibir: anima('sono', resumo.sonoMs, duracaoOuNada, 60_000),
       referencia: ref(medias?.sonoMs ?? 0, 'duracao'),
       arcos: [{ fracao: progresso(resumo.sonoMs, medias?.sonoMs), cor: 'var(--c-sono)' }],
     },
@@ -249,7 +271,7 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
               rotulo={`${it.nomeLido}: ${it.valor === '—' ? 'nada' : it.valor} hoje${it.referencia ? `, ${it.referencia.replace('de ', 'média de ').replace(/~/g, '')} por dia` : ''}`}
             />
             <div className="hp-numero-rotulo">{it.rotulo}</div>
-            <div className="hp-numero-valor">{it.valor}</div>
+            <div className="hp-numero-valor">{it.exibir}</div>
             {medias && <div className="hp-numero-ref">{it.referencia ?? ' '}</div>}
           </div>
         ))}

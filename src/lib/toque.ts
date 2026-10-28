@@ -38,7 +38,7 @@ export function deveFecharFolha(desceu: number, velocidade: number, altura: numb
   const limiar = Math.min(160, Math.max(80, altura * 0.3));
   if (desceu >= limiar) return true;
   // Rápido para baixo, mas não um tremido de poucos pixels
-  return velocidade > 0.55 && desceu > 28;
+  return velocidade > 0.5 && desceu > 28;
 }
 
 /** Quanto o fundo escurecido some enquanto a folha desce (1 = normal, 0 = some) */

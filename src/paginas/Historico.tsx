@@ -27,7 +27,7 @@ const maior = (a: string, b: string) => (a > b ? a : b);
 const menosMovimento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 export function Historico() {
-  const { hoje, bebe, carregadoDesde, pendentes } = useDados();
+  const { hoje, bebe, carregadoDesde, pendentes, gravar, mostrarAviso, leite } = useDados();
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [editando, setEditando] = useState<Registro | null>(null);
   // null = a semana mais recente (acompanha a virada do dia)
@@ -69,6 +69,25 @@ export function Historico() {
     });
   }, [carregadoDesde]);
 
+  // Apagar pelo deslize: sem perguntar, com "Desfazer" no aviso (como as outras exclusões do app)
+  const apagar = useCallback(
+    (r: Registro) => {
+      // Extração guardada no estoque: o pote tem o mesmo id do registro e sai junto
+      const pote = r.tipo === 'extracao' ? leite.find((p) => p.id === r.id) : undefined;
+      const antigo = chaveDia(r.inicio) < carregadoDesde;
+      gravar({ tipo: 'excluir', dado: { alvo: 'registro', id: r.id } }, ...(pote ? [{ tipo: 'excluir' as const, dado: { alvo: 'leite' as const, id: pote.id } }] : []));
+      if (antigo) setAguardaFila(true);
+      mostrarAviso({
+        texto: pote ? 'Registro apagado (e o pote do estoque)' : 'Registro apagado',
+        desfazer: () => {
+          gravar({ tipo: 'registro', dado: r }, ...(pote ? [{ tipo: 'colecao' as const, colecao: 'leite' as const, dado: pote }] : []));
+          if (antigo) setAguardaFila(true);
+        },
+      });
+    },
+    [leite, carregadoDesde, gravar, mostrarAviso],
+  );
+
   return (
     <div className="pilha historico">
       <div className="abas" role="tablist" aria-label="Filtrar">
@@ -107,6 +126,7 @@ export function Historico() {
         inicio={inicio}
         cache={cache}
         aoEditar={setEditando}
+        aoApagar={apagar}
         aoVerAnterior={() => setJanela(semanaAnterior(janela, inicio))}
       />
 
@@ -122,6 +142,7 @@ function ListaDias({
   inicio,
   cache,
   aoEditar,
+  aoApagar,
   aoVerAnterior,
 }: {
   janela: Janela;
@@ -130,6 +151,7 @@ function ListaDias({
   inicio: string | null;
   cache: Cache;
   aoEditar: (r: Registro) => void;
+  aoApagar: (r: Registro) => void;
   aoVerAnterior: () => void;
 }) {
   const { hoje, nomeDe } = useDados();
@@ -224,6 +246,7 @@ function ListaDias({
             legenda={k === comLegenda}
             nomeDe={nomeDe}
             aoEditar={aoEditar}
+            aoApagar={aoApagar}
           />
         </div>
       ))}
