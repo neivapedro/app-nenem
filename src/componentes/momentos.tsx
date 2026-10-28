@@ -9,17 +9,21 @@ import { chaveDia, dataBr } from '../lib/datas';
 import {
   comemoracaoVista,
   dataExtenso,
+  deMeses,
   dispensarLembranca,
+  fotoAnterior,
   lembrancaDispensada,
   lembrancaDoDia,
   marcarComemoracaoVista,
   mesversarioHoje,
   periodoDoMes,
+  quandoMedida,
   resumoDoMes,
   textoAltura,
   textoGanhoPeso,
   textoHoras,
   textoMeses,
+  textoFotoDoMes,
   textoPeso,
   tituloComemoracao,
   type Lembranca,
@@ -72,6 +76,9 @@ function dadosDoCartao(bebe: Bebe, resumo: ResumoMes | null, meses: number): { d
     };
   }
   const ano = meses >= 12 && meses % 12 === 0;
+  // Medida antiga ou só a do nascimento: o selo diz de quando é ("Peso ao nascer", "Peso em 28/04")
+  const qPeso = resumo.peso ? quandoMedida(resumo.peso, resumo.fim) : null;
+  const qAltura = resumo.altura ? quandoMedida(resumo.altura, resumo.fim) : null;
   return {
     dados: {
       nome,
@@ -79,6 +86,8 @@ function dadosDoCartao(bebe: Bebe, resumo: ResumoMes | null, meses: number): { d
       data: dataExtenso(resumo.fim),
       peso: resumo.peso ? textoPeso(resumo.peso.atual) : null,
       altura: resumo.altura ? textoAltura(resumo.altura.atual) : null,
+      rotuloPeso: qPeso ? `Peso ${qPeso}` : null,
+      rotuloAltura: qAltura ? `Altura ${qAltura}` : null,
       marcos: resumo.marcos.map((m) => m.titulo),
       rotuloMarcos: ano ? 'Conquistas do ano' : 'Conquistas do mês',
       selo: ano ? 'Aniversário' : 'Mesversário',
@@ -231,6 +240,9 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
   const tela = useRef<HTMLDivElement>(null);
   const resumo = useMemo(() => (bebe ? resumoDoMes(bebe, { registros, marcos, medidas }, mv.meses, hoje) : null), [bebe, registros, marcos, medidas, mv.meses, hoje]);
   const fotoUrl = useUrlFoto(resumo?.foto ?? bebe?.foto ?? null);
+  // "Há 1 mês…": a foto do mês anterior (a lembrança do topo fica escondida no dia do mesversário)
+  const antes = useMemo(() => fotoAnterior(marcos, mv.meses), [marcos, mv.meses]);
+  const antesUrl = useUrlFoto(antes?.foto);
 
   useEffect(() => {
     tela.current?.focus({ preventScroll: true });
@@ -249,7 +261,9 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
 
   if (!bebe || !resumo) return null;
   const g = generoBebe(bebe.sexo, !!bebe.nome?.trim());
-  const titulo = tituloComemoracao(bebe.nome, mv);
+  const titulo = tituloComemoracao(bebe.nome, mv, bebe.sexo);
+  const nome = bebe.nome?.trim();
+  const fotoDeHoje = textoFotoDoMes(mv.meses);
   const ano = mv.aniversario;
   const frase = ano
     ? mv.meses === 12
@@ -260,6 +274,8 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
   const diasMes = Math.max(1, Math.round((new Date(mes.fim).getTime() - new Date(mes.inicio).getTime()) / 86_400_000));
   const temContas = resumo.mamadas + resumo.fraldas + resumo.sonoMs > 0;
   const desde = (d: string | null) => (d ? ` desde ${dataBr(d).slice(0, 5)}` : '');
+  const qPeso = resumo.peso ? quandoMedida(resumo.peso, resumo.fim) : null;
+  const qAltura = resumo.altura ? quandoMedida(resumo.altura, resumo.fim) : null;
   const ir = (rota: string) => {
     aoFechar();
     navigate(rota);
@@ -286,20 +302,45 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
 
         {fotoUrl ? (
           <figure className="mom-foto">
-            <img src={fotoUrl} alt={resumo.foto ? `Foto dos ${mv.idade}` : `Foto ${g.do} ${bebe.nome}`} />
-            {resumo.foto && <figcaption>Foto dos {mv.idade}</figcaption>}
+            <img src={fotoUrl} alt={resumo.foto ? fotoDeHoje : nome ? `Foto ${g.do} ${nome}` : bebe.sexo === 'F' ? 'Foto da bebê' : 'Foto do bebê'} />
+            {resumo.foto && <figcaption>{fotoDeHoje}</figcaption>}
           </figure>
         ) : (
-          !resumo.foto && (
+          !resumo.foto &&
+          !antes && (
             <button type="button" className="mom-sem-foto" onClick={() => ir('/mais/desenvolvimento?aba=fotos')}>
               <span aria-hidden="true">📸</span>
               <span className="cresce">
                 <strong>Hoje é dia da foto do mês</strong>
-                <span className="texto-2">Guardem a foto dos {mv.idade} em Desenvolvimento → Foto do mês.</span>
+                <span className="texto-2">Guardem a foto {deMeses(mv.meses)} em Desenvolvimento → Foto do mês.</span>
               </span>
               <Icone nome="seta" />
             </button>
           )
+        )}
+
+        {antes && (
+          <section className="mom-secao" aria-label={`${antes.quando}: ${antes.titulo}`}>
+            <h2>{antes.quando}…</h2>
+            <div className="mom-antes-depois">
+              <figure className="mom-ad">
+                {antesUrl ? <img src={antesUrl} alt={antes.titulo} /> : <span className="mom-ad-vazio" aria-hidden="true" />}
+                <figcaption>{antes.meses === 0 ? 'Nascimento' : textoMeses(antes.meses)}</figcaption>
+              </figure>
+              {resumo.foto ? (
+                <figure className="mom-ad agora">
+                  {fotoUrl ? <img src={fotoUrl} alt={fotoDeHoje} /> : <span className="mom-ad-vazio" aria-hidden="true" />}
+                  <figcaption>{mv.idade} · hoje</figcaption>
+                </figure>
+              ) : (
+                <button type="button" className="mom-ad mom-ad-guardar" onClick={() => ir('/mais/desenvolvimento?aba=fotos')}>
+                  <span aria-hidden="true">📸</span>
+                  <strong>Guardar a {fotoDeHoje.toLowerCase()}</strong>
+                  <span className="texto-2">para comparar</span>
+                </button>
+              )}
+            </div>
+          </section>
         )}
 
         {(resumo.peso || resumo.altura) && (
@@ -310,6 +351,7 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
                 <div className="bloco mom-bloco peso">
                   <div className="rotulo">Peso</div>
                   <div className="valor">{textoPeso(resumo.peso.atual)}</div>
+                  {qPeso && <div className="mom-ganho mom-quando-medida">{qPeso}</div>}
                   {resumo.peso.ganho != null && (
                     <div className="mom-ganho">
                       {textoGanhoPeso(resumo.peso.ganho)}
@@ -322,6 +364,7 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
                 <div className="bloco mom-bloco altura">
                   <div className="rotulo">Altura</div>
                   <div className="valor">{textoAltura(resumo.altura.atual)}</div>
+                  {qAltura && <div className="mom-ganho mom-quando-medida">{qAltura}</div>}
                   {resumo.altura.ganho != null && (
                     <div className="mom-ganho">
                       {textoAltura(resumo.altura.ganho, true)}
@@ -457,7 +500,8 @@ function FolhaLembranca({ l, aoFechar }: { l: Lembranca; aoFechar: () => void })
             <Icone nome="compartilhar" /> Compartilhar cartão
           </button>
         )}
-        <Link to={l.tipo === 'registro' ? '/historico' : `/mais/desenvolvimento${l.tipo === 'mes' ? '?aba=fotos' : l.tipo === 'primeira-vez' ? '?aba=primeiras' : ''}`} className="botao" onClick={aoFechar}>
+        {/* ?dia= abre o Histórico no dia do registro (quando a tela do Histórico ler esse parâmetro) */}
+        <Link to={l.tipo === 'registro' ? `/historico?dia=${l.data}` : `/mais/desenvolvimento${l.tipo === 'mes' ? '?aba=fotos' : l.tipo === 'primeira-vez' ? '?aba=primeiras' : ''}`} className="botao" onClick={aoFechar}>
           {l.tipo === 'registro' ? 'Ver no Histórico' : 'Ver em Desenvolvimento'}
         </Link>
       </div>

@@ -44,10 +44,21 @@ export function mesversarioHoje(nascimentoIso: string | null | undefined, hoje: 
   return { meses, aniversario: meses % 12 === 0, idade: textoMeses(meses) };
 }
 
-/** Título da comemoração: "Heitor faz 2 meses! 🎉" / "Alice faz 1 ano! 🎂" */
-export function tituloComemoracao(nome: string | null | undefined, m: Pick<Mesversario, 'meses' | 'aniversario' | 'idade'>): string {
-  const quem = nome?.trim() || 'O bebê';
+/** Título da comemoração: "Heitor faz 2 meses! 🎉" / "Alice faz 1 ano! 🎂" / sem nome: "O bebê…" ou "A bebê…" */
+export function tituloComemoracao(nome: string | null | undefined, m: Pick<Mesversario, 'meses' | 'aniversario' | 'idade'>, sexo?: 'M' | 'F' | null): string {
+  const quem = nome?.trim() || (sexo === 'F' ? 'A bebê' : 'O bebê');
   return `${quem} faz ${m.idade}! ${m.aniversario ? '🎂' : '🎉'}`;
+}
+
+/** Com a preposição certa: "de 1 mês", "dos 2 meses", "de 1 ano", "dos 2 anos", "de 1 ano e 3 meses" */
+export function deMeses(meses: number): string {
+  const t = textoMeses(meses);
+  return `${t.startsWith('1 ') ? 'de' : 'dos'} ${t}`;
+}
+
+/** "Foto do nascimento", "Foto de 1 mês", "Foto dos 2 meses", "Foto de 1 ano" */
+export function textoFotoDoMes(meses: number): string {
+  return meses <= 0 ? 'Foto do nascimento' : `Foto ${deMeses(meses)}`;
 }
 
 // ---------- Resumo do mês ----------
@@ -69,7 +80,14 @@ export interface Crescimento {
   ganho: number | null;
   /** Data da medida de comparação */
   desde: string | null;
+  /** A medida mais recente é a do nascimento (nenhuma medida depois) */
+  aoNascer: boolean;
+  /** A medida mais recente é de muito antes do fim do período (não é "o peso de agora") */
+  antiga: boolean;
 }
+
+/** Medida mais velha que isto (antes do mesversário) não é "atual": mostra a data e não o ganho */
+export const DIAS_MEDIDA_ATUAL = 45;
 
 export interface ResumoMes {
   meses: number;
@@ -118,14 +136,18 @@ function pontos(bebe: Bebe, medidas: Medida[], campo: 'peso_g' | 'comprimento_cm
 /**
  * Peso ou altura até `ate`: a medida mais recente e, se ela é do período (depois de `inicio`),
  * quanto mudou desde a última medida de antes do período (ou do nascimento).
+ * `fim` (o dia do mesversário) e `nascimento` dizem se a medida é antiga ou a do nascimento:
+ * medida de mais de DIAS_MEDIDA_ATUAL dias antes do fim fica sem ganho (não é o crescimento do período).
  */
-export function crescimentoNoPeriodo(lista: Ponto[], inicio: string, ate: string): Crescimento | null {
+export function crescimentoNoPeriodo(lista: Ponto[], inicio: string, ate: string, fim: string = ate, nascimento: string | null = null): Crescimento | null {
   const ate_ = lista.filter((p) => p.data <= ate);
   const atual = ate_[ate_.length - 1];
   if (!atual) return null;
+  const antiga = diasEntre(atual.data, fim) > DIAS_MEDIDA_ATUAL;
+  const aoNascer = !!nascimento && atual.data === nascimento;
   let ganho: number | null = null;
   let desde: string | null = null;
-  if (atual.data > inicio) {
+  if (atual.data > inicio && !antiga) {
     const antes = ate_.filter((p) => p.data <= inicio);
     const ref = antes[antes.length - 1];
     if (ref) {
@@ -133,7 +155,18 @@ export function crescimentoNoPeriodo(lista: Ponto[], inicio: string, ate: string
       desde = ref.data;
     }
   }
-  return { atual: atual.valor, data: atual.data, ganho, desde };
+  return { atual: atual.valor, data: atual.data, ganho, desde, aoNascer, antiga };
+}
+
+/**
+ * Quando foi a medida mostrada, para não parecer "o peso de hoje": "ao nascer", "em 28/04"
+ * (com o ano se for outro ano que o do mesversário). null quando o ganho do período já diz tudo.
+ */
+export function quandoMedida(c: Crescimento, fim: string): string | null {
+  if (c.aoNascer) return 'ao nascer';
+  if (c.ganho != null) return null;
+  const br = dataBr(c.data);
+  return `em ${c.data.slice(0, 4) === fim.slice(0, 4) ? br.slice(0, 5) : br}`;
 }
 
 /** Marcos (caderneta e "1ª vez") com data no período: depois de `inicio` (no 1º mês, desde o nascimento) até `fim` */
@@ -148,6 +181,30 @@ export function marcosNoPeriodo(marcos: Marco[], inicio: string, fim: string, in
 /** Foto do mês N (e, se não tiver, null) */
 export function fotoDoMes(marcos: Marco[], meses: number): Marco | null {
   return marcos.find((m) => m.tipo === 'mes' && m.marco_id === `mes-${meses}` && !!m.foto) ?? null;
+}
+
+export interface FotoAnterior {
+  /** Mês da foto (0 = nascimento) */
+  meses: number;
+  /** "Há 1 mês" / "Há 1 ano" */
+  quando: string;
+  /** "Foto de 1 mês", "Foto do nascimento" */
+  titulo: string;
+  foto: string;
+}
+
+/**
+ * A foto do mês anterior, para o "Há 1 mês" dentro da comemoração do mesversário N
+ * (no aniversário de anos, a de 1 ano antes). Ela foi gravada com a data do mesversário
+ * anterior, que cai justamente no dia de hoje, quando a lembrança do topo fica escondida.
+ */
+export function fotoAnterior(marcos: Marco[], meses: number): FotoAnterior | null {
+  if (meses < 1) return null;
+  const ano = meses >= 12 && meses % 12 === 0;
+  const antes = meses - (ano ? 12 : 1);
+  const m = fotoDoMes(marcos, antes);
+  if (!m?.foto) return null;
+  return { meses: antes, quando: ano ? 'Há 1 ano' : 'Há 1 mês', titulo: textoFotoDoMes(antes), foto: m.foto };
 }
 
 /** Quanto do intervalo [a, b) cai dentro de [de, ate) (ms) */
@@ -190,12 +247,13 @@ export function resumoDoMes(bebe: Bebe, dados: { registros: Registro[]; marcos: 
   const mes = periodoDoMes(bebe.nascimento, meses);
   // Medidas da consulta logo depois do mesversário ainda contam (até 7 dias, nunca depois de hoje)
   const ateMedida = [somarDiasLocal(fim, 7), hoje].sort()[0];
+  const n = chaveDia(bebe.nascimento);
   return {
     meses,
     inicio,
     fim,
-    peso: crescimentoNoPeriodo(pontos(bebe, dados.medidas, 'peso_g'), inicio, ateMedida),
-    altura: crescimentoNoPeriodo(pontos(bebe, dados.medidas, 'comprimento_cm'), inicio, ateMedida),
+    peso: crescimentoNoPeriodo(pontos(bebe, dados.medidas, 'peso_g'), inicio, ateMedida, fim, n),
+    altura: crescimentoNoPeriodo(pontos(bebe, dados.medidas, 'comprimento_cm'), inicio, ateMedida, fim, n),
     marcos: marcosNoPeriodo(dados.marcos, inicio, fim, meses - (ano ? 12 : 1) <= 0),
     ...contarRegistros(dados.registros, mes.inicio, mes.fim),
     foto: fotoDoMes(dados.marcos, meses)?.foto ?? null,
@@ -289,7 +347,12 @@ const NOME_REGISTRO: Record<Registro['tipo'], string> = {
 
 /**
  * A lembrança do dia (no máximo uma): algo de exatamente 1 semana, 1 mês, 2 meses… atrás.
- * Não aparece antes do nascimento nem no dia do mesversário (aí a comemoração já ocupa o topo).
+ * Não aparece antes do nascimento nem no dia do mesversário (aí a comemoração já ocupa o topo
+ * e mostra a foto do mês anterior: ver fotoAnterior).
+ *
+ * Marcos e fotos (que vêm todos) valem em qualquer data redonda: N meses ou anos.
+ * Registros com anotação só em "Há 1 semana" e "Há 1 mês": o app só carrega os últimos
+ * 45 dias de registros, então datas mais antigas nunca teriam o que mostrar.
  */
 export function lembrancaDoDia(bebe: Bebe | null, marcos: Marco[], registros: Registro[], hoje: string): Lembranca | null {
   if (!bebe?.nascimento || mesversarioHoje(bebe.nascimento, hoje)) return null;
@@ -304,7 +367,7 @@ export function lembrancaDoDia(bebe: Bebe | null, marcos: Marco[], registros: Re
     candidatas.push({
       id: `marco:${m.id}`,
       quando,
-      titulo: m.tipo === 'mes' ? `Foto ${Number.isFinite(n) ? (n === 0 ? 'do nascimento' : `dos ${textoMeses(n)}`) : 'do mês'}` : tituloMarco(m),
+      titulo: m.tipo === 'mes' ? (Number.isFinite(n) ? textoFotoDoMes(n) : 'Foto do mês') : tituloMarco(m),
       detalhe: m.observacao?.trim() || (m.tipo === 'primeira-vez' ? 'Primeira vez' : m.tipo === 'caderneta' ? 'Marco do desenvolvimento' : null),
       data: m.data,
       foto: m.foto,
@@ -320,7 +383,7 @@ export function lembrancaDoDia(bebe: Bebe | null, marcos: Marco[], registros: Re
     const dia = chaveDia(r.inicio);
     if (dia < nasc) continue;
     const quando = textoHaQuanto(dia, hoje);
-    if (!quando) continue;
+    if (quando !== 'Há 1 semana' && quando !== 'Há 1 mês') continue;
     candidatas.push({ id: `registro:${r.id}`, quando, titulo: obs, detalhe: NOME_REGISTRO[r.tipo], data: dia, foto: null, tipo: 'registro', registro: r, peso: 1, distancia: diasEntre(dia, hoje) });
   }
   candidatas.sort((a, b) => b.peso - a.peso || b.distancia - a.distancia || a.id.localeCompare(b.id));

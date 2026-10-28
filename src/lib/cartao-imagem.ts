@@ -20,6 +20,10 @@ export interface DadosCartao {
   peso?: string | null;
   /** "54 cm" */
   altura?: string | null;
+  /** Rótulo do selo do peso quando a medida não é de agora ("Peso ao nascer", "Peso em 28/04"); padrão "Peso" */
+  rotuloPeso?: string | null;
+  /** Idem para a altura; padrão "Altura" */
+  rotuloAltura?: string | null;
   /** Títulos das conquistas do mês */
   marcos: string[];
   /** Rótulo da lista ("Conquistas do mês", "Conquistas do ano") */
@@ -238,15 +242,79 @@ function ilustracao(ctx: CanvasRenderingContext2D, x: number, y: number, w: numb
   ctx.stroke();
 }
 
-function desenharFoto(ctx: CanvasRenderingContext2D, img: CanvasImageSource, x: number, y: number, w: number, h: number) {
-  const t = tamanhoFonte(img);
+/** Parte mínima da altura da foto que fica visível (em pé numa área mais "deitada": sobram faixas laterais) */
+const ALTURA_VISIVEL_MIN = 0.64;
+
+/**
+ * Como a foto entra na área: preenche (cover) enquanto aparecer pelo menos ALTURA_VISIVEL_MIN da
+ * altura; se for preciso cortar mais que isso (foto em pé numa área larga), ela encolhe e as
+ * laterais ganham a própria foto desfocada. O recorte vertical puxa para o topo nas fotos em pé
+ * (o rosto costuma ficar no terço de cima). Exportada para os testes.
+ */
+export function encaixeFoto(fw: number, fh: number, w: number, h: number) {
+  const cover = Math.max(w / fw, h / fh);
+  const contain = Math.min(w / fw, h / fh);
+  const escala = Math.max(contain, Math.min(cover, h / (fh * ALTURA_VISIVEL_MIN)));
+  const dw = Math.min(w, fw * escala);
+  const dh = Math.min(h, fh * escala);
+  const sw = dw / escala;
+  const sh = dh / escala;
+  const emPe = fh > fw * 1.05;
+  const sx = (fw - sw) / 2;
+  const sy = (fh - sh) * (emPe ? 0.18 : 0.38);
+  return { sx, sy, sw, sh, dx: (w - dw) / 2, dy: (h - dh) / 2, dw, dh, laterais: dw < w - 1 };
+}
+
+/** A própria foto, bem desfocada, cobrindo a área (fundo das laterais). Sem ctx.filter (Safari antigo): reduz e amplia */
+function fundoDesfocado(ctx: CanvasRenderingContext2D, img: CanvasImageSource, t: { w: number; h: number }, x: number, y: number, w: number, h: number) {
   const escala = Math.max(w / t.w, h / t.h);
   const sw = w / escala;
   const sh = h / escala;
-  const sx = (t.w - sw) / 2;
-  // Em fotos em pé, puxa um pouco para cima (o rosto costuma ficar no terço de cima)
-  const sy = Math.max(0, Math.min(t.h - sh, (t.h - sh) * 0.4));
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  // Bem pequenininho (1/28) e depois um meio-termo (1/7): ampliar em dois passos deixa o desfoque liso
+  const tela = (div: number) => {
+    const c = document.createElement('canvas');
+    c.width = Math.max(2, Math.round(w / div));
+    c.height = Math.max(2, Math.round(h / div));
+    const cx = c.getContext('2d');
+    if (cx) {
+      cx.imageSmoothingEnabled = true;
+      cx.imageSmoothingQuality = 'high';
+    }
+    return { c, cx };
+  };
+  const p = tela(28);
+  const m = tela(7);
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  if (p.cx && m.cx) {
+    p.cx.drawImage(img, (t.w - sw) / 2, (t.h - sh) / 2, sw, sh, 0, 0, p.c.width, p.c.height);
+    m.cx.drawImage(p.c, 0, 0, m.c.width, m.c.height);
+    ctx.drawImage(m.c, x, y, w, h);
+  } else {
+    ctx.fillStyle = '#efe6fb';
+    ctx.fillRect(x, y, w, h);
+  }
+  // Véu claro: as laterais ficam suaves e a foto principal se destaca
+  ctx.fillStyle = 'rgb(251 247 242 / 0.3)';
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
+function desenharFoto(ctx: CanvasRenderingContext2D, img: CanvasImageSource, x: number, y: number, w: number, h: number) {
+  const t = tamanhoFonte(img);
+  const e = encaixeFoto(t.w, t.h, w, h);
+  if (e.laterais) {
+    fundoDesfocado(ctx, img, t, x, y, w, h);
+    // Sombra leve separando a foto das laterais
+    ctx.save();
+    ctx.shadowColor = 'rgb(40 20 40 / 0.28)';
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x + e.dx, y + e.dy, e.dw, e.dh);
+    ctx.restore();
+  }
+  ctx.drawImage(img, e.sx, e.sy, e.sw, e.sh, x + e.dx, y + e.dy, e.dw, e.dh);
 }
 
 /** Selo arredondado com bolinha colorida: "● 4,35 kg" */
@@ -277,6 +345,19 @@ function selo(ctx: CanvasRenderingContext2D, x: number, y: number, texto: string
   ctx.font = `700 ${40 * s}px ${FONTE_ROUND}`;
   ctx.fillText(texto, x + 22 * s, y + 74 * s);
   return w;
+}
+
+/**
+ * Nome e idade: numa linha só ("Heitor · 2 meses") se couber com fonte de pelo menos 54px;
+ * senão, o nome em cima (cortado com "…" só se nem assim couber) e a idade embaixo, sempre inteira.
+ */
+function medirTitulo(ctx: CanvasRenderingContext2D, nome: string, idade: string, largura: number) {
+  const linha = `${nome} · ${idade}`;
+  const um = caber(ctx, linha, largura, '800', 92, 54, FONTE_ROUND);
+  if (um.texto === linha) return { linhas: 1 as const, tam: um.tam, nome, altura: 110 };
+  const n = caber(ctx, nome, largura, '800', 84, 50, FONTE_ROUND);
+  const i = caber(ctx, idade, largura, '800', n.tam, 44, FONTE_ROUND);
+  return { linhas: 2 as const, tam: n.tam, tamIdade: i.tam, nome: n.texto, altura: Math.round(n.tam * 0.92 + i.tam * 1.12 + 30) };
 }
 
 /** Desenha o cartão e devolve o PNG */
@@ -322,7 +403,9 @@ export async function gerarCartao(dados: DadosCartao, formato: FormatoCartao = '
   }
 
   // Altura do bloco de texto (para a foto ocupar o resto)
-  const hTitulo = 110;
+  const nome = dados.nome.trim() || 'Nosso bebê';
+  const tit = medirTitulo(ctx, nome, dados.idade, W - M * 2);
+  const hTitulo = tit.altura;
   const hData = 54;
   const gapMedidas = 22;
   const hMedidas = temMedidas ? 88 + 32 : 0;
@@ -385,26 +468,26 @@ export async function gerarCartao(dados: DadosCartao, formato: FormatoCartao = '
   let y = fotoY + fotoH + gapFoto;
   ctx.textAlign = 'left';
   {
-    const nome = dados.nome.trim() || 'Nosso bebê';
-    const linha = `${nome} · ${dados.idade}`;
-    const c = caber(ctx, linha, W - M * 2, '800', 92, 54, FONTE_ROUND);
     // Nome em tinta escura, idade em degradê lilás → rosa
-    ctx.font = `800 ${c.tam}px ${FONTE_ROUND}`;
-    const base = y + c.tam * 0.92;
-    const prefixo = `${nome} · `;
-    if (c.texto === linha) {
-      ctx.fillStyle = COR.texto;
-      ctx.fillText(prefixo, M, base);
-      const px = M + ctx.measureText(prefixo).width;
+    const idadeEm = (px: number, base: number, tam: number) => {
+      ctx.font = `800 ${tam}px ${FONTE_ROUND}`;
       const iw = ctx.measureText(dados.idade).width;
       const g = ctx.createLinearGradient(px, 0, px + iw, 0);
       g.addColorStop(0, COR.lilas);
       g.addColorStop(1, COR.rosa);
       ctx.fillStyle = g;
       ctx.fillText(dados.idade, px, base);
+    };
+    ctx.font = `800 ${tit.tam}px ${FONTE_ROUND}`;
+    const base = y + tit.tam * 0.92;
+    ctx.fillStyle = COR.texto;
+    if (tit.linhas === 1) {
+      const prefixo = `${nome} · `;
+      ctx.fillText(prefixo, M, base);
+      idadeEm(M + ctx.measureText(prefixo).width, base, tit.tam);
     } else {
-      ctx.fillStyle = COR.texto;
-      ctx.fillText(c.texto, M, base);
+      ctx.fillText(tit.nome, M, base);
+      idadeEm(M, base + tit.tamIdade * 1.12, tit.tamIdade);
     }
     y += hTitulo;
   }
@@ -419,8 +502,8 @@ export async function gerarCartao(dados: DadosCartao, formato: FormatoCartao = '
   if (temMedidas) {
     y += gapMedidas;
     let x = M;
-    if (dados.peso) x += selo(ctx, x, y, dados.peso, 'Peso', COR.rosaClaro, 1) + 20;
-    if (dados.altura) selo(ctx, x, y, dados.altura, 'Altura', COR.azulClaro, 1);
+    if (dados.peso) x += selo(ctx, x, y, dados.peso, dados.rotuloPeso || 'Peso', COR.rosaClaro, 1) + 20;
+    if (dados.altura) selo(ctx, x, y, dados.altura, dados.rotuloAltura || 'Altura', COR.azulClaro, 1);
     y += hMedidas;
   }
 

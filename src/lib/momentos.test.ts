@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   contarRegistros,
   crescimentoNoPeriodo,
+  deMeses,
+  fotoAnterior,
   lembrancaDoDia,
   mesesCompletos,
   mesversarioHoje,
+  quandoMedida,
   resumoDoMes,
+  textoFotoDoMes,
   textoGanhoPeso,
   textoHaQuanto,
   textoMeses,
@@ -79,6 +83,15 @@ describe('mesversário', () => {
     expect(m.aniversario).toBe(true);
     expect(tituloComemoracao('Heitor', m)).toBe('Heitor faz 1 ano! 🎂');
     expect(tituloComemoracao('', { meses: 2, aniversario: false, idade: '2 meses' })).toBe('O bebê faz 2 meses! 🎉');
+    expect(tituloComemoracao(null, { meses: 1, aniversario: false, idade: '1 mês' }, 'F')).toBe('A bebê faz 1 mês! 🎉');
+    expect(tituloComemoracao('  ', { meses: 1, aniversario: false, idade: '1 mês' }, 'M')).toBe('O bebê faz 1 mês! 🎉');
+    expect(deMeses(1)).toBe('de 1 mês');
+    expect(deMeses(2)).toBe('dos 2 meses');
+    expect(deMeses(12)).toBe('de 1 ano');
+    expect(deMeses(15)).toBe('de 1 ano e 3 meses');
+    expect(deMeses(24)).toBe('dos 2 anos');
+    expect(textoFotoDoMes(0)).toBe('Foto do nascimento');
+    expect(textoFotoDoMes(1)).toBe('Foto de 1 mês');
     expect(textoMeses(15)).toBe('1 ano e 3 meses');
     expect(textoMeses(25)).toBe('2 anos e 1 mês');
   });
@@ -97,9 +110,9 @@ describe('resumo do mês', () => {
       { data: '2026-09-20', valor: 4100 },
       { data: '2026-10-25', valor: 4800 },
     ];
-    expect(crescimentoNoPeriodo(pts, '2026-09-28', '2026-10-28')).toEqual({ atual: 4800, data: '2026-10-25', ganho: 700, desde: '2026-09-20' });
+    expect(crescimentoNoPeriodo(pts, '2026-09-28', '2026-10-28')).toEqual({ atual: 4800, data: '2026-10-25', ganho: 700, desde: '2026-09-20', aoNascer: false, antiga: false });
     // Sem medida no período: mostra a última, sem ganho
-    expect(crescimentoNoPeriodo(pts.slice(0, 2), '2026-09-28', '2026-10-28')).toEqual({ atual: 4100, data: '2026-09-20', ganho: null, desde: null });
+    expect(crescimentoNoPeriodo(pts.slice(0, 2), '2026-09-28', '2026-10-28')).toEqual({ atual: 4100, data: '2026-09-20', ganho: null, desde: null, aoNascer: false, antiga: false });
     expect(crescimentoNoPeriodo([], '2026-09-28', '2026-10-28')).toBeNull();
   });
 
@@ -152,6 +165,46 @@ describe('resumo do mês', () => {
     expect(c.fraldas).toBe(1);
   });
 
+  it('sem medidas: o peso é o do nascimento e diz "ao nascer"', () => {
+    const b = bebe('2026-08-28');
+    const r1 = resumoDoMes(b, { registros: [], marcos: [], medidas: [] }, 1, '2026-09-28')!;
+    expect(r1.peso).toMatchObject({ atual: 3350, ganho: null, aoNascer: true });
+    expect(quandoMedida(r1.peso!, r1.fim)).toBe('ao nascer');
+    expect(quandoMedida(r1.altura!, r1.fim)).toBe('ao nascer');
+    const r2 = resumoDoMes(b, { registros: [], marcos: [], medidas: [] }, 2, '2026-10-28')!;
+    expect(quandoMedida(r2.peso!, r2.fim)).toBe('ao nascer');
+  });
+
+  it('medida antiga (mais de 45 dias antes): mostra a data e esconde o ganho', () => {
+    const b = bebe('2025-10-28');
+    const r = resumoDoMes(b, { registros: [], marcos: [], medidas: [medida('2026-04-28', 7800, 68)] }, 12, '2026-10-28')!;
+    expect(r.peso).toMatchObject({ atual: 7800, ganho: null, desde: null, antiga: true, aoNascer: false });
+    expect(quandoMedida(r.peso!, r.fim)).toBe('em 28/04');
+    // De outro ano: com o ano
+    const r2 = resumoDoMes(b, { registros: [], marcos: [], medidas: [medida('2025-12-10', 5200)] }, 12, '2026-10-28')!;
+    expect(quandoMedida(r2.peso!, r2.fim)).toBe('em 10/12/2025');
+    // Medida recente com ganho: o ganho já diz tudo
+    const r3 = resumoDoMes(b, { registros: [], marcos: [], medidas: [medida('2026-10-20', 9800)] }, 12, '2026-10-28')!;
+    expect(r3.peso?.antiga).toBe(false);
+    expect(quandoMedida(r3.peso!, r3.fim)).toBeNull();
+    // Recente mas sem medida de antes do período: mostra a data
+    const r4 = resumoDoMes(bebe('2026-08-28', { peso_nascer_g: null }), { registros: [], marcos: [], medidas: [medida('2026-10-20', 4900)] }, 2, '2026-10-28')!;
+    expect(quandoMedida(r4.peso!, r4.fim)).toBe('em 20/10');
+  });
+
+  it('foto do mês anterior para o "Há 1 mês" da comemoração', () => {
+    const marcos = [
+      marco({ tipo: 'mes', marco_id: 'mes-0', data: '2025-10-28', foto: 'f/0.jpg' }),
+      marco({ tipo: 'mes', marco_id: 'mes-1', data: '2025-11-28', foto: 'f/1.jpg' }),
+      marco({ tipo: 'mes', marco_id: 'mes-3', data: '2026-01-28', foto: null }),
+    ];
+    expect(fotoAnterior(marcos, 2)).toEqual({ meses: 1, quando: 'Há 1 mês', titulo: 'Foto de 1 mês', foto: 'f/1.jpg' });
+    expect(fotoAnterior(marcos, 1)).toMatchObject({ meses: 0, titulo: 'Foto do nascimento' });
+    expect(fotoAnterior(marcos, 4)).toBeNull();
+    expect(fotoAnterior(marcos, 12)).toMatchObject({ meses: 0, quando: 'Há 1 ano' });
+    expect(fotoAnterior(marcos, 0)).toBeNull();
+  });
+
   it('formata peso e ganho', () => {
     expect(textoPeso(4350)).toBe('4,35 kg');
     expect(textoGanhoPeso(650)).toBe('+650 g');
@@ -195,5 +248,25 @@ describe('lembranças', () => {
     expect(lembrancaDoDia(bebe('2026-08-28'), marcos, [], '2026-10-28')).toBeNull();
     expect(lembrancaDoDia(bebe(null), marcos, [], '2026-10-28')).toBeNull();
     expect(lembrancaDoDia(b, [marco({ titulo: 'Sem data redonda', data: '2026-10-20' })], [], '2026-10-28')).toBeNull();
+  });
+
+  it('foto de 1 mês: "Foto de 1 mês" (concordância)', () => {
+    const b = bebe('2026-08-28');
+    const l = lembrancaDoDia(b, [marco({ tipo: 'mes', marco_id: 'mes-1', data: '2026-09-28', foto: 'f/1.jpg' })], [], '2026-11-28');
+    // 28/11 é mesversário (comemoração no topo): nada
+    expect(l).toBeNull();
+    const b2 = bebe('2026-08-10');
+    expect(lembrancaDoDia(b2, [marco({ tipo: 'mes', marco_id: 'mes-1', data: '2026-09-28', foto: 'f/1.jpg' })], [], '2026-10-28')?.titulo).toBe('Foto de 1 mês');
+  });
+
+  it('anotações só em 1 semana e 1 mês (o app só carrega 45 dias de registros)', () => {
+    const b = bebe('2026-01-10');
+    const r = (dia: string) => reg('mamada', `${dia}T10:00`, `${dia}T10:20`, 'Mamou bem');
+    expect(lembrancaDoDia(b, [], [r('2026-10-21')], '2026-10-28')?.quando).toBe('Há 1 semana');
+    expect(lembrancaDoDia(b, [], [r('2026-09-28')], '2026-10-28')?.quando).toBe('Há 1 mês');
+    expect(lembrancaDoDia(b, [], [r('2026-08-28')], '2026-10-28')).toBeNull();
+    expect(lembrancaDoDia(b, [], [r('2026-04-28')], '2026-10-28')).toBeNull();
+    // Marcos continuam em N meses
+    expect(lembrancaDoDia(b, [marco({ titulo: 'Rolou', data: '2026-04-28' })], [], '2026-10-28')?.quando).toBe('Há 6 meses');
   });
 });
