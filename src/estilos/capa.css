@@ -111,3 +111,13 @@
 @media (prefers-reduced-motion: reduce) {
   .capa-img, .capa-grande, .capa-compacta { transform: none !important; }
 }
+
+/* Troca de tela saindo ou chegando no Hoje: a capa (alta) e o topo compacto não se misturam.
+   Cada um some/aparece rápido, sem a imagem da capa ficar por cima da tela nova. */
+:root[data-transicao] .topo.capa { view-transition-name: capa; }
+::view-transition-group(capa) { animation: none; }
+::view-transition-old(capa) { animation: capa-vt-sumir 0.14s ease-out both; }
+::view-transition-new(capa) { animation: capa-vt-surgir 0.22s ease-out both; }
+::view-transition-old(topo):only-child { animation: capa-vt-sumir 0.14s ease-out both; }
+@keyframes capa-vt-sumir { to { opacity: 0; } }
+@keyframes capa-vt-surgir { from { opacity: 0; } }
