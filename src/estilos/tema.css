@@ -125,7 +125,8 @@
 .ap-cores { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .ap-cor {
   display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px; border-radius: 14px; min-width: 0;
-  border: 1px solid transparent; background: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; color: var(--texto-2);
+  border: 1px solid transparent; background: none; cursor: pointer; font-size: 0.74rem; font-weight: 600; color: var(--texto-2);
+  white-space: nowrap; overflow-wrap: normal; letter-spacing: -0.01em;
 }
 .ap-cor[aria-checked="true"] { color: var(--texto); background: var(--superficie-2); border-color: var(--borda); }
 .ap-amostra {
@@ -134,9 +135,16 @@
 }
 .ap-cor[aria-checked="true"] .ap-amostra { box-shadow: 0 0 0 2px var(--superficie-2), 0 0 0 4px var(--amostra); }
 .ap-amostra svg { width: 18px; height: 18px; }
-.ap-agora { display: flex; align-items: center; gap: 8px; }
-.ap-agora::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--destaque); flex: none; }
+.ap-agora { display: flex; align-items: flex-start; gap: 8px; }
+.ap-agora::before { content: ''; width: 8px; height: 8px; margin-top: 0.45em; border-radius: 50%; background: var(--destaque); flex: none; }
+/* Na noite âmbar as amostras também ficam baixas (sem azul aceso) */
+:root[data-tema="noite"] .ap-amostra { filter: brightness(0.72) saturate(0.75); }
+@media (max-width: 380px) { .ap-cores { gap: 2px; } .ap-cor { font-size: 0.68rem; letter-spacing: -0.02em; } }
 @media (max-width: 359px) {
+  .ap-temas { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .ap-tema { min-height: 52px; }
+  .ap-cor { font-size: 0.62rem; }
+  .ap-amostra { width: 30px; height: 30px; }
   .ap-tema { gap: 8px; padding: 8px; }
   .ap-tema[aria-checked="true"] { padding: 7px; }
   .ap-previa { width: 24px; height: 24px; }
