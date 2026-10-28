@@ -228,7 +228,8 @@ export function ItemDeslizavel({ children, aoEditar, aoApagar }: { children: Rea
   }, []);
 
   return (
-    <li ref={liRef} className={`tq-deslize ${aberto ? 'tq-aberto' : ''}`}>
+    // className fixo: as classes de movimento (tq-movendo, tq-solto...) são postas à mão e o React não as apaga
+    <li ref={liRef} className="tq-deslize" data-aberto={aberto || undefined}>
       <div ref={frenteRef} className="tq-frente">
         {children}
       </div>
