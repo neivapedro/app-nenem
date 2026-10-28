@@ -5,6 +5,8 @@ import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/pr
 import { FolhaBebe } from '../componentes/bebe';
 import { CartaoProximaMamada, Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
 import { MomentosDoDia } from '../componentes/momentos';
+import { RelogioDia } from '../componentes/relogio-dia';
+import { DivisaoDaSemana } from '../componentes/divisao';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
 import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
@@ -207,6 +209,7 @@ export function Hoje() {
       {/* Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela */}
       {nascido && !andamento.mamada && <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} />}
       {nascido && <Faixa24h registros={registros} agora={agora} />}
+      {nascido && <RelogioDia registros={registros} agora={agora} />}
 
       <section className="acoes" aria-label="Registrar">
         <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada}>
@@ -259,6 +262,7 @@ export function Hoje() {
         </div>
         <NumerosDoDia resumo={resumo} medias={medias} nascido={nascido} />
       </section>
+      {nascido && <DivisaoDaSemana />}
 
       {proximo && (
         <Link to="/agenda" className="cartao linha" style={{ textDecoration: 'none', color: 'inherit', flexWrap: 'nowrap' }}>
