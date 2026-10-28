@@ -14,6 +14,7 @@ import { FolhaEditarHoje } from '../componentes/editar-hoje';
 import { MenuRapido, useSegurar, type Ponto } from '../componentes/menu-rapido';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
+import { useZoom } from '../lib/zoom';
 import { mediasUltimosDias } from '../lib/hoje';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, somarDiasLocal, textoDuracao } from '../lib/datas';
 import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
@@ -125,19 +126,27 @@ function Pendencias() {
     <section className="cartao" aria-label="Pendências">
       <div className="lista">
         {itens.map((i) => (
-          <Link key={i.chave} to={i.para} className="item" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <span className={`selo ${i.urgente ? '' : 't-agenda'}`} style={i.urgente ? { color: 'var(--ruim)', background: 'color-mix(in srgb, var(--ruim) 14%, transparent)' } : undefined}>
-              <Icone nome={i.chave === 'vacinas' ? 'vacina' : i.chave === 'leite' ? 'extracao' : i.chave === 'primeiros' ? 'lista' : 'remedio'} />
-            </span>
-            <div className="cresce">
-              <div className="titulo">{i.titulo}</div>
-              <div className="detalhe">{i.detalhe}</div>
-            </div>
-            <Icone nome="seta" />
-          </Link>
+          <ItemPendencia key={i.chave} {...i} />
         ))}
       </div>
     </section>
+  );
+}
+
+/** Um item das pendências (componente próprio por causa do zoom, que é um hook) */
+function ItemPendencia(i: { chave: string; para: string; titulo: string; detalhe: string; urgente?: boolean }) {
+  const zoom = useZoom(i.para);
+  return (
+    <Link to={i.para} className="item" style={{ textDecoration: 'none', color: 'inherit' }} {...zoom}>
+      <span className={`selo ${i.urgente ? '' : 't-agenda'}`} style={i.urgente ? { color: 'var(--ruim)', background: 'color-mix(in srgb, var(--ruim) 14%, transparent)' } : undefined}>
+        <Icone nome={i.chave === 'vacinas' ? 'vacina' : i.chave === 'leite' ? 'extracao' : i.chave === 'primeiros' ? 'lista' : 'remedio'} />
+      </span>
+      <div className="cresce">
+        <div className="titulo">{i.titulo}</div>
+        <div className="detalhe">{i.detalhe}</div>
+      </div>
+      <Icone nome="seta" />
+    </Link>
   );
 }
 
@@ -243,6 +252,10 @@ export function Hoje() {
     else setFolha(tipo);
   }
   const dicaSegurar = { 'aria-describedby': 'hoje-dica-segurar' };
+  // Zoom do cartão até a tela que ele abre (src/lib/zoom.ts); continua valendo com os cartões em outra ordem
+  const zoomHistorico = useZoom('/historico', { cartao: '.cartao' });
+  const zoomAgenda = useZoom('/agenda');
+  const zoomChecklist = useZoom('/mais/primeiros-dias');
 
   const cartoes: Record<IdCartaoHoje, ReactNode> = {
     momentos: <MomentosDoDia />,
@@ -286,7 +299,7 @@ export function Hoje() {
           </button>
         ))}
         {!comeIntroducao && (
-          <Link to="/mais/primeiros-dias" className="t-agenda" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 4px', borderRadius: 14, border: '1px solid var(--borda)', background: 'var(--superficie)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/mais/primeiros-dias" {...zoomChecklist} className="t-agenda" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '10px 4px', borderRadius: 14, border: '1px solid var(--borda)', background: 'var(--superficie)', fontSize: '0.75rem', fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>
             <Selo tipo="agenda" icone="lista" />
             Checklist
           </Link>
@@ -298,7 +311,7 @@ export function Hoje() {
       <section className="cartao" aria-label="Resumo de hoje">
         <div className="cartao-cab">
           <h2>Hoje</h2>
-          <Link to="/historico" className="botao pequeno texto">
+          <Link to="/historico" className="botao pequeno texto" {...zoomHistorico}>
             Histórico <Icone nome="seta" />
           </Link>
         </div>
@@ -307,7 +320,7 @@ export function Hoje() {
     ),
     divisao: nascido ? <DivisaoDaSemana /> : null,
     compromisso: proximo ? (
-      <Link to="/agenda" className="cartao linha" style={{ textDecoration: 'none', color: 'inherit', flexWrap: 'nowrap' }}>
+      <Link to="/agenda" className="cartao linha" style={{ textDecoration: 'none', color: 'inherit', flexWrap: 'nowrap' }} {...zoomAgenda}>
         <Selo tipo="agenda" />
         <div className="cresce">
           <div className="rotulo">Próximo compromisso</div>

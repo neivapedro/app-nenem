@@ -751,6 +751,11 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 ::view-transition-new(root) { animation: vt-entrar-frente 0.3s var(--curva) both; }
 :root[data-transicao="tras"]::view-transition-new(root) { animation-name: vt-entrar-tras; }
 @keyframes vt-surgir { from { opacity: 0; } }
+/* Zoom (cartão que vira tela, src/lib/zoom.ts): o topo antigo some logo, sem o avatar e a seta
+   de voltar aparecendo um por cima do outro */
+:root[data-zoom]::view-transition-old(topo) { animation: vt-sumir 0.1s ease-out both; }
+:root[data-zoom]::view-transition-new(topo) { animation: vt-surgir 0.18s ease-out both; }
+@keyframes vt-sumir { to { opacity: 0; } }
 @keyframes vt-entrar-frente { from { opacity: 0; transform: translateX(18px); } }
 @keyframes vt-entrar-tras { from { opacity: 0; transform: translateX(-18px); } }
 @media (prefers-reduced-motion: reduce) {
