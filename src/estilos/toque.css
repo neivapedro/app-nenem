@@ -51,3 +51,6 @@
 @media (prefers-reduced-motion: reduce) {
   .tq-solto .tq-frente, .tq-solto .tq-acoes, .tq-acao, .tq-sumindo { transition: none; }
 }
+
+/* Sono fora do lugar: a faixa clara ocupa o item todo (sem o "fio" na beira da linha do tempo) */
+.tq-movendo .hist-item.sono::before { left: 0; border-radius: 12px; }

@@ -93,6 +93,18 @@
 :root[data-tema="noite"] img { filter: brightness(0.78) saturate(0.85); }
 :root[data-tema="noite"] :is(.visualizador, .editor-foto) img { filter: none; }
 
+/* ---------- Barra de status no app instalado ----------
+   O index.html usa status-bar-style black-translucent (o iOS só lê na instalação): hora e bateria
+   ficam sempre brancas, por cima do topo. Nos temas claros, uma faixa escura só na altura da barra
+   (na cor do app; no padrão, grafite) deixa o texto legível (branco >= 4,5:1 sobre ela). */
+:root[data-tema="claro"] { --barra-status: color-mix(in oklab, var(--destaque) 75%, #141318); }
+:root[data-app][data-tema="claro"] body::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 200; pointer-events: none;
+  height: env(safe-area-inset-top);
+  background: var(--barra-status);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.06);
+}
+
 /* ---------- Troca suave de tema (a hora virou, voltou ao app, escolheu em Ajustes) ---------- */
 :root[data-trocando-tema],
 :root[data-trocando-tema] body,

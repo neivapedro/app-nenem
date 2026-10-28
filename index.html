@@ -26,6 +26,9 @@
         if (tom) r.setAttribute('data-tom', tom);
         r.setAttribute('data-cor', cor);
         r.setAttribute('data-theme', tema === 'claro' ? 'light' : 'dark');
+        // Aberto pelo ícone da Tela de Início: a barra de status (texto branco) fica por cima do app
+        var nav = window.navigator;
+        if ((nav && nav.standalone) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) r.setAttribute('data-app', '');
         var fundo = { claro: '#f6f4f1', frio: '#f2f4f7', quente: '#f8f3ec', escuro: '#0e0f13', noite: '#0c0907' };
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute('content', fundo[tom || tema]);

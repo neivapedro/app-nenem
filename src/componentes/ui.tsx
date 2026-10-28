@@ -288,12 +288,14 @@ function useArrastarParaFechar(fundoRef: RefObject<HTMLDivElement | null>, folha
       if (g.amostras.length > 8) g.amostras.shift();
       aplicar(g.pos);
     };
-    const soltar = (cancelado: boolean) => {
+    const soltar = (cancelado: boolean, t?: number) => {
       const s = g;
       if (!s || s.estado !== 'arrastando') {
         g = null;
         return;
       }
+      // Parou o dedo antes de soltar: a velocidade cai (não conta como gesto rápido)
+      if (t !== undefined) s.amostras.push({ v: s.pos, t });
       arrastou = true;
       timers.push(window.setTimeout(() => (arrastou = false), 400));
       const vel = velocidade(s.amostras);
@@ -311,14 +313,14 @@ function useArrastarParaFechar(fundoRef: RefObject<HTMLDivElement | null>, folha
       if (e.touches.length !== 1) return soltar(true);
       mover(e.touches[0].clientX, e.touches[0].clientY, e.timeStamp, e);
     };
-    const tFim = (e: TouchEvent) => soltar(e.type === 'touchcancel');
+    const tFim = (e: TouchEvent) => soltar(e.type === 'touchcancel', e.timeStamp);
     // Mouse (computador): só pela alça/cabeçalho
     const pMover = (e: PointerEvent) => mover(e.clientX, e.clientY, e.timeStamp, e);
-    const pFim = () => {
+    const pFim = (e: PointerEvent) => {
       window.removeEventListener('pointermove', pMover);
       window.removeEventListener('pointerup', pFim);
       window.removeEventListener('pointercancel', pFim);
-      soltar(false);
+      soltar(e.type === 'pointercancel', e.timeStamp);
     };
     const pInicio = (e: PointerEvent) => {
       if (e.pointerType !== 'mouse' || e.button !== 0 || !(e.target instanceof Element) || !e.target.closest('.tq-folha-topo')) return;

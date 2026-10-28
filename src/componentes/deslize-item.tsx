@@ -164,6 +164,7 @@ export function ItemDeslizavel({ children, aoEditar, aoApagar }: { children: Rea
         return;
       }
       e?.stopPropagation();
+      if (e) s.amostras.push({ v: x, t: e.timeStamp });
       engolirClique = true;
       timers.push(window.setTimeout(() => (engolirClique = false), 400));
       li.removeAttribute('data-sem-gesto');

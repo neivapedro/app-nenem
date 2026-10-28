@@ -1,5 +1,4 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import indexHtml from '../../index.html?raw';
 import { describe, expect, it } from 'vitest';
 import {
   ambarLigado,
@@ -16,8 +15,14 @@ import {
   type ModoTema,
 } from './tema';
 
-const raiz = resolve(__dirname, '../..');
-const ler = (f: string) => readFileSync(resolve(raiz, f), 'utf8');
+// O Vitest entrega .css vazio (mesmo com ?raw): o texto vem direto do disco. Tipado aqui mesmo,
+// porque o tsconfig do app não inclui os tipos do Node.
+type Fs = { readFileSync(caminho: URL, cod: 'utf8'): string };
+const fs = (globalThis as unknown as { process: { getBuiltinModule(m: 'node:fs'): Fs } }).process.getBuiltinModule('node:fs');
+const estilosCss = fs.readFileSync(new URL('../estilos.css', import.meta.url), 'utf8');
+const temaCss = fs.readFileSync(new URL('../estilos/tema.css', import.meta.url), 'utf8');
+// Arquivos da tela de abertura que existem em public/abertura (só os nomes; nada é carregado)
+const ABERTURAS = Object.keys(import.meta.glob('../../public/abertura/*.png')).map((k) => k.replace('../../public/', ''));
 const MODOS: ModoTema[] = ['auto', 'sistema', 'claro', 'escuro'];
 const CORES_V = CORES.map((c) => c.valor);
 const em = (h: number, min = 0) => new Date(2026, 9, 28, h, min);
@@ -63,7 +68,7 @@ describe('tema pela hora', () => {
 });
 
 describe('script do index.html (antes do primeiro desenho)', () => {
-  const html = ler('index.html');
+  const html = indexHtml;
   const codigo = html.match(/<script>\s*([\s\S]*?)<\/script>/)![1];
 
   function rodar(guardado: string | null, hora: number, sistemaEscuro: boolean) {
@@ -112,9 +117,10 @@ describe('script do index.html (antes do primeiro desenho)', () => {
     expect(links.length).toBeGreaterThanOrEqual(24);
     for (const [, media, arq] of links) {
       expect(media).toMatch(/device-width: \d+px\) and \(device-height: \d+px\) and \(-webkit-device-pixel-ratio: [23]\) and \(orientation: portrait\) and \(prefers-color-scheme: (light|dark)\)/);
-      expect(() => readFileSync(resolve(raiz, 'public', arq))).not.toThrow();
+      expect(ABERTURAS, arq).toContain(arq);
     }
     expect(new Set(links.map((l) => l[1])).size).toBe(links.length);
+    expect(ABERTURAS).toHaveLength(links.length);
   });
 });
 
@@ -167,7 +173,7 @@ function casa(sel: string, a: Attrs): number | null {
   return esp;
 }
 
-const regras = [...regrasDeRaiz(ler('src/estilos.css')), ...regrasDeRaiz(ler('src/estilos/tema.css'))];
+const regras = [...regrasDeRaiz(estilosCss), ...regrasDeRaiz(temaCss)];
 function tokens(a: Attrs) {
   const valores: { esp: number; ordem: number; nome: string; v: string }[] = [];
   regras.forEach((r, ordem) => {
