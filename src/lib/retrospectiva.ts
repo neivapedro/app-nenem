@@ -366,6 +366,23 @@ export function marcosDoPeriodo(marcos: Marco[], nascimentoIso: string, p: Pick<
   return marcosNoPeriodo(marcos, p.inicio, p.completo ? p.fim : p.ultimoDia, p.ano === 1).map((m) => ({ ...m, idade: idadeNaData(nascimentoIso, m.data), emoji: emojiDoMarco(m.titulo, m.tipo) }));
 }
 
+/**
+ * Os marcos para caber numa tela: as "1ª vez" (escritas pela família) vêm antes dos da Caderneta,
+ * espalhados pelo ano (sempre o primeiro e o último), e mostrados em ordem de data.
+ */
+export function destaqueMarcos<T extends Pick<MarcoRetro, 'id' | 'data' | 'tipo'>>(lista: T[], max: number): T[] {
+  if (lista.length <= max) return lista;
+  const espalhar = (xs: T[], n: number): T[] => {
+    if (xs.length <= n) return xs;
+    if (n <= 1) return xs.slice(-1);
+    return Array.from({ length: n }, (_, i) => xs[Math.round((i * (xs.length - 1)) / (n - 1))]);
+  };
+  const vezes = lista.filter((m) => m.tipo === 'primeira-vez');
+  const escolhidos = espalhar(vezes, max);
+  if (escolhidos.length < max) escolhidos.push(...espalhar(lista.filter((m) => m.tipo !== 'primeira-vez'), max - escolhidos.length));
+  return escolhidos.sort((a, b) => a.data.localeCompare(b.data) || a.id.localeCompare(b.id));
+}
+
 export interface VacinasRetro {
   doses: number;
   /** Nomes das vacinas (sem repetir), na ordem em que foram tomadas */
@@ -373,6 +390,8 @@ export interface VacinasRetro {
 }
 
 const nomeDaDose = new Map(DOSES.map((d) => [d.id, d.vacina]));
+/** Nome curto que a família reconhece */
+const APELIDO_VACINA: Record<string, string> = { Influenza: 'Gripe', 'Poliomielite inativada': 'Pólio (VIP)', 'Pneumocócica conjugada': 'Pneumocócica', 'Meningocócica conjugada': 'Meningocócica' };
 
 /** Vacinas aplicadas no período (o dia do aniversário entra: as vacinas de 12 meses) */
 export function vacinasDoPeriodo(vacinas: VacinaRegistro[], p: Pick<PeriodoRetro, 'inicio' | 'fim'>, bebeId?: string): VacinasRetro {
@@ -381,7 +400,8 @@ export function vacinasDoPeriodo(vacinas: VacinaRegistro[], p: Pick<PeriodoRetro
     .sort((a, b) => (a.data ?? '').localeCompare(b.data ?? ''));
   const nomes: string[] = [];
   for (const v of lista) {
-    const nome = (nomeDaDose.get(v.dose_id) ?? v.nome?.trim() ?? v.dose_id.replace(/^extra:/, '')).replace(/\s*\(.*\)\s*$/, '');
+    const bruto = (nomeDaDose.get(v.dose_id) ?? v.nome?.trim() ?? v.dose_id.replace(/^extra:/, '')).replace(/\s*\(.*\)\s*$/, '');
+    const nome = APELIDO_VACINA[bruto] ?? bruto;
     if (nome && !nomes.includes(nome)) nomes.push(nome);
   }
   return { doses: lista.length, nomes };

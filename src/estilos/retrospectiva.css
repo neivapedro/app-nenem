@@ -152,8 +152,10 @@
 .retro-ganho { align-self: flex-start; font-size: 0.88rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--vidro-2); }
 
 .retro-linha-tempo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; position: relative; }
-.retro-linha-tempo::before { content: ''; position: absolute; left: 21px; top: 14px; bottom: 14px; width: 2px; border-radius: 2px; background: rgb(255 255 255 / 0.3); }
-.retro-marco { display: flex; align-items: center; gap: 12px; position: relative; min-width: 0; }
+/* A linha liga um marco ao próximo (passa entre os círculos, não por dentro deles) */
+.retro-marco:not(:last-child)::after { content: ''; position: absolute; left: 21px; top: 47px; height: calc(100% - 50px + 8px); width: 2px; border-radius: 2px; background: rgb(255 255 255 / 0.5); }
+.retro-marco { display: flex; align-items: flex-start; gap: 12px; position: relative; min-width: 0; }
+.retro-marco .cresce { padding-top: 1px; }
 .retro-marco-no { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; background: var(--vidro-2); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); position: relative; }
 .retro-marco strong { display: block; font-size: 1rem; line-height: 1.25; overflow-wrap: anywhere; }
 .retro-marco .cresce > span { display: block; font-size: 0.8rem; color: var(--branco-2); }
@@ -246,7 +248,7 @@
   .retro-recorde-emoji { width: 40px; height: 40px; font-size: 1.25rem; }
   .retro-recorde strong { font-size: 1.12rem; }
   .retro-marco-no { width: 38px; height: 38px; font-size: 1.1rem; }
-  .retro-linha-tempo::before { left: 18px; }
+  .retro-marco:not(:last-child)::after { left: 18px; top: 41px; height: calc(100% - 44px + 5px); }
   .retro-linha-tempo { gap: 5px; }
   .retro-navegar { padding-bottom: 6px; }
   .retro-navegar .retro-nav { width: 36px; height: 36px; }

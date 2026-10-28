@@ -25,13 +25,16 @@ export interface CartaoHoje {
   ocultavel?: boolean;
   /** Só existe depois do nascimento */
   soNascido?: boolean;
+  /** Começa escondido no layout padrão (dá para ligar em "Editar o Hoje") */
+  padraoOculto?: boolean;
 }
 
 /** Catálogo na ordem padrão. Cartão novo numa versão futura: é só colocar no lugar dele aqui. */
 export const CARTOES_HOJE: CartaoHoje[] = [
   { id: 'momentos', nome: 'Momentos', descricao: 'Mesversário e lembranças do dia (quando houver)', soNascido: true },
   { id: 'proxima', nome: 'Próxima mamada', descricao: 'Anel com a hora prevista da próxima alimentação', soNascido: true },
-  { id: 'faixa24h', nome: 'Últimas 24 horas', descricao: 'Faixa com mamadas, sono e fraldas', soNascido: true },
+  // Mostra as mesmas 24 h do relógio: por padrão só o relógio aparece
+  { id: 'faixa24h', nome: 'Últimas 24 horas', descricao: 'Faixa com mamadas, sono e fraldas', soNascido: true, padraoOculto: true },
   { id: 'relogio', nome: 'Relógio 24 h', descricao: 'O dia desenhado em volta de um relógio', soNascido: true },
   { id: 'registrar', nome: 'Botões de registro', descricao: 'Mamada, mamadeira, fralda e sono', ocultavel: false },
   { id: 'outros', nome: 'Outros registros', descricao: 'Remédio, febre, extração e mais' },
@@ -56,7 +59,7 @@ export interface LayoutHoje {
 const ocultavel = (catalogo: CartaoHoje[], id: string) => catalogo.find((c) => c.id === id)?.ocultavel !== false;
 
 export function layoutPadrao(catalogo: CartaoHoje[] = CARTOES_HOJE): LayoutHoje {
-  return { ordem: catalogo.map((c) => c.id), ocultos: [], fixos: [] };
+  return { ordem: catalogo.map((c) => c.id), ocultos: catalogo.filter((c) => c.padraoOculto && c.ocultavel !== false).map((c) => c.id), fixos: [] };
 }
 
 const listaDeTexto = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -69,7 +72,9 @@ const semRepetir = (l: string[]) => l.filter((x, i) => l.indexOf(x) === i);
  */
 export function mesclarLayout(salvo: unknown, catalogo: CartaoHoje[] = CARTOES_HOJE): LayoutHoje {
   const ids = catalogo.map((c) => c.id as string);
-  const s = salvo && typeof salvo === 'object' ? (salvo as Record<string, unknown>) : {};
+  // Nada salvo (ou lixo): o padrão. Layout salvo vale como está (o padrão novo não mexe nele)
+  if (!salvo || typeof salvo !== 'object' || !Array.isArray((salvo as Record<string, unknown>).ordem)) return layoutPadrao(catalogo);
+  const s = salvo as Record<string, unknown>;
   const ordem = semRepetir(listaDeTexto(s.ordem)).filter((id) => ids.includes(id));
   ids.forEach((id, i) => {
     if (ordem.includes(id)) return;
@@ -163,5 +168,5 @@ export function alternarOculto(l: LayoutHoje, id: string, catalogo: CartaoHoje[]
 
 export function ehPadrao(l: LayoutHoje, catalogo: CartaoHoje[] = CARTOES_HOJE): boolean {
   const p = layoutPadrao(catalogo);
-  return !l.ocultos.length && !l.fixos.length && l.ordem.join() === p.ordem.join();
+  return !l.fixos.length && l.ordem.join() === p.ordem.join() && [...l.ocultos].sort().join() === [...p.ocultos].sort().join();
 }

@@ -12,6 +12,7 @@ import { reais } from '../lib/cofrinho';
 import { dataBr, textoDuracao } from '../lib/datas';
 import { textoAltura, textoGanhoPeso, textoMeses } from '../lib/momentos';
 import {
+  destaqueMarcos,
   diasDormindo,
   flexao,
   intervaloFraldas,
@@ -439,9 +440,9 @@ function Tela(props: { id: IdTela; bebe: Bebe; pronto: Pronto; pausado: boolean;
             )}
             {t.noitesInteiras > 0 && (
               <E n={4} classe="retro-cartao">
-                <span className="retro-cartao-rotulo">Noites inteiras (6 h+)</span>
+                <span className="retro-cartao-rotulo">Noites inteiras</span>
                 <strong>{milhar(t.noitesInteiras)}</strong>
-                {t.primeiraNoiteInteira && <span className="retro-cartao-sub">a primeira em {dataBr(t.primeiraNoiteInteira)}</span>}
+                <span className="retro-cartao-sub">de 6 h ou mais{t.primeiraNoiteInteira ? ` · a 1ª em ${dataBr(t.primeiraNoiteInteira)}` : ''}</span>
               </E>
             )}
           </div>
@@ -507,7 +508,7 @@ function Tela(props: { id: IdTela; bebe: Bebe; pronto: Pronto; pausado: boolean;
 
     case 'marcos': {
       const max = 6;
-      const lista = dados.marcos.slice(0, max);
+      const lista = destaqueMarcos(dados.marcos, max);
       const resto = dados.marcos.length - lista.length;
       return (
         <div className="retro-centro">
@@ -716,7 +717,8 @@ function useImagens(bebe: Bebe, pronto: Pronto, gerar: boolean): Imagens {
         foto: capa,
         numeros,
         crescimento: cres,
-        marcos: d.marcos.map((m) => ({ emoji: m.emoji, titulo: m.titulo, idade: m.idade })),
+        marcos: destaqueMarcos(d.marcos, 5).map((m) => ({ emoji: m.emoji, titulo: m.titulo, idade: m.idade })),
+        totalMarcos: d.marcos.length,
         extras: d.vacinas.doses ? [`💉 ${plural(d.vacinas.doses, 'vacina tomada', 'vacinas tomadas')}`] : [],
         fotos,
       });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cofrinhoDoPeriodo,
+  destaqueMarcos,
   crescimentoDoPeriodo,
   emojiDoMarco,
   flexao,
@@ -240,10 +241,17 @@ describe('marcos, vacinas, fotos e cofrinho', () => {
       ['Primeira palavra', 'com 10 meses e 13 dias', '💬'],
     ]);
   });
+  it('destaque dos marcos: 1ª vez antes da Caderneta, espalhados pelo ano e em ordem', () => {
+    const m = (id: string, data: string, tipo: 'caderneta' | 'primeira-vez' = 'primeira-vez') => ({ id, data, tipo });
+    const lista = [m('a', '2026-01-01'), m('c1', '2026-01-15', 'caderneta'), m('b', '2026-02-01'), m('c', '2026-03-01'), m('d', '2026-04-01'), m('e', '2026-05-01'), m('f', '2026-06-01'), m('g', '2026-07-01')];
+    expect(destaqueMarcos(lista, 4).map((x) => x.id)).toEqual(['a', 'c', 'e', 'g']);
+    expect(destaqueMarcos(lista, 8)).toBe(lista);
+    expect(destaqueMarcos([m('a', '2026-01-01'), m('c1', '2026-01-15', 'caderneta'), m('c2', '2026-03-15', 'caderneta'), m('c3', '2026-04-15', 'caderneta')], 2).map((x) => x.id)).toEqual(['a', 'c3']);
+  });
   it('vacinas aplicadas no ano (o dia do aniversário entra), sem repetir o nome', () => {
-    const v = vacinasDoPeriodo([vacina('bcg', '2025-10-28'), vacina('penta-1', '2025-12-28'), vacina('penta-2', '2026-02-28'), vacina('scr-1', '2026-10-28'), vacina('rota-1', null), vacina('gripe-1', '2026-05-01', 'pulada'), vacina('extra:abc', '2026-03-03', 'aplicada', 'Dengue')], p);
-    expect(v.doses).toBe(5);
-    expect(v.nomes).toEqual(['BCG', 'Pentavalente', 'Dengue', 'Tríplice viral']);
+    const v = vacinasDoPeriodo([vacina('bcg', '2025-10-28'), vacina('penta-1', '2025-12-28'), vacina('penta-2', '2026-02-28'), vacina('scr-1', '2026-10-28'), vacina('rota-1', null), vacina('gripe-1', '2026-05-01', 'pulada'), vacina('gripe-2', '2026-06-01'), vacina('extra:abc', '2026-03-03', 'aplicada', 'Dengue')], p);
+    expect(v.doses).toBe(6);
+    expect(v.nomes).toEqual(['BCG', 'Pentavalente', 'Dengue', 'Gripe', 'Tríplice viral']);
   });
   it('fotos do mês do nascimento ao 1 ano', () => {
     const marcos = [0, 1, 2, 5, 12, 13].map((n) => marco({ tipo: 'mes', marco_id: `mes-${n}`, foto: `f${n}`, data: '2026-01-01' }));

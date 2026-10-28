@@ -44,13 +44,20 @@ describe('mesclarLayout', () => {
     expect(mesclarLayout({ ordem: ['b', 'a'] }, cat('a', 'n1', 'n2', 'b')).ordem).toEqual(['b', 'a', 'n1', 'n2']);
   });
 
+  it('padrão: a faixa de 24 h começa escondida (o relógio mostra o mesmo); layout salvo não muda', () => {
+    expect(layoutPadrao().ocultos).toEqual(['faixa24h']);
+    expect(ordemNaTela(layoutPadrao())).not.toContain('faixa24h');
+    expect(mesclarLayout({ ordem: CARTOES_HOJE.map((c) => c.id), ocultos: [] }).ocultos).toEqual([]);
+    expect(lerLayout(null).ocultos).toEqual(['faixa24h']);
+  });
+
   it('não deixa esconder o que não é ocultável', () => {
     const l = mesclarLayout({ ordem: [], ocultos: ['registrar', 'recentes'] });
     expect(l.ocultos).toEqual(['recentes']);
   });
 
   it('escondido não fica fixado', () => {
-    expect(mesclarLayout({ ocultos: ['b'], fixos: ['b'] }, cat('a', 'b')).fixos).toEqual([]);
+    expect(mesclarLayout({ ordem: [], ocultos: ['b'], fixos: ['b'] }, cat('a', 'b')).fixos).toEqual([]);
   });
 
   it('ida e volta pelo texto', () => {
@@ -124,6 +131,7 @@ describe('fixar e esconder', () => {
 
   it('ehPadrao', () => {
     expect(ehPadrao(layoutPadrao())).toBe(true);
+    expect(ehPadrao(alternarOculto(layoutPadrao(), 'faixa24h'))).toBe(false);
     expect(ehPadrao(alternarFixo(layoutPadrao(), 'resumo'))).toBe(false);
     expect(ehPadrao(mover(layoutPadrao(), 'resumo', -1))).toBe(false);
   });

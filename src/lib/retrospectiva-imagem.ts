@@ -22,7 +22,9 @@ export interface DadosImagensRetro {
   numeros: NumeroImagem[];
   /** Peso e altura: "3,35 kg → 9,6 kg" */
   crescimento: { rotulo: string; de: string; ate: string; detalhe: string | null }[];
+  /** Os marcos em destaque (até 5) e quantos são no total */
   marcos: { emoji: string; titulo: string; idade: string | null }[];
+  totalMarcos: number;
   /** Linhas extras na 2ª imagem ("18 vacinas tomadas") */
   extras: string[];
   fotos: { img: CanvasImageSource; rotulo: string }[];
@@ -147,7 +149,7 @@ function fundo(ctx: CanvasRenderingContext2D, W: number, H: number, [a, b, c]: P
 }
 
 /** Cabeçalho: selo "Retrospectiva", título e período. Devolve o y depois dele */
-function cabecalho(ctx: CanvasRenderingContext2D, W: number, y: number, titulo: string, periodo: string, sobre: string): number {
+function cabecalho(ctx: CanvasRenderingContext2D, W: number, y: number, titulo: string, periodo: string, sobre: string, grande = true): number {
   const M = 84;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -159,10 +161,10 @@ function cabecalho(ctx: CanvasRenderingContext2D, W: number, y: number, titulo: 
   ctx.fillStyle = BRANCO;
   ctx.fillText(sobre.toUpperCase(), M + 28, y + 40);
   y += 58 + 40;
-  let tam = 96;
+  let tam = grande ? 96 : 68;
   ctx.font = `800 ${tam}px ${FONTE_ROUND}`;
   let ls = linhas(ctx, titulo, W - M * 2, 3);
-  while (ls.length > 2 && tam > 70) {
+  while (ls.length > (grande ? 2 : 1) && tam > (grande ? 70 : 52)) {
     tam -= 6;
     ctx.font = `800 ${tam}px ${FONTE_ROUND}`;
     ls = linhas(ctx, titulo, W - M * 2, 3);
@@ -208,7 +210,7 @@ async function imagemResumo(d: DadosImagensRetro): Promise<Blob> {
   const M = 84;
   // Foto redonda com anel branco
   if (d.foto) {
-    const r = 210;
+    const r = d.numeros.length > 4 ? 165 : 200;
     const cx = W / 2;
     const cy = y + 40 + r;
     ctx.save();
@@ -225,7 +227,7 @@ async function imagemResumo(d: DadosImagensRetro): Promise<Blob> {
     ctx.clip();
     fotoCobrindo(ctx, d.foto, cx - r, cy - r, r * 2, r * 2);
     ctx.restore();
-    y = cy + r + 70;
+    y = cy + r + 64;
   } else y += 60;
   // Números em cartões (2 colunas)
   const nums = d.numeros.slice(0, 6);
@@ -233,7 +235,7 @@ async function imagemResumo(d: DadosImagensRetro): Promise<Blob> {
   const cw = (W - M * 2 - gap) / 2;
   const linhasN = Math.ceil(nums.length / 2);
   const espaco = H - 260 - y;
-  const ch = Math.min(230, (espaco - gap * (linhasN - 1)) / Math.max(1, linhasN));
+  const ch = Math.min(220, (espaco - gap * (linhasN - 1)) / Math.max(1, linhasN));
   nums.forEach((n, i) => {
     const x = M + (i % 2) * (cw + gap);
     const yy = y + Math.floor(i / 2) * (ch + gap);
@@ -247,14 +249,15 @@ async function imagemResumo(d: DadosImagensRetro): Promise<Blob> {
     ctx.fillStyle = BRANCO_2;
     ctx.font = `700 28px ${FONTE}`;
     ctx.fillText(cortar(ctx, n.rotulo.toUpperCase(), cw - 90), x + 66, yy + 60);
-    let tam = 88;
+    // O número embaixo do rótulo (nunca por cima): a fonte diminui se o cartão for baixo ou o número largo
+    let tam = Math.max(44, Math.min(88, (ch - 104) / 0.78));
     ctx.font = `800 ${tam}px ${FONTE_ROUND}`;
     while (ctx.measureText(n.valor).width > cw - 64 && tam > 44) {
       tam -= 4;
       ctx.font = `800 ${tam}px ${FONTE_ROUND}`;
     }
     ctx.fillStyle = BRANCO;
-    ctx.fillText(n.valor, x + 34, yy + Math.min(ch - 36, 60 + 34 + tam));
+    ctx.fillText(n.valor, x + 34, yy + 84 + tam * 0.78);
   });
   rodape(ctx, W, H, '💛 Um ano inteirinho de amor');
   return paraBlob(canvas);
@@ -266,11 +269,11 @@ async function imagemCrescimento(d: DadosImagensRetro): Promise<Blob> {
   const { w: W, h: H } = TAMANHO_RETRO;
   const M = 84;
   fundo(ctx, W, H, PALETAS.crescimento);
-  let y = cabecalho(ctx, W, 200, d.titulo, d.periodo, 'Cresceu!');
+  let y = cabecalho(ctx, W, 200, d.titulo, d.periodo, 'Cresceu!', false);
   y += 30;
   for (const c of d.crescimento) {
     ctx.fillStyle = 'rgb(255 255 255 / 0.16)';
-    const h = c.detalhe ? 250 : 200;
+    const h = c.detalhe ? 236 : 176;
     retanguloRedondo(ctx, M, y, W - M * 2, h, 40);
     ctx.fill();
     ctx.fillStyle = BRANCO_2;
@@ -284,13 +287,13 @@ async function imagemCrescimento(d: DadosImagensRetro): Promise<Blob> {
       ctx.font = `800 ${tam}px ${FONTE_ROUND}`;
     }
     ctx.fillStyle = BRANCO;
-    ctx.fillText(txt, M + 44, y + 70 + tam);
+    ctx.fillText(txt, M + 44, y + 82 + tam * 0.78);
     if (c.detalhe) {
       ctx.font = `600 34px ${FONTE}`;
       ctx.fillStyle = BRANCO_2;
-      ctx.fillText(cortar(ctx, c.detalhe, W - M * 2 - 88), M + 44, y + h - 42);
+      ctx.fillText(cortar(ctx, c.detalhe, W - M * 2 - 88), M + 44, y + h - 30);
     }
-    y += h + 28;
+    y += h + 24;
   }
   if (d.marcos.length) {
     y += 30;
@@ -298,8 +301,8 @@ async function imagemCrescimento(d: DadosImagensRetro): Promise<Blob> {
     ctx.font = `800 40px ${FONTE}`;
     ctx.fillText('CONQUISTAS', M, y + 36);
     y += 76;
-    const cabem = Math.max(1, Math.floor((H - 300 - y - (d.extras.length ? 90 : 0)) / 92));
-    const lista = d.marcos.slice(0, Math.min(cabem, 8));
+    const cabem = Math.max(1, Math.floor((H - 250 - y - (d.extras.length ? 80 : 0) - 50) / 82));
+    const lista = d.marcos.slice(0, cabem);
     for (const m of lista) {
       ctx.fillStyle = 'rgb(255 255 255 / 0.2)';
       ctx.beginPath();
@@ -317,9 +320,9 @@ async function imagemCrescimento(d: DadosImagensRetro): Promise<Blob> {
         ctx.fillStyle = BRANCO_2;
         ctx.fillText(m.idade, M + 100, y + 72);
       }
-      y += 92;
+      y += 82;
     }
-    const resto = d.marcos.length - lista.length;
+    const resto = d.totalMarcos - lista.length;
     if (resto > 0) {
       ctx.font = `600 32px ${FONTE}`;
       ctx.fillStyle = BRANCO_2;
@@ -346,7 +349,7 @@ async function imagemFotos(d: DadosImagensRetro): Promise<Blob> {
   const { w: W, h: H } = TAMANHO_RETRO;
   const M = 72;
   fundo(ctx, W, H, PALETAS.fotos);
-  const y0 = cabecalho(ctx, W, 200, d.titulo, d.periodo, 'Mês a mês') + 40;
+  const y0 = cabecalho(ctx, W, 200, d.titulo, d.periodo, 'Mês a mês', false) + 40;
   const fotos = d.fotos.slice(0, 16);
   const n = fotos.length;
   const cols = n <= 4 ? 2 : n <= 9 ? 3 : 4;
@@ -401,7 +404,7 @@ export async function gerarImagensRetro(d: DadosImagensRetro): Promise<File[]> {
   }
   const arquivos: File[] = [];
   arquivos.push(new File([await imagemResumo(d)], nomeArquivo(d.nome, '1-resumo'), { type: 'image/png' }));
-  if (d.crescimento.length || d.marcos.length >= 2) arquivos.push(new File([await imagemCrescimento(d)], nomeArquivo(d.nome, '2-conquistas'), { type: 'image/png' }));
+  if (d.crescimento.length || d.totalMarcos >= 2) arquivos.push(new File([await imagemCrescimento(d)], nomeArquivo(d.nome, '2-conquistas'), { type: 'image/png' }));
   if (d.fotos.length >= 2) arquivos.push(new File([await imagemFotos(d)], nomeArquivo(d.nome, '3-fotos'), { type: 'image/png' }));
   return arquivos;
 }

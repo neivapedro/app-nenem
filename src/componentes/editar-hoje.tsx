@@ -163,11 +163,11 @@ export function FolhaEditarHoje({ layout, aoMudar, nascido, aoFechar }: { layout
       <li key={id} data-linha={id} className={`he-linha${arrastando === id ? ' he-arrastando' : ''}${grupo === 'ocultos' ? ' he-oculta' : ''}`}>
         {grupo === 'ocultos' ? (
           <button type="button" className="he-botao he-mostrar" aria-label={`Mostrar ${c.nome}`} onClick={() => mudar(alternarOculto(layout, id), `${c.nome} voltou para o Hoje`)}>
-            <Icone nome="olho" />
+            <Icone nome="olho_fechado" />
           </button>
         ) : podeEsconder ? (
           <button type="button" className="he-botao" aria-label={`Esconder ${c.nome}`} onClick={() => mudar(alternarOculto(layout, id), `${c.nome} escondido`)}>
-            <Icone nome="olho_fechado" />
+            <Icone nome="olho" />
           </button>
         ) : (
           <span className="he-botao he-trava" title="Sempre aparece" aria-hidden="true">
