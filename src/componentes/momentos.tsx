@@ -32,6 +32,7 @@ import {
 } from '../lib/momentos';
 import type { Bebe } from '../lib/tipos';
 import { compartilhar } from './doc-arquivos';
+import { AbrirRetrospectiva, BotaoRetrospectiva } from './retrospectiva-entrada';
 import { Escolhas, Folha, Icone } from './ui';
 
 const reduzMovimento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -237,6 +238,7 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
   const { bebe, registros, marcos, medidas, hoje } = useDados();
   const navigate = useNavigate();
   const [cartao, setCartao] = useState(false);
+  const [retro, setRetro] = useState(false);
   const tela = useRef<HTMLDivElement>(null);
   const resumo = useMemo(() => (bebe ? resumoDoMes(bebe, { registros, marcos, medidas }, mv.meses, hoje) : null), [bebe, registros, marcos, medidas, mv.meses, hoje]);
   const fotoUrl = useUrlFoto(resumo?.foto ?? bebe?.foto ?? null);
@@ -253,11 +255,11 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
     };
   }, []);
   useEffect(() => {
-    if (cartao) return; // a folha do cartão cuida do Esc dela
+    if (cartao || retro) return; // a folha do cartão e a retrospectiva cuidam do Esc delas
     const tecla = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
-  }, [aoFechar, cartao]);
+  }, [aoFechar, cartao, retro]);
 
   if (!bebe || !resumo) return null;
   const g = generoBebe(bebe.sexo, !!bebe.nome?.trim());
@@ -431,6 +433,7 @@ function Comemoracao({ mv, aoFechar }: { mv: Mesversario; aoFechar: () => void }
         </div>
       </div>
       {cartao && <FolhaCartaoMes meses={mv.meses} aoFechar={() => setCartao(false)} />}
+      {retro && <AbrirRetrospectiva ano={mv.meses / 12} aoFechar={() => setRetro(false)} />}
     </div>,
     document.body,
   );
