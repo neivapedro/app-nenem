@@ -44,7 +44,11 @@
 /* Passou do ponto de apagar: o "Apagar" toma conta da faixa */
 .tq-apagando .tq-editar { flex-grow: 0; padding: 0; }
 .tq-apagando .tq-apagar { flex-grow: 1; }
-.tq-acao:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
+.tq-acao:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+/* Noite âmbar: botões apagados, texto na cor do tema (nada de branco nem vermelho aceso) */
+:root[data-tema="noite"] .tq-acao { color: var(--texto); }
+:root[data-tema="noite"] .tq-editar { background: color-mix(in oklab, var(--texto-3) 30%, var(--superficie-2)); }
+:root[data-tema="noite"] .tq-apagar { background: color-mix(in oklab, var(--ruim) 42%, var(--superficie)); }
 /* Saindo da lista depois de apagar */
 .tq-sumindo { transition: height 0.2s ease-in, opacity 0.2s ease-in; opacity: 0; }
 

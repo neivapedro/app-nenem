@@ -54,6 +54,16 @@
 .carteira-vazia .ilustracao { width: 96px; }
 .carteira-vazia strong { display: block; font-weight: 650; margin-bottom: 2px; }
 
+/* Noite âmbar: cartões apagados, sem brilho branco; o texto na cor do tema */
+:root[data-tema="noite"] .carteira-pilha .cartao-carteira {
+  color: var(--texto);
+  background: linear-gradient(140deg, color-mix(in oklab, var(--cc) 40%, var(--superficie-2)) 0%, color-mix(in oklab, var(--cc) 16%, var(--superficie)) 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cc) 28%, transparent), 0 -4px 14px rgb(0 0 0 / 0.3), 0 10px 24px rgb(0 0 0 / 0.35);
+}
+:root[data-tema="noite"] .cc-topo { text-shadow: none; }
+:root[data-tema="noite"] .cc-corpo { background: rgb(0 0 0 / 0.18); color: color-mix(in oklab, var(--cc) 70%, var(--texto)); }
+:root[data-tema="noite"] .cc-corpo.com-foto { box-shadow: 0 0 0 1px color-mix(in oklab, var(--texto) 16%, transparent); }
+
 @media (max-width: 359px) {
   .carteira-pilha { --faixa: 44px; }
   .carteira-pilha.apertada { --faixa: 38px; }

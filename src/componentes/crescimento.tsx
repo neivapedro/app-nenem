@@ -246,7 +246,7 @@ export function SecaoCrescimento() {
       <button className="botao primario" onClick={() => setAberta('nova')}>
         <Icone nome="mais" /> Nova medida
       </button>
-      {!nasc && <EstadoVazio ilustracao="crescimento" titulo="As curvas começam no nascimento" texto="Elas aparecem depois que vocês registrarem o nascimento, com o peso e a altura de quando ele nasceu." />}
+      {!nasc && <EstadoVazio ilustracao="crescimento" titulo="As curvas começam no nascimento" texto="Elas aparecem depois que vocês registrarem o nascimento, já com as medidas de quando nasceu." />}
       {nasc && !sexo && <div className="alerta">As curvas da OMS são diferentes para meninos e meninas. Informe o sexo em Ajustes → bebê → Editar.</div>}
       {nasc && sexo && (
         <section className="cartao pilha sc-cartao" aria-label="Curva de crescimento">

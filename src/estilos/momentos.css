@@ -147,3 +147,6 @@
   .mom-previa { width: auto; height: min(52dvh, calc((100vw - 32px) * 1.25)); }
   .mom-previa.stories { height: min(52dvh, calc((100vw - 32px) * 1.777)); }
 }
+
+/* Noite âmbar: legenda da foto sem branco forte */
+:root[data-tema="noite"] .mom-foto figcaption { color: var(--texto); }

@@ -199,3 +199,9 @@
 /* Foto que não abriu (sem internet ou apagada): ícone discreto no lugar do eterno "carregando…" */
 .foto-falhou { display: inline-grid; place-items: center; opacity: 0.6; }
 .foto-falhou svg { width: 22px; height: 22px; }
+
+/* Noite âmbar: etapa completa com fundo apagado e o ícone na cor; rótulos das fotos sem branco forte */
+:root[data-tema="noite"] .trilha-no { color: var(--texto); }
+:root[data-tema="noite"] .trilha-etapa.completa .trilha-no { background: color-mix(in oklab, var(--c-agenda) 22%, var(--superficie)); color: var(--c-agenda); }
+:root[data-tema="noite"] .foto-mes.cheio .foto-mes-rotulo,
+:root[data-tema="noite"] .foto-mes.cheio .foto-mes-rotulo strong { color: var(--texto); }

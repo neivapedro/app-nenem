@@ -120,7 +120,7 @@ export function Resumo() {
           texto={
             bebe?.nascimento
               ? `Nenhuma mamada, fralda ou sono de ${dataBr(deAnterior)} a ${dataBr(hoje)}. Os gráficos aparecem aqui assim que vocês registrarem na tela Hoje.`
-              : 'Depois do nascimento, os gráficos aparecem aqui com o que vocês registrarem na tela Hoje.'
+              : 'Depois do parto, eles aparecem aqui com o que vocês registrarem na tela Hoje.'
           }
         />
         <RelatorioPediatra />
