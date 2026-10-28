@@ -1,0 +1,168 @@
+/* ---------- Tema e cor do app (src/lib/tema.ts põe os atributos no <html>) ----------
+   data-tema: claro | escuro | noite · data-tom: frio | quente (claro automático) · data-cor: a cor escolhida
+   Contraste conferido em src/lib/tema.test.ts (texto >= 4,5:1 em todos os temas). */
+
+/* Manhã (automático): claro levemente frio */
+:root[data-tema="claro"][data-tom="frio"] {
+  --fundo: #f2f4f7;
+  --superficie-2: #eaedf1;
+  --borda: #dce0e6;
+  --borda-cartao: #e3e7ec;
+  --sombra: 0 1px 2px rgb(20 30 45 / 0.05), 0 4px 16px rgb(20 30 45 / 0.06);
+  --sombra-2: 0 2px 6px rgb(20 30 45 / 0.08), 0 14px 36px rgb(20 30 45 / 0.12);
+}
+
+/* Tarde (automático): claro levemente quente */
+:root[data-tema="claro"][data-tom="quente"] {
+  --fundo: #f8f3ec;
+  --superficie-2: #f0e9df;
+  --borda: #e4dbce;
+  --borda-cartao: #ebe3d7;
+}
+
+/* Noite âmbar (22h–6h): quase preto, texto âmbar claro, nada de azul nem branco forte.
+   As cores dos tipos continuam diferentes entre si, só mais apagadas. */
+:root[data-tema="noite"] {
+  color-scheme: dark;
+  --fundo: #0c0907;
+  --superficie: #15100c;
+  --superficie-2: #1f1711;
+  --borda: #2e231a;
+  --borda-cartao: #261c15;
+  --texto: #cdaa7f;
+  --texto-2: #b39272;
+  --texto-3: #9e7f60;
+  --bom: #8fa86c;
+  --ruim: #d4826a;
+  --aviso: #cf9f4a;
+  --info: #97836e;
+  --c-mamada: #c27a92;
+  --c-mamadeira: #bb8857;
+  --c-fralda: #7896a0;
+  --c-sono: #9785b3;
+  --c-agenda: #839e70;
+  --selo-mistura: 100%;
+  --selo-brilho: transparent;
+  --realce: none;
+  --sombra: 0 1px 2px rgb(0 0 0 / 0.4);
+  --sombra-2: 0 8px 28px rgb(0 0 0 / 0.5);
+  --destaque-a: color-mix(in oklab, #c9935a 7%, var(--superficie));
+  --destaque-b: color-mix(in oklab, var(--c-mamada) 5%, var(--superficie));
+  --destaque-borda: color-mix(in oklab, #c9935a 14%, var(--borda-cartao));
+  --esq-brilho: rgb(217 182 138 / 0.05);
+}
+
+/* ---------- Cor do app ---------- */
+/* Padrão: grafite (quase branco no escuro, quase preto no claro), já definido em estilos.css */
+:root[data-cor="azul"] { --destaque: #8fb5ff; --destaque-texto: #0e0f13; }
+:root[data-cor="verde"] { --destaque: #66d1a4; --destaque-texto: #0e0f13; }
+:root[data-cor="lilas"] { --destaque: #c8adf7; --destaque-texto: #0e0f13; }
+:root[data-cor="terracota"] { --destaque: #e0a88c; --destaque-texto: #0e0f13; }
+:root[data-tema="claro"][data-cor="azul"] { --destaque: #245bc0; --destaque-texto: #ffffff; }
+:root[data-tema="claro"][data-cor="verde"] { --destaque: #1f7356; --destaque-texto: #ffffff; }
+:root[data-tema="claro"][data-cor="lilas"] { --destaque: #7446c0; --destaque-texto: #ffffff; }
+:root[data-tema="claro"][data-cor="terracota"] { --destaque: #98502f; --destaque-texto: #ffffff; }
+/* Com uma cor escolhida, o cartão principal e o anel da foto puxam para ela */
+:root[data-cor]:not([data-cor="padrao"]) {
+  --destaque-a: color-mix(in oklab, var(--destaque) 13%, var(--superficie));
+  --destaque-b: color-mix(in oklab, var(--destaque) 6%, var(--superficie));
+  --destaque-borda: color-mix(in oklab, var(--destaque) 22%, var(--borda-cartao, var(--borda)));
+  --anel: var(--destaque);
+}
+/* De madrugada qualquer cor vira âmbar (azul e branco acordam) */
+:root[data-tema="noite"][data-cor] {
+  --destaque: #c9935a;
+  --destaque-texto: #140d08;
+  --destaque-a: color-mix(in oklab, #c9935a 7%, var(--superficie));
+  --destaque-b: color-mix(in oklab, var(--c-mamada) 5%, var(--superficie));
+  --destaque-borda: color-mix(in oklab, #c9935a 14%, var(--borda-cartao));
+  --anel: color-mix(in oklab, #c9935a 70%, var(--fundo));
+}
+
+/* Marcador "Hoje" da trilha de vacinas: além da cor, um anel em volta (no Verde, a cor é quase a
+   do "Tudo aplicado"; a forma diferente separa os dois sem depender só da cor) */
+:root[data-cor] .sv-hoje-no { box-shadow: 0 0 0 2.5px var(--superficie), 0 0 0 4.5px var(--destaque), 0 0 0 7px var(--superficie); }
+
+/* ---------- Ajustes de componentes na noite âmbar ---------- */
+/* Selo do tipo: fundo apagado com o ícone na cor (sem quadrado aceso com ícone branco) */
+:root[data-tema="noite"] .selo[class*=" t-"] {
+  background: color-mix(in oklab, var(--cor, var(--texto-3)) 20%, var(--superficie));
+  color: var(--cor, var(--texto-2));
+  box-shadow: none;
+}
+:root[data-tema="noite"] .aviso-rapido { background: var(--superficie-2); color: var(--texto); border: 1px solid var(--borda); }
+:root[data-tema="noite"] .folha-fundo { background: rgb(0 0 0 / 0.7); }
+:root[data-tema="noite"] .botao.primario { box-shadow: none; }
+/* Fotos um pouco mais baixas (o visualizador de documentos fica normal, para ler) */
+:root[data-tema="noite"] img { filter: brightness(0.78) saturate(0.85); }
+:root[data-tema="noite"] :is(.visualizador, .editor-foto) img { filter: none; }
+
+/* ---------- Barra de status no app instalado ----------
+   O index.html usa status-bar-style black-translucent (o iOS só lê na instalação): hora e bateria
+   ficam sempre brancas, por cima do topo. Nos temas claros, uma faixa escura só na altura da barra
+   (na cor do app; no padrão, grafite) deixa o texto legível (branco >= 4,5:1 sobre ela). */
+:root[data-tema="claro"] { --barra-status: color-mix(in oklab, var(--destaque) 75%, #141318); }
+:root[data-app][data-tema="claro"] body::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0; z-index: 200; pointer-events: none;
+  height: env(safe-area-inset-top);
+  background: var(--barra-status);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 0.06);
+}
+
+/* ---------- Troca suave de tema (a hora virou, voltou ao app, escolheu em Ajustes) ---------- */
+:root[data-trocando-tema],
+:root[data-trocando-tema] body,
+:root[data-trocando-tema] body *,
+:root[data-trocando-tema] body *::before,
+:root[data-trocando-tema] body *::after {
+  transition: background-color 0.8s ease, color 0.8s ease, border-color 0.8s ease, fill 0.8s ease, stroke 0.8s ease, box-shadow 0.8s ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-trocando-tema], :root[data-trocando-tema] * { transition: none !important; }
+}
+
+/* ---------- Ajustes → Aparência ---------- */
+.ap-temas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ap-tema {
+  display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 10px; border-radius: 14px; min-width: 0;
+  border: 1px solid var(--borda); background: var(--superficie-2); cursor: pointer; text-align: left;
+}
+.ap-tema[aria-checked="true"] { border: 2px solid var(--destaque); padding: 9px; background: color-mix(in oklab, var(--destaque) 8%, var(--superficie-2)); }
+.ap-tema-texto { display: flex; flex-direction: column; min-width: 0; }
+.ap-tema-texto strong { font-size: 0.86rem; font-weight: 650; line-height: 1.2; }
+.ap-tema-texto small { font-size: 0.72rem; color: var(--texto-2); line-height: 1.25; margin-top: 2px; }
+/* Miniatura de cada tema (cores fixas: é uma prévia) */
+.ap-previa { flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgb(127 127 127 / 0.35); position: relative; overflow: hidden; }
+.ap-previa::after { content: ''; position: absolute; left: 6px; right: 6px; top: 8px; height: 4px; border-radius: 2px; background: var(--ap-linha); box-shadow: 0 7px 0 var(--ap-linha); opacity: 0.8; }
+.ap-previa-auto { background: linear-gradient(135deg, #f2f4f7 0 33%, #f8f3ec 33% 60%, #0e0f13 60%); --ap-linha: #8a8890; }
+.ap-previa-sistema { background: linear-gradient(90deg, #f6f4f1 50%, #0e0f13 50%); --ap-linha: #8a8890; }
+.ap-previa-claro { background: #f6f4f1; --ap-linha: #1b1a1f; }
+.ap-previa-escuro { background: #0e0f13; --ap-linha: #f4f3f1; }
+.ap-cores { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.ap-cor {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px; border-radius: 14px; min-width: 0;
+  border: 1px solid transparent; background: none; cursor: pointer; font-size: 0.74rem; font-weight: 600; color: var(--texto-2);
+  white-space: nowrap; overflow-wrap: normal; letter-spacing: -0.01em;
+}
+.ap-cor[aria-checked="true"] { color: var(--texto); background: var(--superficie-2); border-color: var(--borda); }
+.ap-amostra {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--amostra); display: grid; place-items: center;
+  box-shadow: 0 0 0 1px rgb(127 127 127 / 0.3) inset; color: var(--amostra-texto);
+}
+.ap-cor[aria-checked="true"] .ap-amostra { box-shadow: 0 0 0 2px var(--superficie-2), 0 0 0 4px var(--amostra); }
+.ap-amostra svg { width: 18px; height: 18px; }
+.ap-agora { display: flex; align-items: flex-start; gap: 8px; }
+.ap-agora::before { content: ''; width: 8px; height: 8px; margin-top: 0.45em; border-radius: 50%; background: var(--destaque); flex: none; }
+/* Na noite âmbar as amostras também ficam baixas (sem azul aceso) */
+:root[data-tema="noite"] :is(.ap-amostra, .ap-previa) { filter: brightness(0.72) saturate(0.75); }
+@media (max-width: 380px) { .ap-cores { gap: 2px; } .ap-cor { font-size: 0.68rem; letter-spacing: -0.02em; } }
+@media (max-width: 359px) {
+  .ap-temas { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .ap-tema { min-height: 52px; }
+  .ap-cor { font-size: 0.62rem; }
+  .ap-amostra { width: 30px; height: 30px; }
+  .ap-tema { gap: 8px; padding: 8px; }
+  .ap-tema[aria-checked="true"] { padding: 7px; }
+  .ap-previa { width: 24px; height: 24px; }
+  .ap-tema-texto strong { font-size: 0.8rem; }
+}

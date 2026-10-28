@@ -3,8 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0e0f13" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f6f4f1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e0f13" />
+    <!-- Tema antes do primeiro desenho (sem piscar). Mesmo cálculo de src/lib/tema.ts (tema.test.ts confere) -->
+    <script>
+      (function () {
+        var a = {};
+        try { a = JSON.parse(localStorage.getItem('app-nenem:aparencia') || '{}') || {}; } catch (e) {}
+        var modo = ['auto', 'sistema', 'claro', 'escuro'].indexOf(a.modo) >= 0 ? a.modo : 'auto';
+        var cor = ['padrao', 'azul', 'verde', 'lilas', 'terracota'].indexOf(a.cor) >= 0 ? a.cor : 'padrao';
+        var ambar = typeof a.ambar === 'boolean' ? a.ambar : modo === 'auto';
+        var h = new Date().getHours(), tema, tom = null;
+        var escuro = !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+        if ((h >= 22 || h < 6) && ambar) tema = 'noite';
+        else if (modo === 'auto') {
+          if (h >= 6 && h < 12) { tema = 'claro'; tom = 'frio'; }
+          else if (h >= 12 && h < 18) { tema = 'claro'; tom = 'quente'; }
+          else tema = 'escuro';
+        } else if (modo === 'sistema') tema = escuro ? 'escuro' : 'claro';
+        else tema = modo;
+        var r = document.documentElement;
+        r.setAttribute('data-tema', tema);
+        if (tom) r.setAttribute('data-tom', tom);
+        r.setAttribute('data-cor', cor);
+        r.setAttribute('data-theme', tema === 'claro' ? 'light' : 'dark');
+        // Aberto pelo ícone da Tela de Início: a barra de status (texto branco) fica por cima do app
+        var nav = window.navigator;
+        if ((nav && nav.standalone) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) r.setAttribute('data-app', '');
+        var fundo = { claro: '#f6f4f1', frio: '#f2f4f7', quente: '#f8f3ec', escuro: '#0e0f13', noite: '#0c0907' };
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', fundo[tom || tema]);
+      })();
+    </script>
     <meta name="description" content="Acompanhamento do bebê: mamadas, fraldas, sono e agenda, compartilhado entre os pais." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,6 +41,33 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/icone-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Tela de abertura do app na Tela de Início (retrato). Sempre a escura: o tema padrão é o
+         automático pela hora, e uma abertura clara às 3h seria um clarão (o iPhone só sabe o modo dele).
+         Geradas a partir do ícone; tamanhos: largura x altura em pontos x escala da tela -->
+    <!-- iPhone 16 Pro Max, 17 Pro Max -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1320x2868-escuro.png" />
+    <!-- iPhone 14 Pro Max, 15 Plus/Pro Max, 16 Plus -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1290x2796-escuro.png" />
+    <!-- iPhone Air -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1260x2736-escuro.png" />
+    <!-- iPhone 16 Pro, 17, 17 Pro -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1206x2622-escuro.png" />
+    <!-- iPhone 14 Pro, 15, 15 Pro, 16 -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1179x2556-escuro.png" />
+    <!-- iPhone 12/13 Pro Max, 14 Plus -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1284x2778-escuro.png" />
+    <!-- iPhone 12, 13, 14, 16e -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1170x2532-escuro.png" />
+    <!-- iPhone X, XS, 11 Pro, 12/13 mini -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1125x2436-escuro.png" />
+    <!-- iPhone XS Max, 11 Pro Max -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1242x2688-escuro.png" />
+    <!-- iPhone XR, 11 -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/abertura/abertura-828x1792-escuro.png" />
+    <!-- iPhone 8 Plus -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/abertura/abertura-1242x2208-escuro.png" />
+    <!-- iPhone SE (2ª/3ª), 8 -->
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/abertura/abertura-750x1334-escuro.png" />
     <title>Heitor</title>
   </head>
   <body>

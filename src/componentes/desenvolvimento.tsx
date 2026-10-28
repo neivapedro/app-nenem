@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import { useDados } from '../dados/contexto';
 import { FONTE_MARCOS, MARCOS_CADERNETA, ORIENTACAO_MARCOS } from '../lib/conteudo';
@@ -8,6 +9,8 @@ import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
 import { reduzirFoto } from '../lib/imagem';
 import type { Marco } from '../lib/tipos';
+import { FolhaCartaoMes } from './momentos';
+import { EstadoVazio } from './ilustracoes';
 import { Campo, Folha, Icone } from './ui';
 import '../estilos/desenvolvimento.css';
 
@@ -498,10 +501,7 @@ function PrimeirasVezes() {
           ))}
         </div>
       ) : (
-        <div className="cartao dev-vazio">
-          <span aria-hidden="true">🌟</span>
-          <p className="texto-2">Guardem aqui as primeiras vezes, com data e foto. Elas viram uma linha do tempo.</p>
-        </div>
+        <EstadoVazio ilustracao="primeiras" titulo="Nenhuma 1ª vez ainda" texto="Guardem aqui as primeiras vezes, com data e foto. Elas viram uma linha do tempo." />
       )}
       {aberto && <FolhaMarco inicial={aberto.m} novo={aberto.novo} titulo={aberto.novo ? 'Primeira vez' : aberto.m.titulo ?? 'Primeira vez'} aoFechar={() => setAberto(null)} />}
     </div>
@@ -604,15 +604,13 @@ function FotosDoMes() {
   const [alvo, setAlvo] = useState<number | null>(null);
   const [aberta, setAberta] = useState<Marco | null>(null);
   const [vendo, setVendo] = useState(false);
+  const [cartao, setCartao] = useState<number | null>(null);
   const { enviar, enviando } = useEnviarFoto();
   const porMes = useMemo(() => new Map(marcos.filter((m) => m.tipo === 'mes').map((m) => [m.marco_id, m])), [marcos]);
   if (!bebe) return null;
   if (!bebe.nascimento)
     return (
-      <div className="cartao dev-vazio">
-        <span aria-hidden="true">📸</span>
-        <p className="texto-2">As fotos do mês começam depois do nascimento: uma por mês, para ver o crescimento.</p>
-      </div>
+      <EstadoVazio ilustracao="fotos" titulo="Fotos do mês" texto="Começam depois do nascimento: uma por mês, para ver o crescimento." />
     );
   const nasc = chaveDia(bebe.nascimento);
   const idade = idadeEmMeses(bebe.nascimento, hoje);
@@ -694,10 +692,22 @@ function FotosDoMes() {
         }}
       />
       {vendo && sequencia.length > 0 && <VerCrescer fotos={sequencia} aoFechar={() => setVendo(false)} />}
+      {cartao !== null && <FolhaCartaoMes meses={cartao} aoFechar={() => setCartao(null)} />}
       {aberta?.foto && (
         <Folha titulo={aberta.titulo ?? 'Foto'} aoFechar={() => setAberta(null)}>
           <div className="pilha">
             <Foto caminho={aberta.foto} classe="foto-grande" />
+            {Number.isFinite(Number(aberta.marco_id?.replace('mes-', ''))) && (
+              <button
+                className="botao primario"
+                onClick={() => {
+                  setCartao(Number(aberta.marco_id?.replace('mes-', '')));
+                  setAberta(null);
+                }}
+              >
+                <Icone nome="compartilhar" /> Compartilhar cartão
+              </button>
+            )}
             <button
               className="botao"
               disabled={enviando}
@@ -729,8 +739,15 @@ function FotosDoMes() {
   );
 }
 
+type AbaDev = 'marcos' | 'primeiras' | 'fotos';
+const ABAS_DEV: readonly AbaDev[] = ['marcos', 'primeiras', 'fotos'];
+
 export function SecaoDesenvolvimento() {
-  const [aba, setAba] = useState<'marcos' | 'primeiras' | 'fotos'>('marcos');
+  // ?aba=marcos | primeiras | fotos abre direto na aba (ex.: atalho "Hoje é dia da foto do mês")
+  const [params, setParams] = useSearchParams();
+  const pedida = params.get('aba');
+  const aba: AbaDev = ABAS_DEV.includes(pedida as AbaDev) ? (pedida as AbaDev) : 'marcos';
+  const setAba = (a: AbaDev) => setParams(a === 'marcos' ? {} : { aba: a }, { replace: true });
   return (
     <div className="pilha">
       <div className="abas" role="tablist">

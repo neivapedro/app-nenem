@@ -5,6 +5,7 @@ import { BarrasDiarias } from '../componentes/barras';
 import { BarrasHorizontais, GraficoLinhas, type SerieLinha } from '../componentes/cofrinho-graficos';
 import { arquivoPdf, compartilhar, prepararEEnviar } from '../componentes/doc-arquivos';
 import { Visualizador } from '../componentes/doc-visualizador';
+import { Ilustracao } from '../componentes/ilustracoes';
 import { Campo, Escolhas, Folha, Icone } from '../componentes/ui';
 import { useDados } from '../dados/contexto';
 import {
@@ -47,6 +48,7 @@ import { nomeArquivo } from '../lib/documentos';
 import { traduzirErro } from '../lib/erros';
 import { idFixo } from '../lib/ids';
 import type { ArquivoDocumento, ContaCofrinho, Documento, MetaCofrinho, MovimentoCofrinho, PlanoCofrinho } from '../lib/tipos';
+import { NumeroAnimado } from '../componentes/numero-animado';
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const nomeMes = (mes: string, ano = true) => `${MESES[Number(mes.slice(5, 7)) - 1]}${ano ? `/${mes.slice(0, 4)}` : ''}`;
@@ -1341,9 +1343,7 @@ export function Cofrinho() {
     return (
       <div className="pilha">
         <section className="cartao cofrinho-heroi pilha" style={{ textAlign: 'center', alignItems: 'center' }}>
-          <span className="cofrinho-emoji" aria-hidden="true">
-            🐷💰
-          </span>
+          <Ilustracao nome="cofrinho" classe="cofrinho-ilustracao" />
           <h2>O cofrinho do {nomeBebe}</h2>
           <p className="texto-2">Registre a conta dele, os depósitos de todo mês e os presentes da família. O app mostra o saldo, quanto já rendeu, quem mais contribuiu e quanto ele vai ter aos 18 anos.</p>
           <button className="botao primario" onClick={novaConta}>
@@ -1366,7 +1366,8 @@ export function Cofrinho() {
             <Icone nome={oculto ? 'olho_fechado' : 'olho'} />
           </button>
         </div>
-        <div className="cofrinho-saldo">{$(r.saldo)}</div>
+        {/* Conta até o saldo na 1ª vez que aparece; escondido, nada de número (nem no meio da conta) */}
+        <div className="cofrinho-saldo">{oculto ? $(r.saldo) : <NumeroAnimado valor={r.saldo} formatar={(c) => reais(Math.round(c))} chave="cofrinho:saldo" duracao={900} />}</div>
         <div className="cofrinho-sub">
           <span>
             Colocado <strong>{$(r.aportado)}</strong>

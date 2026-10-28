@@ -24,6 +24,28 @@ function passoBonito(max: number): number {
 const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 /**
+ * Onde vai o valor da coluna marcada: centralizado nela, mas sem sair da área do gráfico (perto da
+ * borda direita alinha pelo fim, perto do eixo pelo começo, ex.: "R$ 300,00" numa coluna estreita
+ * no fim) e acima de toda coluna que o texto cobre (não fica por cima da vizinha mais alta).
+ */
+function posicaoRotulo(texto: string, i: number, centro: (j: number) => number, topoDe: (j: number) => number, n: number) {
+  // Largura aproximada do texto (10px, semi-negrito, números tabulares)
+  const largura = texto.length * 6;
+  const cx = centro(i);
+  const [x, ancora]: [number, 'start' | 'middle' | 'end'] =
+    cx + largura / 2 > W - R ? [W - R, 'end'] : cx - largura / 2 < L ? [L, 'start'] : [cx, 'middle'];
+  const x0 = ancora === 'end' ? x - largura : ancora === 'start' ? x : x - largura / 2;
+  const x1 = x0 + largura;
+  let topo = topoDe(i);
+  for (let j = 0; j < n; j++) {
+    const meia = Math.min(12, (W - L - R) / n / 2);
+    if (centro(j) + meia > x0 && centro(j) - meia < x1) topo = Math.min(topo, topoDe(j));
+  }
+  // Subiu por causa da vizinha: um fio liga o valor à coluna dele
+  return { x, ancora, y: Math.max(topo - 5, 10), fio: topo < topoDe(i) - 1 ? { x: cx, de: Math.max(topo - 5, 10) + 3, ate: topoDe(i) - 2 } : null };
+}
+
+/**
  * Colunas por dia (uma série só: o título diz o que é). Valor no topo da coluna
  * de hoje; toque numa coluna para ver o valor dela.
  */
@@ -57,6 +79,9 @@ export function BarrasDiarias({
   const y = (v: number) => T + (1 - v / topo) * (H - T - B);
   const mostrarDia = (i: number) => dados.length <= 14 || i % Math.ceil(dados.length / 10) === 0 || i === dados.length - 1;
   const marcado = ativo ?? dados.length - 1;
+  const rotuloMarcado = dados[marcado]
+    ? posicaoRotulo(formatar(dados[marcado].valor), marcado, (j) => L + banda * j + banda / 2, (j) => y(dados[j].valor), dados.length)
+    : null;
 
   return (
     <div className={`grafico-barras t-${tipo}`}>
@@ -93,8 +118,11 @@ export function BarrasDiarias({
                   d={`M${x},${y(0)} V${y(0) - h + r} Q${x},${y(0) - h} ${x + r},${y(0) - h} H${x + largura - r} Q${x + largura},${y(0) - h} ${x + largura},${y(0) - h + r} V${y(0)} Z`}
                 />
               )}
-              {i === marcado && (
-                <text x={cx} y={Math.max(y(d.valor) - 5, 10)} textAnchor="middle" className="eixo-texto" style={{ fill: 'var(--texto)', fontWeight: 650 }}>
+              {i === marcado && rotuloMarcado?.fio && (
+                <line x1={rotuloMarcado.fio.x} x2={rotuloMarcado.fio.x} y1={rotuloMarcado.fio.de} y2={rotuloMarcado.fio.ate} className="grade-linha" style={{ stroke: 'var(--texto-3)', strokeDasharray: '2 2' }} />
+              )}
+              {i === marcado && rotuloMarcado && (
+                <text x={rotuloMarcado.x} y={rotuloMarcado.y} textAnchor={rotuloMarcado.ancora} className="eixo-texto" style={{ fill: 'var(--texto)', fontWeight: 650 }}>
                   {formatar(d.valor)}
                 </text>
               )}

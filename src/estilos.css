@@ -42,6 +42,11 @@
   /* Degradê do cartão principal (.cartao.destaque) */
   --destaque-a: color-mix(in oklab, var(--c-sono) 16%, var(--superficie));
   --destaque-b: color-mix(in oklab, var(--c-mamada) 9%, var(--superficie));
+  --destaque-borda: color-mix(in oklab, var(--c-sono) 14%, var(--borda-cartao, var(--borda)));
+  /* Anel da foto do bebê (com uma cor do app escolhida, vira a cor do app) */
+  --anel: color-mix(in oklab, var(--c-mamada) 55%, var(--c-sono));
+  /* Títulos grandes (topo e cartões): a mesma fonte arredondada dos números */
+  --fonte-titulos: var(--fonte-numeros);
   /* Movimento */
   --curva: cubic-bezier(0.2, 0.8, 0.2, 1);
   --nav-altura: 64px;
@@ -52,38 +57,39 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --fundo: #f6f4f1;
-    --superficie: #ffffff;
-    --superficie-2: #efece7;
-    --borda: #e2ded7;
-    --texto: #1b1a1f;
-    --texto-2: #57555e;
-    --texto-3: #67656e;
-    --destaque: #1b1a1f;
-    --destaque-texto: #ffffff;
-    --bom: #1e7b37;
-    --ruim: #c9271b;
-    --aviso: #a35200;
-    --info: #6e6e73;
-    /* Texto >= 4.5:1 sobre branco e sobre o fundo (#f6f4f1); ícone branco sobre a cor >= 5:1 */
-    --c-mamada: #c62585;
-    --c-mamadeira: #a24e19;
-    --c-fralda: #1e71bb;
-    --c-sono: #6925d5;
-    --c-agenda: #1c754b;
-    --selo-mistura: 100%;
-    --selo-brilho: rgb(255 255 255 / 0.16);
-    --borda-cartao: #e8e4dd;
-    --realce: inset 0 1px 0 rgb(255 255 255 / 0.7);
-    --sombra: 0 1px 2px rgb(40 30 20 / 0.05), 0 4px 16px rgb(40 30 20 / 0.06);
-    --sombra-2: 0 2px 6px rgb(40 30 20 / 0.08), 0 14px 36px rgb(40 30 20 / 0.12);
-    --destaque-a: color-mix(in oklab, var(--c-sono) 9%, var(--superficie));
-    --destaque-b: color-mix(in oklab, var(--c-mamada) 6%, var(--superficie));
-    --esq-brilho: rgb(255 255 255 / 0.7);
-  }
+/* Claro. O tema vem do atributo data-tema no <html> (claro, escuro, noite), que o script do
+   index.html põe antes do primeiro desenho conforme Ajustes → Aparência (padrão: pela hora do dia).
+   Mais variações (manhã/tarde, noite âmbar, cor do app) em src/estilos/tema.css. */
+:root[data-tema="claro"] {
+  color-scheme: light;
+  --fundo: #f6f4f1;
+  --superficie: #ffffff;
+  --superficie-2: #efece7;
+  --borda: #e2ded7;
+  --texto: #1b1a1f;
+  --texto-2: #57555e;
+  --texto-3: #67656e;
+  --destaque: #1b1a1f;
+  --destaque-texto: #ffffff;
+  --bom: #1e7b37;
+  --ruim: #c9271b;
+  --aviso: #a35200;
+  --info: #6e6e73;
+  /* Texto >= 4.5:1 sobre branco e sobre o fundo (#f6f4f1); ícone branco sobre a cor >= 5:1 */
+  --c-mamada: #c62585;
+  --c-mamadeira: #a24e19;
+  --c-fralda: #1e71bb;
+  --c-sono: #6925d5;
+  --c-agenda: #1c754b;
+  --selo-mistura: 100%;
+  --selo-brilho: rgb(255 255 255 / 0.16);
+  --borda-cartao: #e8e4dd;
+  --realce: inset 0 1px 0 rgb(255 255 255 / 0.7);
+  --sombra: 0 1px 2px rgb(40 30 20 / 0.05), 0 4px 16px rgb(40 30 20 / 0.06);
+  --sombra-2: 0 2px 6px rgb(40 30 20 / 0.08), 0 14px 36px rgb(40 30 20 / 0.12);
+  --destaque-a: color-mix(in oklab, var(--c-sono) 9%, var(--superficie));
+  --destaque-b: color-mix(in oklab, var(--c-mamada) 6%, var(--superficie));
+  --esq-brilho: rgb(255 255 255 / 0.7);
 }
 
 * { box-sizing: border-box; }
@@ -100,6 +106,11 @@ h1, h2, h3 { margin: 0; line-height: 1.2; }
 h1 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.02em; }
 h2 { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; }
 h3 { font-size: 0.95rem; }
+/* Fonte arredondada só nos títulos grandes: o nome no topo e o título dos cartões e folhas.
+   Arredondada pesa mais à vista: um tico menos de peso e de aperto entre letras */
+.topo h1, .entrada h1, .cartao h2, .folha .cartao-cab h2 { font-family: var(--fonte-titulos); }
+.topo h1, .entrada h1 { font-weight: 680; letter-spacing: -0.015em; }
+.cartao h2, .folha .cartao-cab h2 { font-weight: 620; letter-spacing: -0.005em; }
 p { margin: 0; }
 a { color: var(--destaque); }
 
@@ -122,11 +133,11 @@ a { color: var(--destaque); }
 .avatar { flex: none; object-fit: cover; display: block; }
 .avatar-foto {
   border-radius: 50%; background: var(--superficie-2);
-  box-shadow: 0 0 0 2px var(--fundo), 0 0 0 3.5px color-mix(in oklab, var(--c-mamada) 55%, var(--c-sono));
+  box-shadow: 0 0 0 2px var(--fundo), 0 0 0 3.5px var(--anel);
 }
 .topo .avatar-foto { margin: 2px; width: 40px; height: 40px; }
 .avatar-grande { width: 64px; height: 64px; border-radius: 18px; }
-.avatar-grande.avatar-foto { border-radius: 50%; box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px color-mix(in oklab, var(--c-mamada) 55%, var(--c-sono)); }
+.avatar-grande.avatar-foto { border-radius: 50%; box-shadow: 0 0 0 2px var(--superficie), 0 0 0 4px var(--anel); }
 
 .nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
@@ -168,7 +179,7 @@ a { color: var(--destaque); }
   background:
     radial-gradient(120% 90% at 100% 0%, var(--destaque-b), transparent 60%),
     linear-gradient(150deg, var(--destaque-a), var(--superficie) 70%);
-  border-color: color-mix(in oklab, var(--c-sono) 14%, var(--borda-cartao, var(--borda)));
+  border-color: var(--destaque-borda);
 }
 .cartao.destaque[class*=" t-"] {
   background: linear-gradient(150deg, color-mix(in oklab, var(--cor) 13%, var(--superficie)), var(--superficie) 72%);
@@ -245,7 +256,7 @@ a { color: var(--destaque); }
 
 .abas { display: flex; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 14px; }
 .abas button { flex: 1 1 auto; min-width: 0; padding: 0 4px; white-space: nowrap; min-height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); font-weight: 600; cursor: pointer; font-size: 0.88rem; }
-.abas button.ativo { background: var(--superficie-2); color: var(--texto); }
+.abas button.ativo { background: var(--superficie-2); color: var(--destaque); }
 @media (max-width: 359px) { .abas button { font-size: 0.78rem; } }
 
 .alerta {
@@ -455,6 +466,8 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .noite button.noite-desfazer { display: inline; min-height: 0; border: 0; background: none; font-size: 0.95rem; text-decoration: underline; padding: 4px; color: #d9c4ae; }
 .noite button small { font-size: 0.85rem; font-weight: 500; color: #8a7a6a; }
 .noite button.ativo { border-color: #6b4a3a; background: #1a110c; }
+/* Emojis dos botões (💧 azul aceso) bem apagados e puxados para o quente, como o resto da tela */
+.noite .noite-emoji { display: inline-block; filter: grayscale(0.75) sepia(0.45) brightness(0.62); }
 .noite .noite-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .noite .noite-topo button { min-height: 44px; font-size: 0.95rem; padding: 0 16px; border-radius: 12px; }
 .noite .noite-info { text-align: center; font-size: 0.95rem; color: #8a7a6a; margin-bottom: 12px; font-variant-numeric: tabular-nums; }
@@ -565,7 +578,6 @@ button.doc-arquivo { cursor: pointer; font: inherit; }
 
 /* Cofrinho */
 .cofrinho-heroi { background: linear-gradient(160deg, color-mix(in srgb, var(--c-rendimento) 12%, var(--superficie)), var(--superficie) 70%); }
-.cofrinho-emoji { font-size: 3.2rem; line-height: 1; }
 .cofrinho-saldo { font-size: 2.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; overflow-wrap: anywhere; }
 .cofrinho-projecao { font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
 .cofrinho-sub { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--texto-2); font-size: 0.88rem; }
@@ -713,6 +725,15 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .esq-numero { height: 34px; border-radius: 10px; }
 .esq-avatar { width: 42px; height: 42px; border-radius: 50%; }
 .esq-selo { width: 42px; height: 42px; border-radius: 12px; }
+/* Hoje: a capa alta (src/estilos/capa.css) com a mesma altura, a "foto" sumindo para o fundo */
+.esq-capa .esq-capa-foto {
+  position: absolute; inset: 0; border-radius: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 100%);
+}
+.esq-capa .capa-grande { gap: 10px; }
+.esq-capa-nome { height: 30px; border-radius: 10px; }
+.esq-capa-idade { height: 26px; border-radius: 999px; background: var(--superficie); }
 .esq-aba { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: var(--nav-altura); }
 .esq-icone { width: 22px; height: 22px; border-radius: 7px; }
 .esq-rotulo { width: 30px; height: 7px; border-radius: 4px; }

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useId, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
+import { decidirEixo, deveFecharFolha, FOLGA_GESTO, opacidadeFundo, posicaoFolha, velocidade } from '../lib/toque';
 import type { TipoRegistro } from '../lib/tipos';
 
 const caminhos: Record<string, ReactNode> = {
@@ -135,6 +136,56 @@ const caminhos: Record<string, ReactNode> = {
   qr: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4z" />,
   subir: <path d="m18 15-6-6-6 6" />,
   vacina: <path d="m18 2 4 4M17 7l3-3M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6" />,
+  editar: <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />,
+};
+
+/**
+ * Duas cores (duotone): a camada de preenchimento suave de cada ícone, desenhada atrás do traço.
+ * Fica escondida por padrão e aparece nos selos, nos cartões do Mais e na aba ativa
+ * (src/estilos/icones.css). Formas fechadas, no mesmo desenho do traço.
+ */
+const preenchimentos: Record<string, ReactNode> = {
+  hoje: <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
+  historico: <circle cx="12" cy="12" r="9" />,
+  agenda: <path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4H3z" />,
+  ajustes: <circle cx="12" cy="12" r="7" />,
+  mamada: <path d="M12 2.7s-6.5 6.6-6.5 11.6a6.5 6.5 0 0 0 13 0c0-5-6.5-11.6-6.5-11.6z" />,
+  mamadeira: <path d="M8 12h8v8a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z" />,
+  fralda: <path d="M3 6h18v3.5c0 5.2-4 9.5-9 9.5s-9-4.3-9-9.5z" />,
+  sono: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  lua: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  sino: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9z" />,
+  bebe: <circle cx="12" cy="12" r="9" />,
+  pessoas: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0z" />
+    </>
+  ),
+  remedio: <path d="M8.5 8.5 13.5 3.5a4.95 4.95 0 0 1 7 7l-5 5z" />,
+  temperatura: <path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z" />,
+  extracao: (
+    <>
+      <path d="M8 3h8l-1 5H9z" />
+      <path d="M9 13h6v6a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z" />
+    </>
+  ),
+  refeicao: <path d="M4 11h16a8 8 0 0 1-16 0z" />,
+  saude: <path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z" />,
+  grafico: <path d="M6.5 12h3v5h-3zM11.5 8h3v9h-3zM16.5 9h3v8h-3z" />,
+  estrela: <path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z" />,
+  lista: <rect x="2" y="3.5" width="20" height="17" rx="3" />,
+  camera: <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />,
+  regua: <path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z" />,
+  documento: <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />,
+  imagem: <rect x="3" y="3" width="18" height="18" rx="2" />,
+  pasta: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+  carteira: <path d="M21 9h-5a3 3 0 0 0 0 6h5z" />,
+  nuvem: <path d="M17.5 19H8a6 6 0 1 1 5.7-7.9A4.5 4.5 0 1 1 17.5 19z" />,
+  cofrinho: <path d="M4.5 12.5c0-3.6 3.4-6.5 7.5-6.5 1.4 0 2.7.3 3.8.9L19 5.5v3.6c.7.6 1.2 1.4 1.5 2.3H22v3.2h-1.7a6.6 6.6 0 0 1-2.3 2.6V20h-3v-1.9a9 9 0 0 1-4 0V20H8v-2.4a6.2 6.2 0 0 1-3.5-5.1z" />,
+  vacina: <path d="M15 5 19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4z" />,
+  editar: <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />,
+  alerta: <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />,
 };
 
 /**
@@ -155,9 +206,19 @@ export function useUmToque(intervalo = 700) {
   );
 }
 
-export function Icone({ nome }: { nome: string }) {
+/**
+ * Ícone de traço. A camada de duas cores (preenchimento suave atrás do traço) aparece sozinha
+ * nos selos, nos cartões do Mais e na aba ativa; `duo` a liga em qualquer lugar, `duo={false}` a tira.
+ */
+export function Icone({ nome, duo }: { nome: string; duo?: boolean }) {
+  const fundo = duo === false ? null : preenchimentos[nome];
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={duo ? 'duo' : undefined}>
+      {fundo && (
+        <g className="ic-duo" fill="currentColor" stroke="none">
+          {fundo}
+        </g>
+      )}
       {caminhos[nome]}
     </svg>
   );
@@ -172,7 +233,198 @@ export function Selo({ tipo, icone }: { tipo: TipoRegistro | 'agenda' | 'saude';
   );
 }
 
+/** Onde o toque não vira arrasto da folha: campos, seletores, sliders e o que se marcar com data-sem-gesto */
+const SEM_GESTO = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="slider"], [data-sem-gesto]';
+
+/** O toque começou em algo com gesto próprio (campo, área que não rola na vertical, rolagem interna fora do topo) */
+function temGestoProprio(alvo: Element, folha: HTMLElement): boolean {
+  for (let el: Element | null = alvo; el && el !== folha; el = el.parentElement) {
+    if (el.matches(SEM_GESTO)) return true;
+    const cs = getComputedStyle(el);
+    const ta = cs.touchAction;
+    if (ta === 'none' || ta === 'pinch-zoom' || (ta.includes('pan-x') && !ta.includes('pan-y'))) return true;
+    if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight && el.scrollTop > 0) return true;
+  }
+  return false;
+}
+
+const reduzMovimento = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Arrastar a folha para baixo para fechar (como no iPhone): pela alça/cabeçalho
+ * sempre; pelo conteúdo só quando ele está rolado no topo. Soltar além do
+ * limiar (ou rápido) fecha com animação e chama `aoFechar`; senão a folha volta.
+ */
+function useArrastarParaFechar(fundoRef: RefObject<HTMLDivElement | null>, folhaRef: RefObject<HTMLDivElement | null>, aoFechar: () => void) {
+  const fechar = useRef(aoFechar);
+  useEffect(() => {
+    fechar.current = aoFechar;
+  }, [aoFechar]);
+
+  useEffect(() => {
+    const fundo = fundoRef.current;
+    const folha = folhaRef.current;
+    if (!fundo || !folha) return;
+    type Gesto = { x0: number; y0: number; topo: boolean; estado: 'espera' | 'arrastando' | 'ignorar'; dy0: number; pos: number; amostras: { v: number; t: number }[] };
+    let g: Gesto | null = null;
+    let arrastou = false;
+    let fechando = false;
+    let vivo = true;
+    const timers: number[] = [];
+
+    const aplicar = (y: number) => {
+      folha.style.translate = y ? `0 ${y.toFixed(1)}px` : '';
+      fundo.style.setProperty('--tq-fundo', String(opacidadeFundo(y, folha.offsetHeight)));
+    };
+    const limpar = () => {
+      folha.style.transition = '';
+      fundo.style.transition = '';
+      fundo.classList.remove('tq-movendo');
+      fundo.style.removeProperty('--tq-fundo');
+      folha.style.translate = '';
+    };
+    const voltar = () => {
+      if (reduzMovimento()) return limpar();
+      folha.style.transition = 'translate 0.32s cubic-bezier(0.2, 0.9, 0.3, 1)';
+      fundo.style.transition = '--tq-fundo 0.32s';
+      aplicar(0);
+      timers.push(window.setTimeout(limpar, 340));
+    };
+    const fecharAnimado = (vel: number) => {
+      fechando = true;
+      const depois = () => {
+        fechar.current();
+        // Se a tela não fechou a folha (aoFechar não a tirou), ela volta ao lugar
+        timers.push(
+          window.setTimeout(() => {
+            if (!vivo) return;
+            fechando = false;
+            limpar();
+          }, 120),
+        );
+      };
+      if (reduzMovimento()) return depois();
+      const destino = folha.offsetHeight + 40;
+      const falta = Math.max(0, destino - (g?.pos ?? 0));
+      const dur = Math.round(Math.min(300, Math.max(160, falta / Math.max(1.4, vel))));
+      folha.style.transition = `translate ${dur}ms cubic-bezier(0.3, 0.6, 0.4, 1)`;
+      fundo.style.transition = `--tq-fundo ${dur}ms`;
+      folha.style.translate = `0 ${destino}px`;
+      fundo.style.setProperty('--tq-fundo', '0');
+      timers.push(window.setTimeout(depois, dur));
+    };
+
+    const comecar = (x: number, y: number, alvo: EventTarget | null, t: number) => {
+      arrastou = false; // toque novo: o clique do arrasto anterior já não vem
+      g = null;
+      if (fechando || !(alvo instanceof Element) || alvo.closest('.folha') !== folha) return;
+      const topo = !!alvo.closest('.tq-folha-topo');
+      if (!topo && (folha.scrollTop > 0 || temGestoProprio(alvo, folha))) return;
+      // A 1ª amostra é o ponto de partida: gesto rápido conta a velocidade desde o começo
+      g = { x0: x, y0: y, topo, estado: 'espera', dy0: 0, pos: 0, amostras: [{ v: 0, t }] };
+    };
+    const mover = (x: number, y: number, t: number, e: Event) => {
+      if (!g || g.estado === 'ignorar') return;
+      const dx = x - g.x0;
+      const dy = y - g.y0;
+      if (g.estado === 'espera') {
+        // Para baixo e mais vertical: já segura a rolagem nativa (no topo não há o que rolar para cima)
+        if (dy >= 3 && dy > Math.abs(dx) * 1.2 && e.cancelable) e.preventDefault();
+        const eixo = decidirEixo(dx, dy);
+        if (eixo === 'espera') return;
+        if (eixo !== 'vertical' || dy < 0 || (!g.topo && folha.scrollTop > 0)) {
+          g.estado = 'ignorar';
+          return;
+        }
+        g.estado = 'arrastando';
+        // Desconta só a folga de decidir (a folha não pula, e o gesto curto não perde distância)
+        g.dy0 = Math.min(dy, FOLGA_GESTO);
+        folha.style.transition = '';
+        fundo.style.transition = '';
+        fundo.classList.add('tq-movendo');
+      }
+      if (e.cancelable) e.preventDefault();
+      g.pos = posicaoFolha(dy - g.dy0);
+      g.amostras.push({ v: g.pos, t });
+      if (g.amostras.length > 8) g.amostras.shift();
+      aplicar(g.pos);
+    };
+    const soltar = (cancelado: boolean, t?: number) => {
+      const s = g;
+      if (!s || s.estado !== 'arrastando') {
+        g = null;
+        return;
+      }
+      // Parou o dedo antes de soltar: a velocidade cai (não conta como gesto rápido)
+      if (t !== undefined) s.amostras.push({ v: s.pos, t });
+      arrastou = true;
+      timers.push(window.setTimeout(() => (arrastou = false), 400));
+      const vel = velocidade(s.amostras);
+      if (!cancelado && deveFecharFolha(s.pos, vel, folha.offsetHeight)) fecharAnimado(vel);
+      else voltar();
+      g = null;
+    };
+
+    // Toque (iPhone)
+    const tInicio = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return soltar(true);
+      comecar(e.touches[0].clientX, e.touches[0].clientY, e.target, e.timeStamp);
+    };
+    const tMover = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return soltar(true);
+      mover(e.touches[0].clientX, e.touches[0].clientY, e.timeStamp, e);
+    };
+    const tFim = (e: TouchEvent) => soltar(e.type === 'touchcancel', e.timeStamp);
+    // Mouse (computador): só pela alça/cabeçalho
+    const pMover = (e: PointerEvent) => mover(e.clientX, e.clientY, e.timeStamp, e);
+    const pFim = (e: PointerEvent) => {
+      window.removeEventListener('pointermove', pMover);
+      window.removeEventListener('pointerup', pFim);
+      window.removeEventListener('pointercancel', pFim);
+      soltar(e.type === 'pointercancel', e.timeStamp);
+    };
+    const pInicio = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || !(e.target instanceof Element) || !e.target.closest('.tq-folha-topo')) return;
+      comecar(e.clientX, e.clientY, e.target, e.timeStamp);
+      if (!g) return;
+      window.addEventListener('pointermove', pMover);
+      window.addEventListener('pointerup', pFim);
+      window.addEventListener('pointercancel', pFim);
+    };
+    // Depois de arrastar, o "clique" de soltar o dedo não aperta botão nem fecha pelo fundo
+    const clique = (e: MouseEvent) => {
+      if (!arrastou) return;
+      arrastou = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+
+    folha.addEventListener('touchstart', tInicio, { passive: true });
+    folha.addEventListener('touchmove', tMover, { passive: false });
+    folha.addEventListener('touchend', tFim);
+    folha.addEventListener('touchcancel', tFim);
+    folha.addEventListener('pointerdown', pInicio);
+    fundo.addEventListener('click', clique, true);
+    return () => {
+      vivo = false;
+      timers.forEach(clearTimeout);
+      folha.removeEventListener('touchstart', tInicio);
+      folha.removeEventListener('touchmove', tMover);
+      folha.removeEventListener('touchend', tFim);
+      folha.removeEventListener('touchcancel', tFim);
+      folha.removeEventListener('pointerdown', pInicio);
+      fundo.removeEventListener('click', clique, true);
+      window.removeEventListener('pointermove', pMover);
+      window.removeEventListener('pointerup', pFim);
+      window.removeEventListener('pointercancel', pFim);
+    };
+  }, [fundoRef, folhaRef]);
+}
+
 export function Folha({ titulo, aoFechar, children, classe }: { titulo: string; aoFechar: () => void; children: ReactNode; classe?: string }) {
+  const fundoRef = useRef<HTMLDivElement>(null);
+  const folhaRef = useRef<HTMLDivElement>(null);
+  useArrastarParaFechar(fundoRef, folhaRef, aoFechar);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
     document.addEventListener('keydown', esc);
@@ -184,13 +436,17 @@ export function Folha({ titulo, aoFechar, children, classe }: { titulo: string; 
     };
   }, [aoFechar]);
   return (
-    <div className="folha-fundo" onClick={aoFechar}>
-      <div className={`folha ${classe ?? ''}`} role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.stopPropagation()}>
-        <div className="cartao-cab">
-          <h2>{titulo}</h2>
-          <button className="icone-botao" onClick={aoFechar} aria-label="Fechar">
-            <Icone nome="fechar" />
-          </button>
+    // data-sem-gesto: com a folha aberta, o gesto de trocar de aba não age por baixo dela
+    <div ref={fundoRef} className="folha-fundo" onClick={aoFechar} data-sem-gesto="">
+      <div ref={folhaRef} className={`folha ${classe ?? ''}`} role="dialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.stopPropagation()}>
+        <div className="tq-folha-topo">
+          <span className="tq-alca" aria-hidden="true" />
+          <div className="cartao-cab">
+            <h2>{titulo}</h2>
+            <button className="icone-botao" onClick={aoFechar} aria-label="Fechar">
+              <Icone nome="fechar" />
+            </button>
+          </div>
         </div>
         {children}
       </div>

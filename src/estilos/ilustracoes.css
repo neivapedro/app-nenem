@@ -1,0 +1,81 @@
+/* Ilustrações das telas vazias (src/componentes/ilustracoes.tsx) e o bloco <EstadoVazio>.
+   Tons tirados dos tokens: --il-cor (cor do tipo), --il-cor2 (a 2ª cor), --superficie e --destaque (brilhos).
+   Funcionam no claro, no escuro, na noite âmbar e com a cor do app escolhida. */
+
+.ilustracao {
+  --il-traco: color-mix(in oklab, var(--il-cor) 70%, var(--texto));
+  --il-acento: color-mix(in oklab, var(--destaque) 55%, var(--il-cor));
+  display: block; width: 132px; height: auto; flex: none; overflow: visible;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.ilustracao * { stroke-width: 3; }
+/* Caminhos dos ícones (24 px) ampliados 4×: o traço fica com a mesma espessura dos outros */
+.ilustracao .il-esc { stroke-width: 0.75; }
+
+.il-fundo { fill: color-mix(in oklab, var(--il-cor) 12%, transparent); stroke: none; }
+.il-papel { fill: var(--superficie); stroke: var(--il-traco); }
+.il-suave { fill: color-mix(in oklab, var(--il-cor) 26%, var(--superficie)); stroke: var(--il-traco); }
+.il-forte { fill: color-mix(in oklab, var(--il-cor) 62%, var(--superficie)); stroke: var(--il-traco); }
+.il-dois { fill: color-mix(in oklab, var(--il-cor2) 34%, var(--superficie)); stroke: color-mix(in oklab, var(--il-cor2) 70%, var(--texto)); }
+.il-sem-traco { stroke: none; }
+.il-linha { fill: none; stroke: var(--il-traco); }
+.il-linha.il-claro { stroke: var(--superficie); }
+.il-fraco { fill: none; stroke: color-mix(in oklab, var(--il-traco) 38%, var(--superficie)); }
+.il-dois-linha { fill: none; stroke: color-mix(in oklab, var(--il-cor2) 75%, var(--texto)); }
+.il-corte { fill: none; stroke: color-mix(in oklab, var(--ruim) 75%, var(--texto)); stroke-width: 4 !important; }
+.il-olho { fill: var(--il-traco); stroke: none; }
+.il-grade circle { fill: color-mix(in oklab, var(--il-traco) 32%, var(--superficie)); stroke: none; }
+.il-brilho { fill: var(--il-acento); stroke: none; opacity: 0.8; }
+.il-ponto { fill: color-mix(in oklab, var(--il-cor2) 55%, transparent); stroke: none; }
+/* Na noite âmbar tudo um tom abaixo (nada aceso de madrugada) */
+:root[data-tema="noite"] .ilustracao { opacity: 0.82; }
+:root[data-tema="noite"] .il-brilho { opacity: 0.6; }
+
+/* ---------- Bloco vazio ---------- */
+.ev {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  padding: 20px 18px 18px;
+  animation: ev-entra 0.45s var(--curva) both;
+}
+.ev-texto { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; max-width: 34ch; }
+.ev-titulo { font-family: var(--fonte-titulos); font-weight: 650; font-size: 1rem; letter-spacing: -0.01em; line-height: 1.25; color: var(--texto); }
+.ev-detalhe { color: var(--texto-2); font-size: 0.86rem; line-height: 1.4; }
+.ev-acao { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ev-solto { padding: 6px 0 2px; }
+
+/* Compacto: desenho pequeno ao lado do texto */
+.ev-compacto { flex-direction: row; text-align: left; gap: 14px; padding: 14px 16px; }
+.ev-compacto.ev-solto { padding: 4px 0; }
+.ev-compacto .ilustracao { width: 84px; }
+.ev-compacto .ev-texto { align-items: flex-start; max-width: none; flex: 1; }
+.ev-compacto .ev-titulo { font-size: 0.94rem; }
+.ev-compacto .ev-detalhe { font-size: 0.82rem; }
+.ev-compacto .ev-acao { justify-content: flex-start; margin-top: 6px; }
+
+@media (max-width: 359px) {
+  .ilustracao { width: 108px; }
+  .ev { padding: 16px 14px 14px; }
+  .ev-compacto { gap: 12px; padding: 12px; }
+  .ev-compacto .ilustracao { width: 68px; }
+}
+
+/* Desenhos de abertura de seção (fora do bloco vazio) */
+.cofrinho-ilustracao { width: 148px; margin: -6px auto -2px; }
+.chegada-ilustracao { width: 112px; margin: -8px 0 0 -10px; }
+.sem-conexao-ilustracao { width: 150px; margin: 0 auto 4px; }
+@media (max-width: 359px) {
+  .cofrinho-ilustracao { width: 124px; }
+  .chegada-ilustracao { width: 96px; }
+}
+
+/* Entrada: o bloco sobe um tico, o desenho cresce de leve e os brilhos acendem depois */
+@keyframes ev-entra { from { opacity: 0; transform: translateY(6px); } }
+@keyframes il-obj-entra { from { opacity: 0; transform: translateY(4px) scale(0.94); } }
+@keyframes il-brilho-entra { from { opacity: 0; transform: scale(0.4); } }
+.ilustracao .il-obj { transform-box: fill-box; transform-origin: 50% 70%; animation: il-obj-entra 0.55s var(--curva) 0.05s both; }
+.ilustracao .il-brilho { transform-box: fill-box; transform-origin: center; animation: il-brilho-entra 0.5s var(--curva) var(--il-atraso, 300ms) both; }
+/* (o .il-obj nunca tem transform próprio: as rotações ficam num grupo de dentro, a animação não briga com elas) */
+
+@media (prefers-reduced-motion: reduce) {
+  .ev, .ilustracao .il-obj, .ilustracao .il-brilho { animation: none; }
+}

@@ -3,6 +3,7 @@ import { useDados } from '../dados/contexto';
 import { CUIDADOS, FONTES_CHEGADA, generoBebe, itemFamilia, PESSOAS, RECOMENDACOES, textoParaFamilia, TOTAL_ITENS, VACINAS, type Pessoa, type VacinaFamilia } from '../lib/chegada';
 import { idFixo } from '../lib/ids';
 import type { Tarefa } from '../lib/tipos';
+import { Ilustracao } from './ilustracoes';
 import { Icone } from './ui';
 
 /** Quantas vacinas da família já foram conferidas (marcadas por qualquer um dos dois) */
@@ -56,9 +57,7 @@ export function SecaoChegada() {
   return (
     <div className="pilha">
       <section className="cartao pilha-p chegada-heroi">
-        <span className="cofrinho-emoji" aria-hidden="true">
-          🛡️
-        </span>
+        <Ilustracao nome="vacinas" classe="chegada-ilustracao" />
         <h2>{bebe?.nascimento ? `Os primeiros meses ${g.do} ${nomeBebe}` : `Antes de ${g.o} ${nomeBebe} chegar`}</h2>
         <p className="texto-2">
           O recém-nascido começa a ser vacinado aos poucos: coqueluche aos 2 meses, gripe aos 6, sarampo aos 12. Até lá, a proteção vem da mãe (na gestação) e de quem convive com {g.ele}. É a <strong>estratégia casulo</strong>: todo mundo em volta vacinado, de preferência até 2 semanas antes do nascimento.

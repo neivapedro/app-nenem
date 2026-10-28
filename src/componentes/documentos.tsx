@@ -29,6 +29,7 @@ import { arquivoPdf, compartilhar, ehImagem, enviarFotoPronta, nomeGuardado, obt
 import { EditorFoto } from './doc-editor-foto';
 import { useEstadoOffline } from './doc-offline';
 import { Visualizador } from './doc-visualizador';
+import { Ilustracao } from './ilustracoes';
 import { Campo, Escolhas, Folha, Icone } from './ui';
 import '../estilos/carteira.css';
 
@@ -183,15 +184,7 @@ function CartaoCarteira({ doc, aoAbrir }: { doc: Documento; aoAbrir: () => void 
 function CarteiraVazia() {
   return (
     <div className="carteira-vazia">
-      <svg viewBox="0 0 120 90" aria-hidden="true">
-        <rect className="cv-c3" x="22" y="8" width="76" height="46" rx="8" />
-        <rect className="cv-c2" x="16" y="20" width="88" height="50" rx="9" />
-        <rect className="cv-c1" x="10" y="32" width="100" height="52" rx="10" />
-        <rect className="cv-linha" x="22" y="46" width="34" height="6" rx="3" />
-        <rect className="cv-linha" x="22" y="58" width="56" height="5" rx="2.5" opacity="0.6" />
-        <circle className="cv-mais" cx="92" cy="68" r="9" />
-        <path className="cv-mais-x" d="M92 63.5v9M87.5 68h9" />
-      </svg>
+      <Ilustracao nome="documentos" />
       <div className="cresce">
         <strong>Nenhum cartão ainda</strong>
         <p className="texto-2">SUS, plano e certidão entram aqui quando tiverem foto. Outros: abra e toque em “Pôr na carteira”.</p>

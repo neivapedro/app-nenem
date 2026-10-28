@@ -4,6 +4,7 @@ import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
 import { FolhaBebe } from '../componentes/bebe';
 import { CartaoProximaMamada, Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
+import { MomentosDoDia } from '../componentes/momentos';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
 import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
@@ -196,6 +197,7 @@ export function Hoje() {
   return (
     <div className="pilha">
       <DicaInstalar />
+      <MomentosDoDia />
       {!bebe?.nascimento && <AntesDoParto />}
 
       {andamento.mamada && <CartaoMamadaAtiva r={andamento.mamada} />}

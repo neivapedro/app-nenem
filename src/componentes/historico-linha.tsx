@@ -6,6 +6,7 @@ import { dataBr, horaCurta, nomeDia, textoDuracao } from '../lib/datas';
 import { alturaSono, detalheSemHora, fitaDoDia, textoFimSono, type ItemDia } from '../lib/historico-dias';
 import { descrever, resumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
+import { ItemDeslizavel } from './deslize-item';
 import { LinhaTempo } from './painel';
 import { Selo } from './ui';
 import '../estilos/historico.css';
@@ -24,6 +25,7 @@ export function DiaHistorico({
   legenda,
   nomeDe,
   aoEditar,
+  aoApagar,
 }: {
   dia: string;
   hoje: string;
@@ -42,6 +44,8 @@ export function DiaHistorico({
   legenda?: boolean;
   nomeDe: (id: string) => string;
   aoEditar: (r: Registro) => void;
+  /** Deslizar o item até o fim (ou tocar em "Apagar") */
+  aoApagar: (r: Registro) => void;
 }) {
   const nome = nomeDia(dia, hoje);
   const relativo = nome === 'Hoje' || nome === 'Ontem';
@@ -103,7 +107,7 @@ export function DiaHistorico({
       {itens.length ? (
         <ol className="hist-linha">
           {itens.map((x, k) => (
-            <ItemLinha key={`${x.r.id}${x.continuacao ? '-c' : ''}`} item={x} dia={dia} agora={agora} ordem={k} nomeDe={nomeDe} aoEditar={aoEditar} />
+            <ItemLinha key={`${x.r.id}${x.continuacao ? '-c' : ''}`} item={x} dia={dia} agora={agora} ordem={k} nomeDe={nomeDe} aoEditar={aoEditar} aoApagar={aoApagar} />
           ))}
         </ol>
       ) : (
@@ -120,6 +124,7 @@ function ItemLinha({
   ordem,
   nomeDe,
   aoEditar,
+  aoApagar,
 }: {
   item: ItemDia;
   dia: string;
@@ -127,6 +132,7 @@ function ItemLinha({
   ordem: number;
   nomeDe: (id: string) => string;
   aoEditar: (r: Registro) => void;
+  aoApagar: (r: Registro) => void;
 }) {
   const { r } = item;
   const d = descrever(r, agora);
@@ -140,7 +146,8 @@ function ItemLinha({
   const classes = ['hist-item', `t-${r.tipo}`, sono ? 'sono' : '', item.continuacao ? 'continuacao' : '', item.emAndamento && sono ? 'andamento' : ''].filter(Boolean).join(' ');
 
   return (
-    <li>
+    // Deslizar para a esquerda revela Editar e Apagar; o toque simples continua abrindo a edição
+    <ItemDeslizavel aoEditar={() => aoEditar(r)} aoApagar={() => aoApagar(r)}>
       <button type="button" className={classes} style={estilo} onClick={() => aoEditar(r)}>
         <span className="hist-trilho" aria-hidden="true">
           {sono && <span className="hist-barra" />}
@@ -154,6 +161,6 @@ function ItemLinha({
           {partes.length > 0 && <span className="hist-detalhe">{partes.join(' · ')}</span>}
         </span>
       </button>
-    </li>
+    </ItemDeslizavel>
   );
 }

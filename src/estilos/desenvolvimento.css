@@ -120,9 +120,6 @@
 .pv-foto { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; margin-top: 6px; display: block; background: var(--superficie-2); }
 .pv-cartao > .mudo { margin-top: 6px; }
 
-.dev-vazio { display: flex; align-items: center; gap: 12px; }
-.dev-vazio > span { font-size: 2rem; flex: none; }
-
 /* Fotos do mês: grade com o mês por cima */
 .fotos-mes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .foto-mes {
@@ -202,3 +199,9 @@
 /* Foto que não abriu (sem internet ou apagada): ícone discreto no lugar do eterno "carregando…" */
 .foto-falhou { display: inline-grid; place-items: center; opacity: 0.6; }
 .foto-falhou svg { width: 22px; height: 22px; }
+
+/* Noite âmbar: etapa completa com fundo apagado e o ícone na cor; rótulos das fotos sem branco forte */
+:root[data-tema="noite"] .trilha-no { color: var(--texto); }
+:root[data-tema="noite"] .trilha-etapa.completa .trilha-no { background: color-mix(in oklab, var(--c-agenda) 22%, var(--superficie)); color: var(--c-agenda); }
+:root[data-tema="noite"] .foto-mes.cheio .foto-mes-rotulo,
+:root[data-tema="noite"] .foto-mes.cheio .foto-mes-rotulo strong { color: var(--texto); }

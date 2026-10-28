@@ -1,0 +1,25 @@
+/* Ícones em duas cores (duotone): o <Icone> desenha um preenchimento suave (.ic-duo) atrás do
+   traço. Escondido por padrão (botões e textos ficam só no traço); aparece nos selos, nos cartões
+   do Mais, na aba ativa, nas ações de deslizar e onde se pedir com <Icone duo>. */
+
+.ic-duo { opacity: 0; transition: opacity 0.25s ease; }
+svg.duo .ic-duo,
+.selo .ic-duo,
+.tq-acao .ic-duo { opacity: var(--duo-opacidade, 0.3); }
+
+/* Selo preenchido (ícone branco sobre a cor): o branco translúcido clareia o miolo do desenho */
+.selo[class*=" t-"] { --duo-opacidade: 0.4; }
+/* Selo claro (fundo translúcido, ícone na cor): miolo na cor, um pouco mais leve */
+.selo:not([class*=" t-"]) { --duo-opacidade: 0.3; }
+/* Noite âmbar: o selo já é apagado com o ícone na cor; o miolo fica bem discreto */
+:root[data-tema="noite"] .selo[class*=" t-"] { --duo-opacidade: 0.3; }
+
+/* Barra de abas: a aba ativa ganha o miolo preenchido (as outras ficam só no traço) */
+.nav a.ativo .ic-duo { opacity: 0.26; }
+:root[data-tema="claro"] .nav a.ativo .ic-duo { opacity: 0.18; }
+:root[data-tema="noite"] .nav a.ativo .ic-duo { opacity: 0.22; }
+.nav a.ativo svg { stroke-width: 2.15; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ic-duo { transition: none; }
+}

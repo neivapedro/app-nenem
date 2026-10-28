@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DiaHistorico } from '../componentes/historico-linha';
+import { EstadoVazio } from '../componentes/ilustracoes';
 import { FolhaEditar } from '../componentes/registrar';
 import { Icone } from '../componentes/ui';
 import { useAgora, useDados } from '../dados/contexto';
@@ -27,7 +29,7 @@ const maior = (a: string, b: string) => (a > b ? a : b);
 const menosMovimento = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 export function Historico() {
-  const { hoje, bebe, carregadoDesde, pendentes } = useDados();
+  const { hoje, bebe, carregadoDesde, pendentes, gravar, mostrarAviso, leite } = useDados();
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [editando, setEditando] = useState<Registro | null>(null);
   // null = a semana mais recente (acompanha a virada do dia)
@@ -56,6 +58,19 @@ export function Historico() {
     setAlvo((a) => ({ dia: dia > hoje ? hoje : inicio && dia < inicio ? inicio : dia, n: (a?.n ?? 0) + 1 }));
   };
 
+  // "/historico?dia=AAAA-MM-DD" (ex.: lembrança "Há 1 mês…"): abre já naquele dia, uma vez
+  const [parametros, setParametros] = useSearchParams();
+  const diaPedido = parametros.get('dia');
+  useEffect(() => {
+    if (!diaPedido) return;
+    irPara(diaPedido);
+    setParametros((p) => {
+      p.delete('dia');
+      return p;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diaPedido]);
+
   const voltarParaHoje = () => {
     setJanela(null);
     setAlvo(null);
@@ -68,6 +83,25 @@ export function Historico() {
       return null;
     });
   }, [carregadoDesde]);
+
+  // Apagar pelo deslize: sem perguntar, com "Desfazer" no aviso (como as outras exclusões do app)
+  const apagar = useCallback(
+    (r: Registro) => {
+      // Extração guardada no estoque: o pote tem o mesmo id do registro e sai junto
+      const pote = r.tipo === 'extracao' ? leite.find((p) => p.id === r.id) : undefined;
+      const antigo = chaveDia(r.inicio) < carregadoDesde;
+      gravar({ tipo: 'excluir', dado: { alvo: 'registro', id: r.id } }, ...(pote ? [{ tipo: 'excluir' as const, dado: { alvo: 'leite' as const, id: pote.id } }] : []));
+      if (antigo) setAguardaFila(true);
+      mostrarAviso({
+        texto: pote ? 'Registro apagado (e o pote do estoque)' : 'Registro apagado',
+        desfazer: () => {
+          gravar({ tipo: 'registro', dado: r }, ...(pote ? [{ tipo: 'colecao' as const, colecao: 'leite' as const, dado: pote }] : []));
+          if (antigo) setAguardaFila(true);
+        },
+      });
+    },
+    [leite, carregadoDesde, gravar, mostrarAviso],
+  );
 
   return (
     <div className="pilha historico">
@@ -107,6 +141,7 @@ export function Historico() {
         inicio={inicio}
         cache={cache}
         aoEditar={setEditando}
+        aoApagar={apagar}
         aoVerAnterior={() => setJanela(semanaAnterior(janela, inicio))}
       />
 
@@ -122,6 +157,7 @@ function ListaDias({
   inicio,
   cache,
   aoEditar,
+  aoApagar,
   aoVerAnterior,
 }: {
   janela: Janela;
@@ -130,6 +166,7 @@ function ListaDias({
   inicio: string | null;
   cache: Cache;
   aoEditar: (r: Registro) => void;
+  aoApagar: (r: Registro) => void;
   aoVerAnterior: () => void;
 }) {
   const { hoje, nomeDe } = useDados();
@@ -196,13 +233,11 @@ function ListaDias({
       {erro && <div className="alerta erro">Não deu para buscar os dias mais antigos: {erro}</div>}
 
       {!carregando && semNada && (
-        <div className="cartao">
-          <p className="mudo" style={{ margin: 0 }}>
-            {filtro === 'todos'
-              ? 'Nenhum registro nestes dias. O que vocês registrarem na tela Hoje aparece aqui.'
-              : `${f.nenhum} de ${textoSemana(janela.de, janela.ate)}.`}
-          </p>
-        </div>
+        <EstadoVazio
+          ilustracao={filtro === 'alimentacao' ? 'mamadeira' : filtro === 'sono' ? 'sono' : filtro === 'saude' ? 'remedios' : 'historico'}
+          titulo={filtro === 'todos' ? 'Nenhum registro nestes dias' : `${f.nenhum} nestes dias`}
+          texto={filtro === 'todos' ? 'O que vocês registrarem na tela Hoje aparece aqui.' : 'Os outros registros continuam em “Tudo”.'}
+        />
       )}
 
       {!semNada && linhas.map((l, k) => (
@@ -224,6 +259,7 @@ function ListaDias({
             legenda={k === comLegenda}
             nomeDe={nomeDe}
             aoEditar={aoEditar}
+            aoApagar={aoApagar}
           />
         </div>
       ))}

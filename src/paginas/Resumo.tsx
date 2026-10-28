@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { EstadoVazio } from '../componentes/ilustracoes';
 import { GraficosMeses } from '../componentes/meses';
 import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Narrativa, Proporcao } from '../componentes/painel';
 import { RelatorioPediatra } from '../componentes/relatorio-pediatra';
@@ -113,13 +114,15 @@ export function Resumo() {
     return (
       <div className="pilha painel">
         <FiltroPeriodo periodo={periodo} aoMudar={mudarPeriodo} />
-        <div className="cartao">
-          <p className="mudo" style={{ margin: 0 }}>
-            {bebe?.nascimento
-              ? `Nenhuma mamada, fralda ou sono registrado de ${dataBr(deAnterior)} a ${dataBr(hoje)}. Os gráficos aparecem aqui assim que vocês registrarem na tela Hoje.`
-              : 'Depois do nascimento, os gráficos aparecem aqui com o que vocês registrarem na tela Hoje.'}
-          </p>
-        </div>
+        <EstadoVazio
+          ilustracao="graficos"
+          titulo={bebe?.nascimento ? 'Ainda sem dados para os gráficos' : 'Os gráficos começam no nascimento'}
+          texto={
+            bebe?.nascimento
+              ? `Nenhuma mamada, fralda ou sono de ${dataBr(deAnterior)} a ${dataBr(hoje)}. Os gráficos aparecem aqui assim que vocês registrarem na tela Hoje.`
+              : 'Depois do parto, eles aparecem aqui com o que vocês registrarem na tela Hoje.'
+          }
+        />
         <RelatorioPediatra />
       </div>
     );
