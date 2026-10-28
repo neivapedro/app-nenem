@@ -466,6 +466,8 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .noite button.noite-desfazer { display: inline; min-height: 0; border: 0; background: none; font-size: 0.95rem; text-decoration: underline; padding: 4px; color: #d9c4ae; }
 .noite button small { font-size: 0.85rem; font-weight: 500; color: #8a7a6a; }
 .noite button.ativo { border-color: #6b4a3a; background: #1a110c; }
+/* Emojis dos botões (💧 azul aceso) bem apagados e puxados para o quente, como o resto da tela */
+.noite .noite-emoji { display: inline-block; filter: grayscale(0.75) sepia(0.45) brightness(0.62); }
 .noite .noite-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .noite .noite-topo button { min-height: 44px; font-size: 0.95rem; padding: 0 16px; border-radius: 12px; }
 .noite .noite-info { text-align: center; font-size: 0.95rem; color: #8a7a6a; margin-bottom: 12px; font-variant-numeric: tabular-nums; }

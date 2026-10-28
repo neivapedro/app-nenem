@@ -47,9 +47,24 @@
   transform-origin: 0 100%;
   pointer-events: none;
 }
+/* Véu atrás do nome: a parte de baixo da foto vai para a cor do fundo, a partir de um pouco acima
+   do nome (acompanha 1 ou 2 linhas). Com foto quase branca ou quase preta o nome fica >= 4,5:1
+   em todos os temas (sobra da foto sob o texto <= ~30%; na noite âmbar, mais forte). */
+.capa-grande::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: calc(-1 * max(16px, env(safe-area-inset-left))); right: calc(-1 * (max(16px, env(safe-area-inset-right)) + 52px));
+  top: -30px; bottom: -12px;
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--fundo) var(--capa-veu), transparent) 0,
+    color-mix(in srgb, var(--fundo) var(--capa-veu), transparent) calc(100% - 30px),
+    transparent 100%);
+}
+.topo.capa { --capa-veu: 74%; }
+:root[data-tema="noite"] .topo.capa { --capa-veu: 82%; }
 .capa-nome {
   font-size: 2rem; line-height: 1.08; font-weight: 750; letter-spacing: -0.03em; color: var(--texto);
-  text-shadow: 0 0 18px var(--fundo), 0 0 4px color-mix(in srgb, var(--fundo) 70%, transparent);
+  /* No máximo 2 linhas (o resto com reticências). Sem sombra: o véu dá o contraste, e a sombra
+     larga era cortada pela caixa do line-clamp (aparecia um retângulo atrás do nome) */
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
   max-width: 100%;
 }
@@ -77,18 +92,23 @@
   padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
 }
 .capa-compacta { transform-origin: 0 50%; }
+/* Na faixa compacta (66px) o nome cabe numa linha só: o resto vira reticências */
+.topo .capa-compacta h1 { display: block; -webkit-line-clamp: none; line-clamp: none; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.topo .capa-compacta .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Lua sempre à mão: por cima da foto, com fundo levemente translúcido */
 .capa-lua {
-  position: relative; z-index: 3;
+  position: relative; z-index: 3; width: 44px; height: 44px;
   background: color-mix(in srgb, var(--superficie) 86%, transparent);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
 
 /* ---------- Encolher com a rolagem ---------- */
-@keyframes capa-foto-sai { 75%, to { opacity: 0; } }
+/* Nome grande e compacto nunca aparecem juntos: o grande some até 34% do percurso, o compacto
+   só começa a surgir aos 50% (sem "texto fantasma" no meio da rolagem) */
+@keyframes capa-foto-sai { 72%, to { opacity: 0; } }
 @keyframes capa-img-desce { to { transform: translateY(calc(var(--capa-extra) * 0.4)) scale(1.05); } }
-@keyframes capa-grande-sai { 50% { opacity: 0; } to { opacity: 0; transform: translateY(-10px) scale(0.86); } }
-@keyframes capa-compacta-entra { 0%, 45% { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes capa-grande-sai { 34% { opacity: 0; transform: translateY(-4px) scale(0.95); } to { opacity: 0; transform: translateY(-10px) scale(0.86); } }
+@keyframes capa-compacta-entra { 0%, 50% { opacity: 0; transform: translateY(8px) scale(0.96); } 90%, to { opacity: 1; transform: none; } }
 
 /* Navegadores com rolagem animada por CSS (Chrome, Safari 26) */
 @supports (animation-timeline: scroll()) {

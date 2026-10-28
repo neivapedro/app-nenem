@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DiaHistorico } from '../componentes/historico-linha';
 import { EstadoVazio } from '../componentes/ilustracoes';
 import { FolhaEditar } from '../componentes/registrar';
@@ -56,6 +57,19 @@ export function Historico() {
     setJanela(janelaDaData(dia, hoje, inicio));
     setAlvo((a) => ({ dia: dia > hoje ? hoje : inicio && dia < inicio ? inicio : dia, n: (a?.n ?? 0) + 1 }));
   };
+
+  // "/historico?dia=AAAA-MM-DD" (ex.: lembrança "Há 1 mês…"): abre já naquele dia, uma vez
+  const [parametros, setParametros] = useSearchParams();
+  const diaPedido = parametros.get('dia');
+  useEffect(() => {
+    if (!diaPedido) return;
+    irPara(diaPedido);
+    setParametros((p) => {
+      p.delete('dia');
+      return p;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diaPedido]);
 
   const voltarParaHoje = () => {
     setJanela(null);

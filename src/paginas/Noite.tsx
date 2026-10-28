@@ -182,8 +182,12 @@ export function Noite() {
             </button>
           </>
         )}
-        <button onClick={toque(() => fraldaAgora(true, false))}>💧 Xixi</button>
-        <button onClick={toque(() => fraldaAgora(false, true))}>💩 Cocô</button>
+        <button onClick={toque(() => fraldaAgora(true, false))}>
+          <span className="noite-emoji" aria-hidden="true">💧</span> Xixi
+        </button>
+        <button onClick={toque(() => fraldaAgora(false, true))}>
+          <span className="noite-emoji" aria-hidden="true">💩</span> Cocô
+        </button>
         <button onClick={toque(() => fraldaAgora(true, true))}>Xixi e cocô</button>
         {sono ? (
           <button className="ativo" onClick={toque(() => acordouAgora())}>
