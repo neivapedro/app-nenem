@@ -196,6 +196,12 @@ function Stories({ bebe, pronto, aoFechar }: { bebe: Bebe; pronto: Pronto; aoFec
   // Toque: rápido = navega (1/3 da esquerda volta); segurado = pausa; arrastar para baixo = fecha
   const aoTocar = (e: PE<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('button, a, input')) return;
+    // Mouse solto fora do palco ainda chega aqui (sem isso a pausa travava)
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* ponteiro sem captura */
+    }
     const timer = setTimeout(() => setSegurando(true), 180);
     toque.current = { t: Date.now(), x: e.clientX, y: e.clientY, timer };
   };
@@ -687,8 +693,12 @@ type Imagens = { arquivos: File[]; urls: string[] } | { erro: string } | null;
 
 function useImagens(bebe: Bebe, pronto: Pronto, gerar: boolean): Imagens {
   const [estado, setEstado] = useState<Imagens>(null);
+  // O bebê chega como objeto novo a cada recarga de dados: sem isso, as imagens eram refeitas e as já mostradas quebravam
+  const bebeRef = useRef(bebe);
+  bebeRef.current = bebe;
   useEffect(() => {
     if (!gerar) return;
+    const bebe = bebeRef.current;
     let vivo = true;
     let urls: string[] = [];
     (async () => {
@@ -722,6 +732,9 @@ function useImagens(bebe: Bebe, pronto: Pronto, gerar: boolean): Imagens {
         extras: d.vacinas.doses ? [`💉 ${plural(d.vacinas.doses, 'vacina tomada', 'vacinas tomadas')}`] : [],
         fotos,
       });
+      // Libera a memória das fotos decodificadas (no iPhone elas pesam)
+      for (const f of fotos) (f.img as ImageBitmap).close?.();
+      (capa as ImageBitmap | null)?.close?.();
       if (!vivo) return;
       urls = arquivos.map((a) => URL.createObjectURL(a));
       setEstado({ arquivos, urls });
@@ -730,7 +743,7 @@ function useImagens(bebe: Bebe, pronto: Pronto, gerar: boolean): Imagens {
       vivo = false;
       urls.forEach((u) => URL.revokeObjectURL(u));
     };
-  }, [bebe, pronto, gerar]);
+  }, [pronto, gerar]);
   return estado;
 }
 

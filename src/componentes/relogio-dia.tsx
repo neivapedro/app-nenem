@@ -143,7 +143,8 @@ export function RelogioDia({ registros, agora }: { registros: Registro[]; agora:
 }
 
 function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: number }) {
-  const agora = useMemo(() => new Date(minuto * MIN), [minuto]);
+  // Fim do minuto (não o começo): um registro feito às 12:00:30 já aparece, sem esperar o minuto virar
+  const agora = useMemo(() => new Date(minuto * MIN + MIN - 1), [minuto]);
   const rel = useMemo(() => montarRelogio(registros, agora), [registros, agora]);
   const itens = useMemo(() => itensEmOrdem(rel), [rel]);
   const [selChave, setSelChave] = useState<string | null>(null);

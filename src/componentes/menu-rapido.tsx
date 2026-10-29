@@ -233,18 +233,25 @@ export function MenuRapido({ ancora, titulo, atalhos, dedo, aoEscolher, rotuloMa
       const t = e.changedTouches[0];
       if (t) soltar(t.clientX, t.clientY);
     };
+    // O sistema cancelou o toque (ligação, gesto do iOS): fecha sem gravar nada
+    const tCancel = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+      setSob(null);
+      tirar();
+      fecharRef.current();
+    };
     const pMove = (e: PointerEvent) => e.pointerType !== 'touch' && mover(e.clientX, e.clientY);
     const pUp = (e: PointerEvent) => e.pointerType !== 'touch' && soltar(e.clientX, e.clientY);
     const tirar = () => {
       window.removeEventListener('touchmove', tMove, true);
       window.removeEventListener('touchend', tEnd, true);
-      window.removeEventListener('touchcancel', tEnd, true);
+      window.removeEventListener('touchcancel', tCancel, true);
       window.removeEventListener('pointermove', pMove, true);
       window.removeEventListener('pointerup', pUp, true);
     };
     window.addEventListener('touchmove', tMove, { capture: true, passive: false });
     window.addEventListener('touchend', tEnd, { capture: true, passive: false });
-    window.addEventListener('touchcancel', tEnd, { capture: true, passive: false });
+    window.addEventListener('touchcancel', tCancel, { capture: true, passive: false });
     window.addEventListener('pointermove', pMove, true);
     window.addEventListener('pointerup', pUp, true);
     return tirar;

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent as PE, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as PE, type RefObject } from 'react';
 import { alternarFixo, alternarOculto, CARTOES_HOJE, ehPadrao, gruposLayout, layoutPadrao, mover, moverPara, type LayoutHoje } from '../lib/hoje-layout';
 import { Folha, Icone } from './ui';
 
@@ -49,6 +49,14 @@ export function FolhaEditarHoje({ layout, aoMudar, nascido, aoFechar }: { layout
   const guardarPosicoes = useFlip(listaRef, [...g.fixos, '|', ...g.soltos, '|', ...g.ocultos].join(','));
   const [anuncio, setAnuncio] = useState('');
   const arrasto = useRef<Arrasto | null>(null);
+  // Folha fechada no meio do arrasto: para o laço de rolagem automática
+  useEffect(
+    () => () => {
+      if (arrasto.current) cancelAnimationFrame(arrasto.current.quadro);
+      arrasto.current = null;
+    },
+    [],
+  );
   const [arrastando, setArrastando] = useState<string | null>(null);
 
   const mudar = (novo: LayoutHoje, texto: string) => {

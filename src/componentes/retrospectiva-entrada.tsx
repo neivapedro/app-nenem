@@ -1,5 +1,5 @@
 /** Botões que abrem a retrospectiva do ano (a tela em si é carregada só quando abre) */
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useDados } from '../dados/contexto';
 import { ordinalAno, periodoRetrospectiva, quemE, tituloRetrospectiva } from '../lib/retrospectiva';
@@ -29,12 +29,26 @@ export function CarregandoRetro({ texto, aoFechar }: { texto: string; aoFechar?:
   );
 }
 
+/** Sem internet na primeira vez, a tela da retrospectiva pode não baixar: avisa em vez de derrubar o app */
+class FalhaAoAbrir extends Component<{ aoFechar: () => void; children: ReactNode }, { falhou: boolean }> {
+  state = { falhou: false };
+  static getDerivedStateFromError() {
+    return { falhou: true };
+  }
+  render() {
+    if (!this.state.falhou) return this.props.children;
+    return <CarregandoRetro texto="Não deu para abrir agora. Precisa de internet na primeira vez." aoFechar={this.props.aoFechar} />;
+  }
+}
+
 /** A retrospectiva em tela cheia (`ano` = um ano fechado; sem ele, o que fizer sentido hoje) */
 export function AbrirRetrospectiva({ ano, aoFechar }: { ano?: number; aoFechar: () => void }) {
   return createPortal(
-    <Suspense fallback={<CarregandoRetro texto="Abrindo a retrospectiva…" aoFechar={aoFechar} />}>
-      <Retrospectiva ano={ano} aoFechar={aoFechar} />
-    </Suspense>,
+    <FalhaAoAbrir aoFechar={aoFechar}>
+      <Suspense fallback={<CarregandoRetro texto="Abrindo a retrospectiva…" aoFechar={aoFechar} />}>
+        <Retrospectiva ano={ano} aoFechar={aoFechar} />
+      </Suspense>
+    </FalhaAoAbrir>,
     document.body,
   );
 }
