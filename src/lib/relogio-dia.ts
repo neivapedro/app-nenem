@@ -332,7 +332,7 @@ export function diaTipico(registros: Registro[], dias: string[], agora: Date): D
 }
 
 /** Os trechos do dia típico em que o bebê costuma dormir (mais da metade dos dias), juntando horas vizinhas */
-export function horasDeSonoTipicas(sono: number[], limite = 0.5): { de: number; ate: number }[] {
+export function horasDeSonoTipicas(sono: number[], limite = 0.55): { de: number; ate: number }[] {
   const out: { de: number; ate: number }[] = [];
   for (let h = 0; h < 24; h++) {
     if (sono[h] < limite) continue;

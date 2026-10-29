@@ -183,6 +183,8 @@ export function MenuRapido({ ancora, titulo, atalhos, dedo, aoEscolher, rotuloMa
   useEffect(() => {
     if (focou.current || pos.visibility === 'hidden') return;
     focou.current = true;
+    // Com o dedo ainda na tela nenhuma opção fica marcada antes de deslizar: só teclado e mouse recebem foco
+    if (dedo) return;
     menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   }, [pos]);
   // Esc fecha mesmo com o foco fora do menu

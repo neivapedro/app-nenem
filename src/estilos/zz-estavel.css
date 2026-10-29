@@ -9,6 +9,7 @@ main .estado-vazio, main .ev, main .ilustracao, main .ilustracao .il-obj, main .
 main .saude > .pilha > *, main .sv-etapa,
 main .narrativa-lista li, main .kpis .kpi, main .fora-marca, main .fora-faixa, main .mapa-linha, main .linha-tempo .lt-ponto,
 main .linha-tempo .lt-bloco, main .rd-setor, main .rd-ponto, main .rd-surge, main [class*="rd-"],
-main .mom-cartao, main .coluna path, main .proporcao-barra span {
+main .mom-cartao, main .coluna path, main .proporcao-barra span,
+main .hist-estica, main .hist-item::before, main .hp-anel *, main .mais-progresso > span, main .sv-anel-prog, main .dev-anel-cheio {
   animation: none !important;
 }

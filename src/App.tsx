@@ -221,6 +221,7 @@ function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
 }
 
 function Cabecalho() {
+  const navegar = useNavigate();
   const { bebe, hoje } = useDados();
   const { pathname: bruto } = useLocation();
   const comTransicao = useLinkComTransicao();
@@ -241,7 +242,21 @@ function Cabecalho() {
     <header className="topo">
       <div className="topo-marca">
         {secao ? (
-          <Link to="/mais" className="icone-botao" aria-label="Voltar" onClick={comTransicao('/mais', 'tras')}>
+          <Link
+            to="/mais"
+            className="icone-botao"
+            aria-label="Voltar"
+            onClick={(e) => {
+              // Veio de outra tela do app (ex.: Hoje → Gráficos)? Volta para ela, no mesmo ponto da rolagem
+              const idx = (window.history.state as { idx?: number } | null)?.idx;
+              if (typeof idx === 'number' && idx > 0) {
+                e.preventDefault();
+                navegar(-1);
+                return;
+              }
+              comTransicao('/mais', 'tras')(e);
+            }}
+          >
             <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
               <Icone nome="seta" />
             </span>

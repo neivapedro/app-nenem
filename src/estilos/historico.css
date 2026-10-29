@@ -9,6 +9,7 @@
 }
 .hist-ir svg { width: 18px; height: 18px; flex: none; }
 .hist-ir > span { white-space: nowrap; }
+.hist-ir { flex-wrap: wrap; row-gap: 4px; padding-block: 4px; }
 .hist-ir input {
   margin-left: auto; flex: 0 1 auto; min-width: 0; max-width: 62%; min-height: 34px; padding: 4px 8px;
   border: 0; border-radius: 10px; background: var(--superficie-2); color: var(--texto);

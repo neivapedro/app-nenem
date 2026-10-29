@@ -58,7 +58,7 @@
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   text-align: center; line-height: 1.12; pointer-events: none;
 }
-.rd-centro-rotulo { font-size: 0.66rem; font-weight: 650; color: var(--texto-2); text-transform: uppercase; letter-spacing: 0.05em; }
+.rd-centro-rotulo { font-size: 0.66rem; font-weight: 650; color: var(--texto-2); letter-spacing: 0.02em; }
 .rd-centro-valor {
   font-family: var(--fonte-numeros); font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; color: var(--texto);
   font-variant-numeric: tabular-nums; white-space: nowrap;

@@ -8,7 +8,7 @@
 
 :root {
   /* Escuro: superfície encorpada; o que está atrás escurece e perde contraste antes do desfoque */
-  --vidro-opaco: 78%;
+  --vidro-opaco: 88%;
   --vidro-filtro: blur(20px) saturate(170%) contrast(0.6) brightness(0.55);
   --vidro-borda: rgb(255 255 255 / 0.1);
   --vidro-brilho: inset 0 1px 0 rgb(255 255 255 / 0.08);
@@ -24,7 +24,7 @@
 }
 :root[data-tema="claro"] {
   /* Claro: o preto que passa por baixo vira cinza claro antes de chegar ao vidro */
-  --vidro-opaco: 78%;
+  --vidro-opaco: 88%;
   --vidro-filtro: blur(20px) saturate(180%) contrast(0.55) brightness(1.29);
   --vidro-borda: rgb(0 0 0 / 0.07);
   --vidro-brilho: inset 0 1px 0 rgb(255 255 255 / 0.85);
