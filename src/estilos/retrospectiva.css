@@ -72,10 +72,12 @@
 
 .retro-palco { position: relative; flex: 1; min-height: 0; touch-action: manipulation; cursor: pointer; }
 .retro-tela {
-  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center;
-  padding: 12px max(22px, 6vw) 8px; overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: safe center;
+  padding: 12px max(22px, 6vw) 8px; overflow-y: auto; touch-action: none; overflow-x: hidden; scrollbar-width: none;
 }
 .retro-tela::-webkit-scrollbar { display: none; }
+/* Telas com rolagem própria (grade de fotos): o dedo rola na vertical; as demais aceitam deslizar para os lados e para baixo */
+.retro-tela:has(.retro-grade-fotos) { touch-action: pan-y; }
 .retro-tela button, .retro-tela a { cursor: pointer; }
 
 .retro-navegar { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 4px 16px 12px; }
