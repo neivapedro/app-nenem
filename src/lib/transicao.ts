@@ -51,7 +51,21 @@ export function telaTrocada() {
   }
 }
 
+/**
+ * As animações de troca de tela (View Transitions) ficam desligadas: com a barra de vidro, a capa e o
+ * topo fotografados juntos, as duas telas apareciam misturadas e a tela piscava ao trocar de página.
+ * Para religar (ex.: em testes), grave `app-nenem:animar-telas` = "1" no localStorage.
+ */
+function animacoesLigadas(): boolean {
+  try {
+    return localStorage.getItem('app-nenem:animar-telas') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function podeAnimar(): boolean {
+  if (!animacoesLigadas()) return false;
   const doc = document as DocumentoComTransicao;
   if (typeof doc.startViewTransition !== 'function') return false;
   try {
