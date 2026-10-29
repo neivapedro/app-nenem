@@ -5,7 +5,7 @@ import { BarrasDiarias } from '../componentes/barras';
 import { BarrasHorizontais, GraficoLinhas, type SerieLinha } from '../componentes/cofrinho-graficos';
 import { arquivoPdf, compartilhar, prepararEEnviar } from '../componentes/doc-arquivos';
 import { Visualizador } from '../componentes/doc-visualizador';
-import { Ilustracao } from '../componentes/ilustracoes';
+import { Porquinho } from '../componentes/porquinho';
 import { Campo, Escolhas, Folha, Icone } from '../componentes/ui';
 import { useDados } from '../dados/contexto';
 import {
@@ -1342,10 +1342,15 @@ export function Cofrinho() {
   if (!contas.length)
     return (
       <div className="pilha">
-        <section className="cartao cofrinho-heroi pilha" style={{ textAlign: 'center', alignItems: 'center' }}>
-          <Ilustracao nome="cofrinho" classe="cofrinho-ilustracao" />
+        <section className="cartao cofrinho-heroi cofrinho-boasvindas pilha">
+          <Porquinho />
           <h2>O cofrinho do {nomeBebe}</h2>
-          <p className="texto-2">Registre a conta dele, os depósitos de todo mês e os presentes da família. O app mostra o saldo, quanto já rendeu, quem mais contribuiu e quanto ele vai ter aos 18 anos.</p>
+          <p className="texto-2">Guarde num só lugar a conta dele, os depósitos de todo mês e os presentes da família.</p>
+          <ul className="cofrinho-vantagens" aria-label="O que o app mostra">
+            <li>Saldo e rendimento</li>
+            <li>Quem mais contribui</li>
+            <li>Quanto terá aos 18 anos</li>
+          </ul>
           <button className="botao primario" onClick={novaConta}>
             <Icone nome="mais" /> Cadastrar a conta do {nomeBebe}
           </button>

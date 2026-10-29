@@ -103,9 +103,9 @@
 :root[data-nav-recolhida] .nav a { gap: 0; }
 :root[data-nav-recolhida] .nav-rotulo { opacity: 0; max-height: 0; }
 
-/* 7 abas: "Documentos" só cabe a partir de ~410 px; antes vira "Docs" (o leitor de tela lê o nome inteiro) */
+/* 7 abas: "Documentos" não cabe folgado em nenhum iPhone (nem de 430 px); sempre vira "Docs" (o leitor de tela lê o nome inteiro) */
 .rotulo-curto { display: none; }
-@media (max-width: 409px) {
+@media (max-width: 519px) {
   .rotulo-longo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .rotulo-curto { display: inline; }
 }
