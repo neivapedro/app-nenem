@@ -11,6 +11,7 @@ import { reduzirFoto } from '../lib/imagem';
 import type { Marco } from '../lib/tipos';
 import { FolhaCartaoMes } from './momentos';
 import { EstadoVazio } from './ilustracoes';
+import { CartaoRetrospectiva } from './retrospectiva-entrada';
 import { Campo, Folha, Icone } from './ui';
 import '../estilos/desenvolvimento.css';
 
@@ -301,6 +302,7 @@ function Marcos() {
 
   return (
     <div className="pilha">
+      <CartaoRetrospectiva />
       <section className="cartao dev-heroi" aria-label="Faixa de idade atual">
         <Anel feitos={feitosAtual} total={itensAtual.length} />
         <div className="cresce">

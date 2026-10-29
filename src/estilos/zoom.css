@@ -1,0 +1,90 @@
+/* Transição "zoom" (src/lib/zoom.ts): o cartão tocado cresce e vira a tela; na volta, a tela
+   encolhe de volta no cartão. Só vale durante a troca (data-zoom no <html>), com as medidas
+   do cartão em variáveis: --zoom-x/y (canto), --zoom-s (escala), --zoom-corte (recorte embaixo),
+   --zoom-r (canto arredondado na escala da tela), --zoom-vw/vh (tela), --zoom-raio. */
+
+:root {
+  --zoom-dur: 0.5s;
+  --zoom-dur-volta: 0.44s;
+  /* Começa rápido e assenta devagar, como as telas do iPhone */
+  --zoom-curva: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ---------- Abrir: a tela nova cresce do retângulo do cartão ---------- */
+:root[data-transicao][data-zoom="abrir"]::view-transition-old(root),
+:root[data-transicao][data-zoom="abrir"]::view-transition-new(root) { mix-blend-mode: normal; }
+/* A tela de origem fica parada e escurece um pouco por baixo */
+:root[data-transicao][data-zoom="abrir"]::view-transition-old(root) { animation: zoom-fundo var(--zoom-dur) var(--zoom-curva) both; }
+:root[data-transicao][data-zoom="abrir"]::view-transition-new(root) {
+  transform-origin: 0 0;
+  animation: zoom-cresce var(--zoom-dur) var(--zoom-curva) both;
+}
+/* O cartão em si acompanha o crescimento e some logo no começo (por cima, já aparece a tela nova em miniatura) */
+:root[data-transicao][data-zoom="abrir"]::view-transition-group(zoom-cartao) {
+  overflow: clip;
+  border-radius: var(--zoom-raio, 18px);
+  animation: zoom-cartao-cresce var(--zoom-dur) var(--zoom-curva) both;
+}
+:root[data-transicao][data-zoom="abrir"]::view-transition-old(zoom-cartao) {
+  animation: zoom-some 0.15s ease-out both;
+}
+/* O título do cartão voa até o título do topo */
+:root[data-transicao][data-zoom]::view-transition-group(zoom-titulo) {
+  animation-duration: var(--zoom-dur);
+  animation-timing-function: var(--zoom-curva);
+}
+:root[data-transicao][data-zoom="voltar"]::view-transition-group(zoom-titulo) { animation-duration: var(--zoom-dur-volta); }
+:root[data-transicao][data-zoom]::view-transition-old(zoom-titulo),
+:root[data-transicao][data-zoom]::view-transition-new(zoom-titulo) {
+  block-size: 100%; inline-size: auto; max-inline-size: none;
+  animation-duration: calc(var(--zoom-dur) * 0.6);
+}
+
+@keyframes zoom-cresce {
+  from {
+    transform: translate(var(--zoom-x), var(--zoom-y)) scale(var(--zoom-s));
+    clip-path: inset(0 0 var(--zoom-corte) 0 round var(--zoom-r));
+  }
+  to { transform: translate(0, 0) scale(1); clip-path: inset(0 0 0 0 round 0px); }
+}
+@keyframes zoom-cartao-cresce {
+  to { transform: translate(0, 0); width: var(--zoom-vw); height: var(--zoom-vh); border-radius: 0; }
+}
+@keyframes zoom-fundo { to { filter: brightness(0.9); } }
+@keyframes zoom-some { to { opacity: 0; } }
+@keyframes zoom-surge { from { opacity: 0; } }
+
+/* ---------- Voltar: a tela encolhe até o cartão de origem ---------- */
+:root[data-transicao][data-zoom="voltar"]::view-transition-old(root) {
+  z-index: 1; /* por cima da tela de origem, que já está pronta embaixo */
+  mix-blend-mode: normal;
+  transform-origin: 0 0;
+  animation:
+    zoom-encolhe var(--zoom-dur-volta) var(--zoom-curva) both,
+    zoom-some 0.16s ease-in calc(var(--zoom-dur-volta) - 0.2s) both;
+}
+:root[data-transicao][data-zoom="voltar"]::view-transition-new(root) {
+  mix-blend-mode: normal;
+  animation: zoom-fundo-volta var(--zoom-dur-volta) var(--zoom-curva) both;
+}
+:root[data-transicao][data-zoom="voltar"]::view-transition-group(zoom-cartao) { animation: none; }
+:root[data-transicao][data-zoom="voltar"]::view-transition-new(zoom-cartao) {
+  animation: zoom-surge 0.2s ease-out calc(var(--zoom-dur-volta) - 0.24s) both;
+}
+@keyframes zoom-encolhe {
+  from { transform: translate(0, 0) scale(1); clip-path: inset(0 0 0 0 round 0px); }
+  to {
+    transform: translate(var(--zoom-x), var(--zoom-y)) scale(var(--zoom-s));
+    clip-path: inset(0 0 var(--zoom-corte) 0 round var(--zoom-r));
+  }
+}
+@keyframes zoom-fundo-volta { from { filter: brightness(0.9); } }
+
+/* Voltando com o zoom, a grade do Mais já está lá: os cartões não repetem a entrada */
+.zoom-sem-entrada :is(.mais-cartao, .mais-progresso > span) { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-zoom]::view-transition-group(*),
+  :root[data-zoom]::view-transition-old(*),
+  :root[data-zoom]::view-transition-new(*) { animation: none !important; }
+}

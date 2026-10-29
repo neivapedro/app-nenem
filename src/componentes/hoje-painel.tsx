@@ -4,6 +4,7 @@ import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import '../estilos/hoje.css';
 import { linhaDoTempo } from '../lib/painel';
+import { useZoom } from '../lib/zoom';
 import { aproximar, duracaoCurta, horaPrevista, painelAlimentacao, progresso, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
 import type { ResumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
@@ -151,12 +152,14 @@ export function Faixa24h({ registros, agora }: { registros: Registro[]; agora: D
     }
     return { ...linhaDoTempo(registros, de, ate, ate), marcas, agoraFracao: 1 };
   }, [registros, minuto]);
+  // "Padrões": o cartão das últimas 24 h cresce e vira os Gráficos
+  const zoom = useZoom('/mais/resumo', { cartao: '.cartao' });
 
   return (
     <section className="cartao hp-entra hp-faixa" style={{ '--hp-i': 1 } as CSSProperties} aria-label="Últimas 24 horas">
       <div className="cartao-cab">
         <h2>Últimas 24 h</h2>
-        <Link to="/mais/resumo" className="botao pequeno texto">
+        <Link to="/mais/resumo" className="botao pequeno texto" {...zoom}>
           Padrões <Icone nome="seta" />
         </Link>
       </div>

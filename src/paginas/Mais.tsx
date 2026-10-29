@@ -12,6 +12,7 @@ import { useAgora, useDados } from '../dados/contexto';
 import { IDADE_INTRODUCAO_MESES } from '../lib/conteudo';
 import { chaveDia, dataBr, somarDiasLocal } from '../lib/datas';
 import { traduzirErro } from '../lib/erros';
+import { useZoom, voltandoComZoom } from '../lib/zoom';
 import { csvCofrinho, csvRegistros, juntarRegistros, listaDocumentos, MontadorZip, planejarArquivos } from '../lib/exportar';
 import { diasDoPeriodo, media } from '../lib/padroes';
 import { inicioDosDados } from '../lib/painel';
@@ -134,39 +135,48 @@ function MiniBarras({ serie }: { serie: number[] }) {
   );
 }
 
+type SecaoMais = (typeof SECOES_MAIS)[number];
+
+/** Cartão da grade: ao tocar, cresce e vira a tela da seção (zoom); na volta, a tela encolhe nele */
+function CartaoMais({ s, p, i }: { s: SecaoMais; p?: Previa; i: number }) {
+  const zoom = useZoom(`/mais/${s.id}`, { titulo: '.mais-titulo' });
+  return (
+    <Link to={`/mais/${s.id}`} {...zoom} className={`mais-cartao t-${s.tipo} ${p?.convite ? 'convite' : ''}`} style={{ '--i': i } as CSSProperties}>
+      <span className="mais-cartao-topo">
+        {p?.foto ? (
+          <span className={`selo t-${s.tipo} mais-foto`}>
+            <Foto caminho={p.foto} classe="foto-mini" reserva={<Icone nome={s.icone ?? s.tipo} />} />
+          </span>
+        ) : (
+          <Selo tipo={s.tipo} icone={s.icone} />
+        )}
+        <span className="mais-seta" aria-hidden="true">
+          <Icone nome="seta" />
+        </span>
+      </span>
+      <span className="mais-corpo">
+        <span className="mais-titulo">{s.titulo}</span>
+        {p && <span className={`mais-previa ${p.alerta ? 'alerta' : ''}`}>{p.texto}</span>}
+        {p?.progresso !== undefined && (
+          <span className="mais-progresso" aria-hidden="true">
+            <span style={{ width: `${Math.round(Math.min(1, p.progresso) * 100)}%` }} />
+          </span>
+        )}
+        {p?.serie && <MiniBarras serie={p.serie} />}
+      </span>
+    </Link>
+  );
+}
+
 function Menu() {
   const previas = usePrevias();
+  // Voltando de uma seção com o zoom: a grade já aparece pronta (sem repetir a entrada dos cartões)
+  const [semEntrada] = useState(voltandoComZoom);
   return (
-    <nav className="mais-grade" aria-label="Mais">
-      {SECOES_MAIS.map((s, i) => {
-        const p = previas[s.id];
-        return (
-          <Link key={s.id} to={`/mais/${s.id}`} className={`mais-cartao t-${s.tipo} ${p?.convite ? 'convite' : ''}`} style={{ '--i': i } as CSSProperties}>
-            <span className="mais-cartao-topo">
-              {p?.foto ? (
-                <span className={`selo t-${s.tipo} mais-foto`}>
-                  <Foto caminho={p.foto} classe="foto-mini" reserva={<Icone nome={s.icone ?? s.tipo} />} />
-                </span>
-              ) : (
-                <Selo tipo={s.tipo} icone={s.icone} />
-              )}
-              <span className="mais-seta" aria-hidden="true">
-                <Icone nome="seta" />
-              </span>
-            </span>
-            <span className="mais-corpo">
-              <span className="mais-titulo">{s.titulo}</span>
-              {p && <span className={`mais-previa ${p.alerta ? 'alerta' : ''}`}>{p.texto}</span>}
-              {p?.progresso !== undefined && (
-                <span className="mais-progresso" aria-hidden="true">
-                  <span style={{ width: `${Math.round(Math.min(1, p.progresso) * 100)}%` }} />
-                </span>
-              )}
-              {p?.serie && <MiniBarras serie={p.serie} />}
-            </span>
-          </Link>
-        );
-      })}
+    <nav className={`mais-grade${semEntrada ? ' zoom-sem-entrada' : ''}`} aria-label="Mais">
+      {SECOES_MAIS.map((s, i) => (
+        <CartaoMais key={s.id} s={s} p={previas[s.id]} i={i} />
+      ))}
     </nav>
   );
 }

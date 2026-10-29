@@ -198,4 +198,6 @@
 /* Tela estreita (iPhone SE / zoom): botões lado a lado sem quebrar o texto em duas linhas */
 @media (max-width: 340px) {
   .saude .linha > .botao { white-space: nowrap; padding-inline: 12px; font-size: 0.95rem; }
+  /* Texto grande: pode quebrar em duas linhas em vez de ser cortado */
+  :root[data-texto="grande"] .saude .linha > .botao { white-space: normal; }
 }

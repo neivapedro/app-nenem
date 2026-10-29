@@ -1,0 +1,94 @@
+/* O dia num relógio de 24 h (cartão "Relógio 24 h" da tela Hoje e "Dia típico"
+   nos padrões). Só tokens globais: claro, escuro e noite âmbar. Prefixo rd-. */
+
+/* ---------- Relógio ---------- */
+.rd-corpo { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.rd-relogio {
+  position: relative; width: min(100%, 290px); margin: 0 auto; aspect-ratio: 1;
+  border-radius: 50%; outline: none;
+}
+.rd-relogio:focus-visible { box-shadow: 0 0 0 2px var(--destaque); }
+.rd-svg {
+  display: block; width: 100%; height: 100%; overflow: visible; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+  touch-action: pan-y;
+}
+/* Com um registro escolhido, arrastar o dedo percorre o relógio (não rola a tela) */
+.rd-svg.rd-explorando { touch-action: none; }
+
+.rd-trilho { fill: none; stroke: color-mix(in oklab, var(--texto) 7%, transparent); }
+.rd-trilho-sono { stroke: color-mix(in oklab, var(--texto) 5%, transparent); }
+.rd-guia { fill: none; stroke: var(--borda); stroke-width: 1; stroke-dasharray: 2 3; }
+.rd-marca { stroke: var(--texto-3); stroke-width: 1; opacity: 0.55; }
+.rd-marca-maior { stroke: var(--texto-2); stroke-width: 1.6; opacity: 1; stroke-linecap: round; }
+.rd-hora { fill: var(--texto-2); font-size: 10.5px; font-weight: 650; font-family: var(--fonte-numeros); font-variant-numeric: tabular-nums; }
+
+.rd-arco {
+  fill: none; stroke-linecap: butt;
+  transition: opacity 0.25s ease;
+  animation: rd-desenha 0.9s var(--curva) backwards;
+  animation-delay: calc(120ms + var(--rd-i, 0) * 35ms);
+}
+@keyframes rd-desenha { from { stroke-dashoffset: var(--rd-l); } }
+
+.rd-ponto {
+  stroke: var(--superficie); stroke-width: 2;
+  transform-box: fill-box; transform-origin: center;
+  transition: opacity 0.25s ease;
+  animation: rd-surge 0.45s var(--curva) backwards;
+  animation-delay: calc(260ms + var(--rd-i, 0) * 35ms);
+}
+.rd-mamadeira { fill: var(--c-mamadeira); }
+.rd-coco { fill: var(--c-fralda); }
+/* Só xixi (ou seca): bolinha vazada, a forma diferencia sem depender da cor */
+.rd-xixi { fill: var(--superficie); stroke: var(--c-fralda); stroke-width: 2; }
+@keyframes rd-surge { from { opacity: 0; transform: scale(0.3); } }
+
+.rd-apagado { opacity: 0.3; }
+.rd-indicador { fill: none; stroke: var(--texto); stroke-width: 1.6; stroke-linecap: round; pointer-events: none; }
+
+.rd-ponteiro { pointer-events: none; }
+.rd-ponteiro-halo { stroke: var(--superficie); stroke-width: 4.5; stroke-linecap: round; }
+.rd-ponteiro-linha { stroke: var(--texto); stroke-width: 1.6; stroke-linecap: round; }
+.rd-ponteiro-ponta { fill: var(--texto); stroke: var(--superficie); stroke-width: 1.5; }
+
+/* Centro (HTML por cima do SVG) */
+.rd-centro {
+  position: absolute; left: 50%; top: 50%; width: 34%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  text-align: center; line-height: 1.12; pointer-events: none;
+}
+.rd-centro-rotulo { font-size: 0.66rem; font-weight: 650; color: var(--texto-2); letter-spacing: 0.02em; }
+.rd-centro-valor {
+  font-family: var(--fonte-numeros); font-size: 1.5rem; font-weight: 750; letter-spacing: -0.03em; color: var(--texto);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.rd-centro-valor.rd-longo { font-size: 1rem; letter-spacing: -0.01em; white-space: normal; }
+.rd-centro-extra { font-size: 0.72rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+.rd-mais-claro { color: var(--texto-3); }
+
+.rd-dica { margin: 0; min-height: 2.6em; text-align: center; font-size: 0.8rem; line-height: 1.3; color: var(--texto-3); text-wrap: balance; }
+.rd-dica-ativa { color: var(--texto); }
+.rd-legenda { justify-content: center; }
+.rd-chave-ponto { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.rd-chave-vazada { border: 2px solid var(--c-fralda); background: var(--superficie); width: 9px; height: 9px; box-sizing: border-box; }
+
+/* ---------- Dia típico ---------- */
+.rd-setor { transition: opacity 0.25s ease; animation: rd-surge-setor 0.6s var(--curva) backwards; animation-delay: calc(var(--rd-i, 0) * 22ms); }
+@keyframes rd-surge-setor { from { opacity: 0; } }
+.rd-barra {
+  stroke: var(--c-mamada); stroke-width: 4.5; stroke-linecap: round;
+  transition: opacity 0.25s ease; animation: rd-surge-setor 0.6s var(--curva) backwards; animation-delay: calc(200ms + var(--rd-i, 0) * 22ms);
+}
+.rd-chave-escala {
+  display: inline-block; width: 34px; height: 9px; border-radius: 3px; flex: none;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--c-sono) 8%, var(--superficie-2)), var(--c-sono));
+}
+.rd-chave-agora { display: inline-block; width: 2px; height: 12px; border-radius: 1px; background: var(--texto); flex: none; }
+.rd-chave-barra { display: inline-block; width: 4px; height: 11px; border-radius: 2px; background: var(--c-mamada); flex: none; }
+.rd-frase { margin: 0; font-size: 0.85rem; color: var(--texto-2); text-align: center; text-wrap: balance; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-arco, .rd-ponto, .rd-setor, .rd-barra { animation: none; }
+  .rd-arco, .rd-ponto, .rd-setor, .rd-barra { transition: none; }
+}
