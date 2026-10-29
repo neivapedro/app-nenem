@@ -133,6 +133,8 @@ export function MenuRapido({ ancora, titulo, atalhos, dedo, aoEscolher, rotuloMa
     },
     [aoFechar, ancora],
   );
+  const fecharRef = useRef(fechar);
+  fecharRef.current = fechar;
   const escolher = useCallback((id: string) => {
     if (id === '__mais') return fechar(aoMais);
     const a = atalhos.find((x) => x.id === id);
@@ -172,10 +174,26 @@ export function MenuRapido({ ancora, titulo, atalhos, dedo, aoEscolher, rotuloMa
   useEffect(() => {
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
     return () => {
       document.body.style.overflow = overflow;
     };
+  }, []);
+  // Foco na 1ª opção quando o menu já está visível (escondido, o foco não pega)
+  const focou = useRef(false);
+  useEffect(() => {
+    if (focou.current || pos.visibility === 'hidden') return;
+    focou.current = true;
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
+  }, [pos]);
+  // Esc fecha mesmo com o foco fora do menu
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      fecharRef.current();
+    };
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
   }, []);
 
   // Dedo ainda na tela: deslizar marca a opção; soltar em cima dela escolhe
@@ -236,10 +254,7 @@ export function MenuRapido({ ancora, titulo, atalhos, dedo, aoEscolher, rotuloMa
     const itens = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
     const i = itens.indexOf(document.activeElement as HTMLElement);
     const ir = (k: number) => itens[(k + itens.length) % itens.length]?.focus();
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      fechar();
-    } else if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
       ir(i + 1);
     } else if (e.key === 'ArrowUp') {
