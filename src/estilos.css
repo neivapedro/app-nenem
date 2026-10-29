@@ -249,10 +249,13 @@ a { color: var(--destaque); }
 }
 .escolhas button.ativo { background: var(--destaque); color: var(--destaque-texto); border-color: transparent; font-weight: 600; }
 
-.abas { display: flex; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 14px; }
+.abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 14px; }
 .abas button { flex: 1 1 auto; min-width: 0; padding: 0 4px; white-space: nowrap; min-height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); font-weight: 600; cursor: pointer; font-size: 0.88rem; }
 .abas button.ativo { background: var(--superficie-2); color: var(--destaque); }
 @media (max-width: 359px) { .abas button { font-size: 0.78rem; } }
+/* Texto grande (Dynamic Type): botão que não cabe numa linha quebra em duas, nunca é cortado */
+.botao { overflow-wrap: anywhere; line-height: 1.2; padding-block: 6px; }
+.abas button { overflow-wrap: normal; }
 
 .alerta {
   display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;

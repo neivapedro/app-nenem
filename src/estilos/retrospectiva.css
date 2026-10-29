@@ -262,3 +262,11 @@
   .retro-lapso img { transition: none; transform: none; }
   .retro-entrada { transition: none; }
 }
+
+/* iPhone SE antigo (568 px de altura): encerramento mais compacto */
+@media (max-height: 600px) {
+  .retro-previas img { height: 84px; }
+  .retro-final .retro-texto { font-size: 0.92rem; }
+  .retro-final-emoji > span { width: 60px; height: 60px; font-size: 1.9rem; }
+  .retro-acoes .botao { min-height: 44px; padding-block: 8px; }
+}
