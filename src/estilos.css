@@ -183,7 +183,7 @@ a { color: var(--destaque); }
 .cartao > h2 { margin-bottom: 12px; }
 .cartao-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
 /* Botão do cabeçalho do cartão não quebra no meio ("Edit/ar") */
-.cartao-cab > .botao, .cartao-cab > button { flex: none; white-space: nowrap; overflow-wrap: normal; }
+.cartao-cab > .botao, .cartao-cab > button { flex: 0 1 auto; max-width: 62%; overflow-wrap: normal; }
 .cartao-cab > .linha { flex-wrap: nowrap; min-width: 0; }
 
 .rotulo { color: var(--texto-2); font-size: 0.8rem; }
@@ -254,7 +254,7 @@ a { color: var(--destaque); }
 .abas button.ativo { background: var(--superficie-2); color: var(--destaque); }
 @media (max-width: 359px) { .abas button { font-size: 0.78rem; } }
 /* Texto grande (Dynamic Type): botão que não cabe numa linha quebra em duas, nunca é cortado */
-.botao { overflow-wrap: anywhere; line-height: 1.2; padding-block: 6px; }
+.botao { overflow-wrap: break-word; line-height: 1.2; padding-block: 6px; }
 .abas button { overflow-wrap: normal; }
 
 .alerta {
