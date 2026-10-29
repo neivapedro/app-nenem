@@ -57,6 +57,8 @@ export function BarrasDiarias({
   rotulos,
   nomes,
   formatarEixo,
+  media,
+  estreita,
 }: {
   dados: BarraDia[];
   formatar: (v: number) => string;
@@ -68,6 +70,10 @@ export function BarrasDiarias({
   nomes?: string[];
   /** Texto das marcas do eixo (padrão: o número) */
   formatarEixo?: (v: number) => string;
+  /** Linha tracejada de média (mesma unidade dos valores) */
+  media?: number;
+  /** Colunas mais finas e bem arredondadas (muitas colunas, ex.: 12 meses) */
+  estreita?: boolean;
 }) {
   const [ativo, setAtivo] = useState<number | null>(null);
   const max = Math.max(...dados.map((d) => d.valor), 0);
@@ -75,7 +81,7 @@ export function BarrasDiarias({
   const topo = Math.max(passo, Math.ceil(max / passo) * passo);
   const ticks = Array.from({ length: Math.round(topo / passo) + 1 }, (_, i) => i * passo);
   const banda = (W - L - R) / dados.length;
-  const largura = Math.min(24, banda - 2);
+  const largura = estreita ? Math.min(18, banda * 0.62) : Math.min(24, banda - 2);
   const y = (v: number) => T + (1 - v / topo) * (H - T - B);
   const mostrarDia = (i: number) => dados.length <= 14 || i % Math.ceil(dados.length / 10) === 0 || i === dados.length - 1;
   const marcado = ativo ?? dados.length - 1;
@@ -94,11 +100,17 @@ export function BarrasDiarias({
             </text>
           </g>
         ))}
+        {media !== undefined && media > 0 && media < topo && (
+          <g className="barras-media">
+            <line x1={L} x2={W - R} y1={y(media)} y2={y(media)} />
+            <text x={L + 2} y={y(media) - 4}>média {formatar(media)}</text>
+          </g>
+        )}
         {dados.map((d, i) => {
           const cx = L + banda * i + banda / 2;
           const h = Math.max(0, y(0) - y(d.valor));
           const x = cx - largura / 2;
-          const r = Math.min(4, largura / 2, h);
+          const r = Math.min(estreita ? 6 : 4, largura / 2, h);
           const dia = inicioDoDia(d.dia);
           return (
             <g

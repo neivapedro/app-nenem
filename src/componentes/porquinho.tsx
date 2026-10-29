@@ -107,3 +107,38 @@ export function Porquinho({ classe = '' }: { classe?: string }) {
     </svg>
   );
 }
+
+/** Porquinho pequeno (selo do cartão de saldo e estados vazios): só decorativo */
+export function PorquinhoMini({ classe = '' }: { classe?: string }) {
+  const id = useId().replace(/:/g, '');
+  return (
+    <svg className={`porquinho-mini ${classe}`} viewBox="0 0 64 58" aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id={`${id}-c`} cx="34%" cy="28%" r="85%">
+          <stop offset="0" stopColor="#ffd3e6" />
+          <stop offset="0.4" stopColor="#ff9cc6" />
+          <stop offset="1" stopColor="#c93f82" />
+        </radialGradient>
+        <radialGradient id={`${id}-m`} cx="36%" cy="30%" r="80%">
+          <stop offset="0" stopColor="#fff2b0" />
+          <stop offset="0.55" stopColor="#ffd24d" />
+          <stop offset="1" stopColor="#e69a14" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="32" cy="54" rx="20" ry="2.6" fill="#3a1030" opacity="0.18" />
+      <rect x="15" y="42" width="9" height="11" rx="4" fill="#d9548f" />
+      <rect x="39" y="42" width="9" height="11" rx="4" fill="#d9548f" />
+      <path d="M8 36c-5 1-8-2-7-5 1-3 5-3 6-1" fill="none" stroke="#d24b8c" strokeWidth="2.2" strokeLinecap="round" />
+      <ellipse cx="31" cy="34" rx="24" ry="18" fill={`url(#${id}-c)`} />
+      <ellipse cx="21" cy="26" rx="11" ry="4.2" fill="#fff" opacity="0.4" transform="rotate(-20 21 26)" />
+      <path d="M42 20c1-7 8-9 10-5 1 4-2 7-7 9z" fill="#ff8fbe" />
+      <ellipse cx="54" cy="35" rx="6" ry="7" fill="#ffa9cd" />
+      <ellipse cx="52.6" cy="37" rx="1.1" ry="1.6" fill="#a42d69" />
+      <ellipse cx="56.4" cy="36.6" rx="1.1" ry="1.6" fill="#a42d69" />
+      <circle cx="45.5" cy="29" r="2" fill="#3d1633" />
+      <rect x="23" y="17" width="17" height="3.2" rx="1.6" fill="#7d2152" />
+      <ellipse cx="32" cy="9" rx="5.6" ry="6.8" fill={`url(#${id}-m)`} transform="rotate(10 32 9)" />
+      <ellipse cx="32" cy="9" rx="3.4" ry="4.6" fill="none" stroke="#c7840f" strokeWidth="0.9" opacity="0.7" transform="rotate(10 32 9)" />
+    </svg>
+  );
+}

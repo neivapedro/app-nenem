@@ -1,7 +1,7 @@
 // Gráficos do Cofrinho: linhas (com área opcional) e barras horizontais.
 // Marcas finas, grade discreta, legenda sempre que há 2+ séries, toque/arraste
 // para ver os valores de um ponto (todas as séries juntas) e tabela ao lado.
-import { useId, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useId, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 
 export interface SerieLinha {
   id: string;
@@ -61,6 +61,17 @@ export function GraficoLinhas({
   const ticks = Array.from({ length: Math.round(topo / passo) + 1 }, (_, i) => i * passo);
   const x = (i: number) => L + (n <= 1 ? 0 : (i / (n - 1)) * (W - L - R));
   const y = (v: number) => T + (1 - v / topo) * (H - T - B);
+  // Rótulos das metas: abaixo da linha (o espaço de baixo da curva é livre), de cima para baixo, 11px de distância no mínimo
+  const posRef = (() => {
+    const mapa = new Map<string, number>();
+    let anterior = -Infinity;
+    for (const r of [...referencias].sort((a, b) => b.valor - a.valor)) {
+      const yy = Math.max(y(r.valor) + 10, anterior + 11);
+      mapa.set(r.texto, yy);
+      anterior = yy;
+    }
+    return mapa;
+  })();
 
   const caminho = (vals: (number | null)[]) => {
     let d = '';
@@ -143,7 +154,7 @@ export function GraficoLinhas({
           {referencias.map((r) => (
             <g key={r.texto}>
               <line x1={L} x2={W - R} y1={y(r.valor)} y2={y(r.valor)} className="referencia-linha" />
-              <text x={L + 4} y={y(r.valor) - 4} className="eixo-texto referencia-texto">
+              <text x={W - R - 2} y={posRef.get(r.texto) ?? y(r.valor) - 4} textAnchor="end" className="eixo-texto referencia-texto">
                 {r.texto}
               </text>
             </g>
@@ -191,23 +202,91 @@ export function GraficoLinhas({
   );
 }
 
-/** Barras horizontais (uma série): nome, barra e valor na ponta */
+const CORES_AVATAR = ['--c-mamada', '--c-fralda', '--c-sono', '--c-agenda', '--c-mamadeira'];
+const iniciais = (nome: string) => {
+  const p = nome.trim().split(/\s+/).filter(Boolean);
+  return ((p[0]?.[0] ?? '?') + (p.length > 1 ? (p[p.length - 1][0] ?? '') : '')).toUpperCase();
+};
+const corDe = (nome: string) => CORES_AVATAR[[...nome].reduce((a, c) => a + c.charCodeAt(0), 0) % CORES_AVATAR.length];
+
+/** Ranking (uma série): avatar com iniciais, nome, valor na ponta e barra fina */
 export function BarrasHorizontais({ itens, formatar, rotulo }: { itens: { nome: string; valor: number; detalhe?: string }[]; formatar: (v: number) => string; rotulo: string }) {
   const max = Math.max(1, ...itens.map((i) => i.valor));
   return (
-    <ul className="barras-h" aria-label={rotulo}>
-      {itens.map((i) => (
-        <li key={i.nome}>
-          <div className="barras-h-cab">
-            <span className="nome">{i.nome}</span>
-            <strong>{formatar(i.valor)}</strong>
+    <ol className="cf-rank" aria-label={rotulo}>
+      {itens.map((i, k) => (
+        <li key={i.nome} className={k === 0 ? 'primeiro' : undefined}>
+          <span className="cf-avatar" style={{ '--cor': `var(${corDe(i.nome)})` } as CSSProperties} aria-hidden="true">
+            {iniciais(i.nome)}
+          </span>
+          <div className="cf-rank-corpo">
+            <div className="cf-rank-cab">
+              <span className="nome">{i.nome}</span>
+              <strong>{formatar(i.valor)}</strong>
+            </div>
+            <div className="cf-rank-trilho" aria-hidden="true">
+              <span style={{ width: `${Math.max(3, (i.valor / max) * 100)}%` }} />
+            </div>
+            {i.detalhe && <span className="cf-rank-det">{i.detalhe}</span>}
           </div>
-          <div className="barras-h-trilho">
-            <span style={{ width: `${Math.max(2, (i.valor / max) * 100)}%` }} />
-          </div>
-          {i.detalhe && <span className="mudo">{i.detalhe}</span>}
         </li>
       ))}
-    </ul>
+    </ol>
+  );
+}
+
+/** Mini gráfico da evolução (só a forma): linha suave com área e ponto final */
+export function Sparkline({ valores, rotulo }: { valores: number[]; rotulo: string }) {
+  const id = useId().replace(/:/g, '');
+  if (valores.length < 2) return null;
+  const W = 300;
+  const H = 56;
+  const P = 5;
+  const min = Math.min(...valores);
+  const span = Math.max(...valores) - min || 1;
+  const x = (i: number) => P + (i / (valores.length - 1)) * (W - 2 * P);
+  const y = (v: number) => P + (1 - (v - min) / span) * (H - 2 * P);
+  let d = `M${x(0).toFixed(1)},${y(valores[0]).toFixed(1)}`;
+  for (let i = 1; i < valores.length; i++) {
+    const m = (x(i - 1) + x(i)) / 2;
+    d += `C${m.toFixed(1)},${y(valores[i - 1]).toFixed(1)} ${m.toFixed(1)},${y(valores[i]).toFixed(1)} ${x(i).toFixed(1)},${y(valores[i]).toFixed(1)}`;
+  }
+  const ult = valores.length - 1;
+  return (
+    <svg className="cf-spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={rotulo} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`${id}-a`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" style={{ stopColor: 'var(--cf-linha)', stopOpacity: 0.32 }} />
+          <stop offset="1" style={{ stopColor: 'var(--cf-linha)', stopOpacity: 0 }} />
+        </linearGradient>
+      </defs>
+      <path d={`${d}L${x(ult)},${H}L${x(0)},${H}Z`} fill={`url(#${id}-a)`} />
+      <path d={d} className="cf-spark-linha" pathLength={1} />
+    </svg>
+  );
+}
+
+/** Anel de progresso com texto no centro */
+export function Anel({ pct, rotulo, centro, sub }: { pct: number; rotulo: string; centro: string; sub: string }) {
+  const id = useId().replace(/:/g, '');
+  const R = 46;
+  const C = 2 * Math.PI * R;
+  return (
+    <div className="cf-anel" role="img" aria-label={rotulo}>
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <defs>
+          <linearGradient id={`${id}-g`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: 'var(--cf-anel-a)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--cf-anel-b)' }} />
+          </linearGradient>
+        </defs>
+        <circle cx="60" cy="60" r={R} className="cf-anel-trilho" />
+        <circle cx="60" cy="60" r={R} className="cf-anel-prog" stroke={`url(#${id}-g)`} transform="rotate(-90 60 60)" style={{ strokeDasharray: C, strokeDashoffset: C * (1 - Math.min(1, Math.max(0, pct))), ['--cf-c' as string]: C }} />
+      </svg>
+      <div className="cf-anel-centro" aria-hidden="true">
+        <strong>{centro}</strong>
+        <span>{sub}</span>
+      </div>
+    </div>
   );
 }

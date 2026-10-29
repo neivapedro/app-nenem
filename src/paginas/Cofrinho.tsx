@@ -2,10 +2,10 @@ import qrcode from 'qrcode-generator';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BarrasDiarias } from '../componentes/barras';
-import { BarrasHorizontais, GraficoLinhas, type SerieLinha } from '../componentes/cofrinho-graficos';
+import { Anel, BarrasHorizontais, GraficoLinhas, Sparkline, type SerieLinha } from '../componentes/cofrinho-graficos';
 import { arquivoPdf, compartilhar, prepararEEnviar } from '../componentes/doc-arquivos';
 import { Visualizador } from '../componentes/doc-visualizador';
-import { Porquinho } from '../componentes/porquinho';
+import { Porquinho, PorquinhoMini } from '../componentes/porquinho';
 import { Campo, Escolhas, Folha, Icone } from '../componentes/ui';
 import { useDados } from '../dados/contexto';
 import {
@@ -50,6 +50,7 @@ import { idFixo } from '../lib/ids';
 import type { ArquivoDocumento, ContaCofrinho, Documento, MetaCofrinho, MovimentoCofrinho, PlanoCofrinho } from '../lib/tipos';
 import { NumeroAnimado } from '../componentes/numero-animado';
 
+const MESES_LONGO = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const nomeMes = (mes: string, ano = true) => `${MESES[Number(mes.slice(5, 7)) - 1]}${ano ? `/${mes.slice(0, 4)}` : ''}`;
 const CHAVE_OCULTO = 'app-nenem:cofrinho-oculto';
@@ -964,33 +965,52 @@ function tituloMovimento(m: MovimentoCofrinho, todos: MovimentoCofrinho[], nomeC
   return m.tipo === 'deposito' ? m.de || 'Depósito' : m.tipo === 'saldo' ? 'Saldo do extrato' : 'Retirada';
 }
 
-function ListaMovimentos({ movs, contas, aoAbrir, limite, oculto }: { movs: MovimentoCofrinho[]; contas: ContaCofrinho[]; aoAbrir: (m: MovimentoCofrinho) => void; limite?: number; oculto: boolean }) {
+const ICONE_MOV: Record<string, string> = { deposito: 'baixar', retirada: 'baixar', saldo: 'documento', transferencia: 'trocar' };
+
+function ListaMovimentos({ movs, contas, aoAbrir, limite, oculto, agrupar }: { movs: MovimentoCofrinho[]; contas: ContaCofrinho[]; aoAbrir: (m: MovimentoCofrinho) => void; limite?: number; oculto: boolean; agrupar?: boolean }) {
   // A outra ponta de uma transferência pode ser de uma conta fora desta lista (extrato de uma conta só)
   const { cofrinho_movimentos, cofrinho_contas } = useDados();
   const nomeConta = new Map(cofrinho_contas.map((c) => [c.id, c.nome]));
   const lista = limite ? movs.slice(0, limite) : movs;
-  if (!lista.length) return <p className="texto-2">Nenhum lançamento ainda.</p>;
+  if (!lista.length)
+    return (
+      <div className="cf-vazio">
+        <PorquinhoMini />
+        <strong>Nenhum lançamento ainda</strong>
+        <span>Depósitos, retiradas e saldos do banco aparecem aqui.</span>
+      </div>
+    );
+  let mesAnterior = '';
   return (
-    <div className="doc-lista">
-      {lista.map((m) => (
-        <button key={m.id} type="button" className="doc-linha" onClick={() => aoAbrir(m)}>
-          <span className={`mov-icone ${m.tipo}`} aria-hidden="true">
-            {ehTransferencia(m) ? '🔁' : m.tipo === 'deposito' ? (m.ocasiao ? OCASIAO[m.ocasiao].emoji : '🐷') : m.tipo === 'saldo' ? '🧾' : '↩︎'}
-          </span>
-          <span className="cresce">
-            <span className="doc-titulo">{tituloMovimento(m, cofrinho_movimentos, (id) => nomeConta.get(id))}</span>
-            <span className="texto-2">
-              {ehTransferencia(m) && 'Transferência · '}
-              {dataBr(m.data)}
-              {contas.length > 1 && ` · ${nomeConta.get(m.conta_id) ?? ''}`}
-              {m.ocasiao && ` · ${OCASIAO[m.ocasiao].nome}`}
-              {m.comprovante && ' · 📎'}
-            </span>
-          </span>
-          {/* Transferência não é ganho nem perda: valor sem cor */}
-          <strong className={`mov-valor ${ehTransferencia(m) ? 'transferencia' : m.tipo}`}>{oculto ? 'R$ •••' : m.tipo === 'retirada' ? `−${reais(m.valor_centavos)}` : m.tipo === 'saldo' ? reais(m.valor_centavos) : `+${reais(m.valor_centavos)}`}</strong>
-        </button>
-      ))}
+    <div className="cf-lista">
+      {lista.map((m) => {
+        const tipo = ehTransferencia(m) ? 'transferencia' : m.tipo;
+        const mes = m.data.slice(0, 7);
+        const cab = agrupar && mes !== mesAnterior;
+        mesAnterior = mes;
+        return (
+          <div key={m.id} className="cf-grupo">
+            {cab && <div className="cf-mes">{`${MESES_LONGO[Number(mes.slice(5, 7)) - 1]} de ${mes.slice(0, 4)}`}</div>}
+            <button type="button" className="cf-item" onClick={() => aoAbrir(m)}>
+              <span className={`cf-ic ${tipo}`} aria-hidden="true">
+                <Icone nome={ICONE_MOV[tipo]} />
+              </span>
+              <span className="cresce">
+                <span className="cf-item-titulo">{tituloMovimento(m, cofrinho_movimentos, (id) => nomeConta.get(id))}</span>
+                <span className="cf-item-sub">
+                  {ehTransferencia(m) && 'Transferência · '}
+                  {dataBr(m.data)}
+                  {contas.length > 1 && ` · ${nomeConta.get(m.conta_id) ?? ''}`}
+                  {m.ocasiao && ` · ${OCASIAO[m.ocasiao].emoji} ${OCASIAO[m.ocasiao].nome}`}
+                  {m.comprovante && ' · 📎'}
+                </span>
+              </span>
+              {/* Transferência não é ganho nem perda: valor sem cor */}
+              <strong className={`mov-valor cf-valor ${tipo}`}>{oculto ? 'R$ •••' : m.tipo === 'retirada' ? `−${reais(m.valor_centavos)}` : m.tipo === 'saldo' ? reais(m.valor_centavos) : `+${reais(m.valor_centavos)}`}</strong>
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1097,15 +1117,15 @@ function ListaAtualizacoes({ contas, movs, oculto, limite }: { contas: ContaCofr
     .flatMap((c) => atualizacoesSaldo(movs.filter((m) => m.conta_id === c.id)).map((a) => ({ ...a, conta: c })))
     .sort((a, b) => b.mov.data.localeCompare(a.mov.data));
   return (
-    <div className="doc-lista">
+    <div className="cf-lista">
       {(limite ? lista.slice(0, limite) : lista).map(({ mov, rendeu, colocado, primeira, conta }) => (
-        <div key={mov.id} className="doc-linha" style={{ cursor: 'default', flexWrap: 'wrap', rowGap: 4 }}>
-          <span className="mov-icone" aria-hidden="true">
-            {rendeu > 0 ? '📈' : rendeu < 0 ? '📉' : '🧾'}
+        <div key={mov.id} className="cf-item estatico">
+          <span className={`cf-ic ${rendeu > 0 ? 'deposito' : rendeu < 0 ? 'retirada' : 'saldo'}`} aria-hidden="true">
+            <Icone nome={rendeu < 0 ? 'baixar' : rendeu > 0 ? 'grafico' : 'documento'} />
           </span>
-          <span className="cresce" style={{ flexBasis: 120 }}>
-            <span className="doc-titulo">{oculto ? 'R$ •••' : reais(mov.valor_centavos)}</span>
-            <span className="texto-2">
+          <span className="cresce">
+            <span className="cf-item-titulo">{oculto ? 'R$ •••' : reais(mov.valor_centavos)}</span>
+            <span className="cf-item-sub">
               {dataBr(mov.data)}
               {contas.length > 1 && ` · ${conta.nome}`}
               {mov.criado_por && ` · ${nomeDe(mov.criado_por)}`}
@@ -1122,11 +1142,9 @@ function ListaAtualizacoes({ contas, movs, oculto, limite }: { contas: ContaCofr
               )}
             </span>
           </span>
-          <span style={{ textAlign: 'right', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-            <strong className={`mov-valor ${rendeu > 0 ? 'deposito' : rendeu < 0 ? 'retirada' : ''}`}>{oculto ? '•••' : reais(rendeu, { sinal: true })}</strong>
-            <span className="mudo" style={{ display: 'block', fontSize: '0.72rem' }}>
-              {primeira ? 'rendeu até aqui' : 'rendeu no período'}
-            </span>
+          <span className="cf-valor-col">
+            <strong className={`mov-valor cf-valor ${rendeu > 0 ? 'deposito' : rendeu < 0 ? 'retirada' : ''}`}>{oculto ? '•••' : reais(rendeu, { sinal: true })}</strong>
+            <span className="cf-item-sub">{primeira ? 'rendeu até aqui' : 'rendeu no período'}</span>
           </span>
         </div>
       ))}
@@ -1361,28 +1379,54 @@ export function Cofrinho() {
       </div>
     );
 
+  const rendPct = r.rendimentoPct !== null && r.rendimento !== 0 ? (r.rendimentoPct * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : null;
+  const ativosMes = porMes.slice(Math.max(0, porMes.findIndex((m) => m.centavos > 0)));
+  const mediaMes = ativosMes.length ? Math.round(ativosMes.reduce((t, m) => t + m.centavos, 0) / ativosMes.length) : 0;
+  const pctFinal = final > 0 ? Math.min(1, Math.max(0, r.saldo / final)) : 0;
+  const pctTexto = pctFinal > 0 && pctFinal < 0.01 ? '<1%' : `${Math.round(pctFinal * 100)}%`;
+  const faltaTexto = idadeTexto(mesesProj);
+
   return (
-    <div className="pilha">
+    <div className="pilha cf">
       {/* Resumo */}
-      <section className="cartao cofrinho-heroi pilha-p" aria-label="Saldo">
-        <div className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-          <span className="texto-2">Saldo do {nomeBebe}</span>
-          <button className="icone-botao" onClick={alternarOculto} aria-label={oculto ? 'Mostrar valores' : 'Esconder valores'} aria-pressed={oculto}>
+      <section className="cartao cf-hero" aria-label="Saldo">
+        <div className="cf-hero-topo">
+          <span className="cf-hero-selo">
+            <PorquinhoMini />
+          </span>
+          <span className="cf-hero-rotulo">Saldo do {nomeBebe}</span>
+          <button className="icone-botao cf-olho" onClick={alternarOculto} aria-label={oculto ? 'Mostrar valores' : 'Esconder valores'} aria-pressed={oculto}>
             <Icone nome={oculto ? 'olho_fechado' : 'olho'} />
           </button>
         </div>
         {/* Conta até o saldo na 1ª vez que aparece; escondido, nada de número (nem no meio da conta) */}
-        <div className="cofrinho-saldo">{oculto ? $(r.saldo) : <NumeroAnimado valor={r.saldo} formatar={(c) => reais(Math.round(c))} chave="cofrinho:saldo" duracao={900} />}</div>
-        <div className="cofrinho-sub">
-          <span>
+        <div className="cofrinho-saldo cf-saldo">{oculto ? $(r.saldo) : <NumeroAnimado valor={r.saldo} formatar={(c) => reais(Math.round(c))} chave="cofrinho:saldo" duracao={900} />}</div>
+        <div className="cf-hero-var">
+          {r.rendimento !== 0 && (
+            <span className={`cf-pilula ${r.rendimento >= 0 ? 'bom' : 'ruim'}`}>
+              {!oculto && (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d={r.rendimento >= 0 ? 'M12 19V5M5 12l7-7 7 7' : 'M12 5v14M5 12l7 7 7-7'} />
+                </svg>
+              )}
+              <span className="oculto-visual">Rendeu </span>
+              {oculto ? '•••' : `${reais(r.rendimento, { sinal: true })}${rendPct ? ` · ${rendPct}%` : ''}`}
+            </span>
+          )}
+          <span className="cf-colocado">
             Colocado <strong>{$(r.aportado)}</strong>
           </span>
-          <span>
-            Rendeu <strong className={r.rendimento >= 0 ? 'positivo' : 'negativo'}>{oculto ? '•••' : reais(r.rendimento, { sinal: true })}</strong>
-            {r.rendimentoPct !== null && !oculto && r.rendimento !== 0 && <> ({(r.rendimentoPct * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%)</>}
-          </span>
         </div>
-        <div className="linha" style={{ gap: 6 }}>
+        {evolucao.length >= 2 && (
+          <div className="cf-spark-caixa">
+            <Sparkline valores={evolucao.map((e) => e.saldo)} rotulo="Forma da evolução do saldo" />
+            <div className="cf-spark-eixo" aria-hidden="true">
+              <span>{nomeMes(evolucao[0].mes)}</span>
+              <span>{nomeMes(evolucao[evolucao.length - 1].mes)}</span>
+            </div>
+          </div>
+        )}
+        <div className="cf-chips">
           {seguidos >= 2 && <span className="etiqueta bom">🔥 {seguidos} meses seguidos</span>}
           {r.depositos > 0 && <span className="etiqueta">{r.depositos} {r.depositos === 1 ? 'depósito' : 'depósitos'}</span>}
           {pessoas > 1 && <span className="etiqueta">{pessoas} pessoas contribuíram</span>}
@@ -1411,27 +1455,30 @@ export function Cofrinho() {
         })()}
       </section>
 
-      <div className="doc-botoes">
-        <button className="botao primario" onClick={() => novoMovimento('deposito')} disabled={!contasAtivas.length}>
-          <Icone nome="mais" /> Depósito
+      <div className="cf-acoes">
+        <button className="cf-acao primaria" onClick={() => novoMovimento('deposito')} disabled={!contasAtivas.length}>
+          <span className="cf-acao-ic"><Icone nome="mais" duo /></span>
+          Depósito
         </button>
-        <button className="botao" onClick={() => setAberta({ modo: 'atualizar' })} disabled={!contasAtivas.length}>
-          <Icone nome="girar" /> Atualizar saldo
+        <button className="cf-acao" onClick={() => setAberta({ modo: 'atualizar' })} disabled={!contasAtivas.length}>
+          <span className="cf-acao-ic"><Icone nome="girar" duo /></span>
+          Atualizar saldo
         </button>
-        <button className="botao" onClick={() => setAberta({ modo: 'pix' })}>
-          <Icone nome="qr" /> Convidar
+        <button className="cf-acao" onClick={() => setAberta({ modo: 'pix' })}>
+          <span className="cf-acao-ic"><Icone nome="qr" duo /></span>
+          Convidar
         </button>
       </div>
 
       {/* Plano do mês */}
-      <section className="cartao">
-        <button type="button" className="doc-linha" style={{ padding: 0 }} onClick={() => setAberta({ modo: 'plano' })}>
-          <span className="mov-icone deposito" aria-hidden="true">
-            📅
+      <section className="cartao cf-plano">
+        <button type="button" className="cf-item" onClick={() => setAberta({ modo: 'plano' })}>
+          <span className="cf-ic plano" aria-hidden="true">
+            <Icone nome="agenda" duo />
           </span>
           <span className="cresce">
-            <span className="doc-titulo">{plano.aporte_mensal_centavos ? `Plano: ${$(plano.aporte_mensal_centavos)} por mês` : 'Definir o depósito mensal'}</span>
-            <span className="texto-2">
+            <span className="cf-item-titulo">{plano.aporte_mensal_centavos ? `Plano: ${$(plano.aporte_mensal_centavos)} por mês` : 'Definir o depósito mensal'}</span>
+            <span className="cf-item-sub">
               {plano.aporte_mensal_centavos
                 ? depositouMes
                   ? `Depósito de ${nomeMes(mesAtual, false)} feito ✓`
@@ -1448,12 +1495,35 @@ export function Cofrinho() {
       </section>
 
       {/* Projeção */}
-      <section className="cartao pilha-p" aria-label="Projeção">
+      <section className="cartao pilha-p cf-proj" aria-label="Projeção">
         <h2>Aos {idadeAlvo} anos</h2>
-        <div className="cofrinho-projecao">{$(final)}</div>
-        <p className="texto-2">
-          No cenário {escolhido.nome.toLowerCase()} ({escolhido.taxa}% ao ano acima da inflação), com {$(aporte)} por mês. Em dinheiro de hoje.
-        </p>
+        <div className="cf-proj-topo">
+          <Anel pct={oculto ? 0 : pctFinal} centro={oculto ? '•••' : pctTexto} sub="já guardado" rotulo={oculto ? 'Progresso escondido' : `Já guardado: ${pctTexto} do valor projetado aos ${idadeAlvo} anos`} />
+          <div className="cresce">
+            <div className="cofrinho-projecao cf-proj-valor">{$(final)}</div>
+            <p className="texto-2">
+              Cenário {escolhido.nome.toLowerCase()} ({escolhido.taxa}% ao ano acima da inflação), com {$(aporte)} por mês. Em dinheiro de hoje.
+            </p>
+          </div>
+        </div>
+        <ul className="cf-cenarios" aria-label="Cenários">
+          {projecoes.map((p) => (
+            <li key={p.id} className={p.id === escolhido.id ? 'atual' : undefined} style={{ '--cor': `var(--c-cenario-${p.id})` } as React.CSSProperties}>
+              <span className="cf-cen-nome">{p.nome}</span>
+              <strong>{$(p.serie[p.serie.length - 1], { compacto: true })}</strong>
+            </li>
+          ))}
+        </ul>
+        <div className="cf-tempo">
+          <div className="cf-tempo-trilho" aria-hidden="true">
+            <span style={{ width: `${Math.max(2, Math.min(100, (idadeHojeMeses / (idadeAlvo * 12)) * 100))}%` }} />
+          </div>
+          <div className="cf-tempo-legenda">
+            <span>hoje · {idadeTexto(idadeHojeMeses)}</span>
+            <span>{idadeAlvo} anos</span>
+          </div>
+          <span className="mudo">Faltam {faltaTexto} para chegar lá.</span>
+        </div>
         <GraficoLinhas
           rotulo={`Projeção do cofrinho até os ${idadeAlvo} anos`}
           series={[
@@ -1467,13 +1537,12 @@ export function Cofrinho() {
           formatar={(v) => $(v)}
           formatarEixo={$eixo}
           referencias={metas.slice(0, 3).map((m) => ({ valor: m.valor_centavos, texto: `${m.emoji ?? '🎯'} ${m.nome}` }))}
-          legendaValor
-        />
+          />
         <Campo rotulo={`Simular depósito mensal: ${$(aporte)}`}>
           <input type="range" min={0} max={300000} step={1000} value={aporte} onChange={(e) => setSimAporte(Number(e.target.value))} aria-valuetext={reais(aporte)} />
         </Campo>
         {!oculto && com50 > 0 && (
-          <p className="dica-cofrinho">
+          <p className="dica-cofrinho cf-dica">
             💡 Cada <strong>R$ 50 a mais</strong> por mês viram cerca de <strong>{reais(com50, { compacto: true })}</strong> a mais aos {idadeAlvo} anos.
           </p>
         )}
@@ -1516,7 +1585,7 @@ export function Cofrinho() {
       </section>
 
       {/* Metas */}
-      <section className="cartao pilha-p">
+      <section className="cartao pilha-p cf-metas">
         <div className="cartao-cab">
           <h2>Metas</h2>
           <button type="button" className="icone-botao" aria-label="Nova meta" onClick={novaMeta}>
@@ -1530,25 +1599,31 @@ export function Cofrinho() {
           const prazo = m.idade_anos ? mesesAteIdade(nascimento, hoje, m.idade_anos) : null;
           const precisa = prazo !== null ? aporteNecessario(r.saldo, m.valor_centavos, escolhido.taxa, prazo) : null;
           return (
-            <button key={m.id} type="button" className="meta" onClick={() => setAberta({ modo: 'meta', meta: m, novo: false })}>
-              <div className="linha" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                <span className="doc-titulo">
-                  {m.emoji ?? '🎯'} {m.nome}
+            <button key={m.id} type="button" className="cf-meta" onClick={() => setAberta({ modo: 'meta', meta: m, novo: false })}>
+              <span className="cf-meta-emoji" aria-hidden="true">
+                {m.emoji ?? '🎯'}
+              </span>
+              <span className="cf-meta-corpo">
+                <span className="cf-meta-cab">
+                  <span className="cf-item-titulo">{m.nome}</span>
+                  <strong>{$(m.valor_centavos, { compacto: true })}</strong>
                 </span>
-                <strong>{$(m.valor_centavos, { compacto: true })}</strong>
-              </div>
-              <div className="progresso" aria-hidden="true">
-                <span style={{ width: `${pct * 100}%` }} />
-              </div>
-              <span className="texto-2">
-                {pct >= 1
-                  ? 'Meta alcançada! 🎉'
-                  : `${Math.round(pct * 100)}% · ${meses === null ? 'no ritmo atual não chega' : `no ritmo atual, chega aos ${idadeTexto(idadeHojeMeses + meses)}`}`}
-                {pct < 1 &&
-                  precisa !== null &&
-                  m.idade_anos &&
+                <span className={`cf-meta-trilho ${pct >= 1 ? 'feita' : ''}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={oculto ? undefined : Math.round(pct * 100)} aria-label={`Progresso da meta ${m.nome}`}>
+                  <span style={{ width: `${Math.max(oculto ? 0 : 2, (oculto ? 0 : pct) * 100)}%` }} />
+                </span>
+                <span className="cf-item-sub">
+                  {pct >= 1
+                    ? 'Meta alcançada! 🎉'
+                    : `${Math.round(pct * 100)}% · ${meses === null ? 'no ritmo atual não chega' : `no ritmo atual, chega aos ${idadeTexto(idadeHojeMeses + meses)}`}`}
+                </span>
+                {pct < 1 && precisa !== null && m.idade_anos && (
                   // Prazo já passou (ou é agora): mostra quanto falta, não "por mês"
-                  ` · para ${m.idade_anos === 1 ? '1 ano' : `os ${m.idade_anos} anos`}: ${prazo ? '' : 'faltam '}${oculto ? '•••' : reais(precisa)}${prazo ? '/mês' : ''}`}
+                  <span className="cf-item-sub forte">
+                    Para {m.idade_anos === 1 ? '1 ano' : `os ${m.idade_anos} anos`}: {prazo ? '' : 'faltam '}
+                    {oculto ? '•••' : reais(precisa)}
+                    {prazo ? '/mês' : ''}
+                  </span>
+                )}
               </span>
             </button>
           );
@@ -1594,11 +1669,13 @@ export function Cofrinho() {
         <section className="cartao pilha-p" aria-label="Depósitos por mês">
           <h2>Depósitos por mês</h2>
           <BarrasDiarias
-            tipo="agenda"
+            tipo="cofrinho"
             rotulo="Depósitos de cada um dos últimos 12 meses"
             dados={porMes.map((m) => ({ dia: `${m.mes}-01`, valor: m.centavos }))}
             formatarEixo={$eixo}
-            rotulos={porMes.map((m, i) => (i % 2 === (porMes.length - 1) % 2 ? MESES[Number(m.mes.slice(5)) - 1] : ''))}
+            rotulos={porMes.map((m) => MESES[Number(m.mes.slice(5)) - 1])}
+            media={mediaMes}
+            estreita
             nomes={porMes.map((m) => nomeMes(m.mes))}
             formatar={(v) => (oculto ? '•••' : reais(v, { compacto: true }))}
           />
@@ -1633,26 +1710,26 @@ export function Cofrinho() {
       )}
 
       {/* Contas */}
-      <section className="cartao pilha-p">
+      <section className="cartao pilha-p cf-contas">
         <div className="cartao-cab">
           <h2>Contas</h2>
           <button type="button" className="icone-botao" aria-label="Nova conta" onClick={novaConta}>
             <Icone nome="mais" />
           </button>
         </div>
-        <div className="doc-lista">
+        <div className="cf-lista">
           {contas.map((c) => {
             const s = r.porConta.get(c.id);
             return (
-              <button key={c.id} type="button" className="doc-linha" onClick={() => setAberta({ modo: 'ver-conta', id: c.id })}>
-                <span className="mov-icone conta" aria-hidden="true">
-                  🏦
+              <button key={c.id} type="button" className={`cf-item ${c.ativa ? '' : 'encerrada'}`} onClick={() => setAberta({ modo: 'ver-conta', id: c.id })}>
+                <span className="cf-ic conta" aria-hidden="true">
+                  <Icone nome="carteira" duo />
                 </span>
                 <span className="cresce">
-                  <span className="doc-titulo">{c.nome}</span>
-                  <span className="texto-2">{[NOME_TIPO_CONTA[c.tipo], c.instituicao, !c.ativa && 'encerrada'].filter(Boolean).join(' · ')}</span>
+                  <span className="cf-item-titulo">{c.nome}</span>
+                  <span className="cf-item-sub">{[NOME_TIPO_CONTA[c.tipo], c.instituicao, !c.ativa && 'encerrada'].filter(Boolean).join(' · ')}</span>
                 </span>
-                <strong>{$(s?.saldo ?? 0)}</strong>
+                <strong className="cf-valor">{$(s?.saldo ?? 0)}</strong>
               </button>
             );
           })}
@@ -1660,15 +1737,15 @@ export function Cofrinho() {
       </section>
 
       {/* Extrato */}
-      <section className="cartao pilha-p">
+      <section className="cartao pilha-p cf-lancamentos">
         <h2>Lançamentos</h2>
-        <ListaMovimentos movs={movs} contas={contas} aoAbrir={(m) => setAberta({ modo: 'movimento', mov: m, novo: false })} limite={verTodos ? undefined : 8} oculto={oculto} />
+        <ListaMovimentos movs={movs} contas={contas} aoAbrir={(m) => setAberta({ modo: 'movimento', mov: m, novo: false })} limite={verTodos ? undefined : 8} oculto={oculto} agrupar />
         {movs.length > 8 && (
           <button className="botao pequeno texto" onClick={() => setVerTodos(!verTodos)}>
             {verTodos ? 'Mostrar menos' : `Ver todos (${movs.length})`}
           </button>
         )}
-        <div className="grade">
+        <div className="grade cf-extrato">
           <button className="botao" disabled={!!preparando || !movs.length} onClick={() => void extratoPdf()}>
             <Icone nome="documento" /> {preparando ?? 'Extrato PDF'}
           </button>
