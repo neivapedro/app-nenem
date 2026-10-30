@@ -61,3 +61,17 @@ main .cartao-cab { align-items: center; }
 .botao-grande small, .painel-grafico .leitura, .painel-grafico .leitura-fora, .mom-bloco .rotulo {
   font-size: max(12px, 0.75rem);
 }
+
+/* Ajustes da 2ª conferência */
+.dica-como, .dica-fechar { border: 0; }
+.ap-tema-texto small { font-size: max(12px, 0.75rem); }
+.ap-cor { font-size: max(12px, 0.75rem); }
+@media (max-width: 380px) {
+  .ap-cores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ap-cor { font-size: max(12px, 0.75rem); letter-spacing: 0; }
+  /* Tabelas de medidas: em tela estreita as células podem quebrar em vez de alargar a página */
+  .tabela-simples th, .tabela-simples td, .saude .tabela-simples td:first-child { white-space: normal; }
+}
+/* Selo do painel de vacinas nunca passa da borda do cartão */
+.sv-resumo-texto > * { max-width: 100%; }
+.sv-resumo-texto .etiqueta, .sv-resumo-texto [class*="selo"], .sv-resumo-texto [class*="pilula"] { white-space: normal; }
