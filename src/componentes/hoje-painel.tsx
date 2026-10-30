@@ -174,21 +174,26 @@ const contagem = (n: number) => String(Math.round(n));
 const duracaoOuNada = (ms: number) => (ms ? duracaoCurta(ms) : '—');
 
 /** "▲ 12% vs. média": discreto; dentro de 5% da média vira "na média" */
-function comparacao(valor: number, media: number | null | undefined): { texto: string; sufixo: string; sentido: 'sobe' | 'desce' | 'igual' } | null {
-  if (media === null || media === undefined || media <= 0 || valor <= 0) return null;
-  const pct = Math.round(((valor - media) / media) * 100);
-  if (Math.abs(pct) < 5) return { texto: 'na média', sufixo: '', sentido: 'igual' };
-  return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
+function comparacao(valor: number, media: number | null | undefined, andamentoDoDia = 1): { texto: string; sufixo: string; sentido: 'sobe' | 'desce' | 'igual' } | null {
+  if (media === null || media === undefined || !Number.isFinite(media) || media <= 0 || valor <= 0) return null;
+  // O dia ainda não acabou: compara com o que a média costuma ter até esta hora (senão de manhã tudo parece "▼")
+  if (andamentoDoDia < 0.5) return null;
+  const esperado = media * Math.min(1, andamentoDoDia);
+  const pct = Math.round(((valor - esperado) / esperado) * 100);
+  if (Math.abs(pct) < 8) return { texto: 'na média', sufixo: '', sentido: 'igual' };
+  return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: andamentoDoDia < 1 ? ' vs. ritmo médio' : ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
 }
 
 export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean }) {
   const anima = (chave: string, valor: number, formatar: (n: number) => string, minimo?: number) => (
     <NumeroAnimado valor={valor} formatar={formatar} chave={`hoje:${chave}`} minimo={minimo} />
   );
+  const agoraDia = new Date();
+  const andamento = (agoraDia.getHours() * 60 + agoraDia.getMinutes()) / 1440;
   const colunas = [
-    { chave: 'alimentacoes', rotulo: 'Alimentações', valor: resumo.alimentacoes, texto: String(resumo.alimentacoes), exibir: anima('alimentacoes', resumo.alimentacoes, contagem), cmp: comparacao(resumo.alimentacoes, medias?.alimentacoes) },
-    { chave: 'fraldas', rotulo: 'Fraldas', valor: resumo.fraldas, texto: String(resumo.fraldas), exibir: anima('fraldas', resumo.fraldas, contagem), cmp: comparacao(resumo.fraldas, medias?.fraldas) },
-    { chave: 'sono', rotulo: 'Sono', valor: resumo.sonoMs, texto: duracaoOuNada(resumo.sonoMs), exibir: anima('sono', resumo.sonoMs, duracaoOuNada, 60_000), cmp: comparacao(resumo.sonoMs, medias?.sonoMs) },
+    { chave: 'alimentacoes', rotulo: 'Alimentações', valor: resumo.alimentacoes, texto: String(resumo.alimentacoes), exibir: anima('alimentacoes', resumo.alimentacoes, contagem), cmp: comparacao(resumo.alimentacoes, medias?.alimentacoes, andamento) },
+    { chave: 'fraldas', rotulo: 'Fraldas', valor: resumo.fraldas, texto: String(resumo.fraldas), exibir: anima('fraldas', resumo.fraldas, contagem), cmp: comparacao(resumo.fraldas, medias?.fraldas, andamento) },
+    { chave: 'sono', rotulo: 'Sono', valor: resumo.sonoMs, texto: duracaoOuNada(resumo.sonoMs), exibir: anima('sono', resumo.sonoMs, duracaoOuNada, 60_000), cmp: comparacao(resumo.sonoMs, medias?.sonoMs, andamento) },
   ];
   // Detalhes que saíram dos números grandes: uma linha de texto cinza pequena
   const detalhes = [

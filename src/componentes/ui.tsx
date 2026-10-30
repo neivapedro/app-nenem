@@ -528,8 +528,9 @@ export function setasSegmentado(e: KeyboardEvent) {
   prox.click();
 }
 if (typeof document !== 'undefined') {
-  document.removeEventListener('keydown', setasSegmentado); // recarga a quente do Vite não duplica
   document.addEventListener('keydown', setasSegmentado);
+  // Recarga a quente do Vite: o módulo antigo sai, para as setas não andarem 2 opções
+  import.meta.hot?.dispose(() => document.removeEventListener('keydown', setasSegmentado));
 }
 
 /** Logotipo do app (o mesmo desenho do ícone da Tela de Início) */

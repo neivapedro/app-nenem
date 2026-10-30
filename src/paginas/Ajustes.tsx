@@ -418,7 +418,7 @@ function CartaoAparencia() {
             );
           })}
         </div>
-        <small>Muda os botões, as abas e os destaques. As cores de mamada, fralda e sono continuam as mesmas.</small>
+        <small>Muda as abas, os links e os destaques (e os botões, se você escolher uma cor). As cores de mamada, fralda e sono continuam as mesmas.</small>
       </fieldset>
       <label className="marcar">
         <input type="checkbox" checked={ambar} onChange={(e) => salvarAparencia({ ambar: e.target.checked })} />

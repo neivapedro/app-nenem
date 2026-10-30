@@ -30,8 +30,8 @@ figcaption .td-ico-ocasiao { width: 14px; height: 14px; vertical-align: -2px; }
 .cf-plano::before, .cf-plano::after { content: none; }
 /* Chips do saldo: uma linha (quebra limpa só em telas bem estreitas) */
 .cf-chips { gap: 6px; }
-.cf-hero .cf-chips .etiqueta { padding: 3px 8px; font-size: 0.72rem; }
-@media (max-width: 359px) { .cf-hero .cf-chips .etiqueta { padding: 3px 8px; font-size: 0.72rem; } }
+.cf-hero .cf-chips .etiqueta { padding: 3px 8px; font-size: 0.75rem; }
+@media (max-width: 359px) { .cf-hero .cf-chips .etiqueta { padding: 3px 8px; font-size: 0.75rem; } }
 /* Depósito: segue o botão principal do app (o magenta fica só no cartão de saldo e no porquinho) */
 .cf-acao.primaria { background: var(--botao); color: var(--botao-texto); border-color: transparent; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
 .cf-acao.primaria .cf-acao-ic { background: color-mix(in srgb, var(--botao-texto) 16%, transparent); color: var(--botao-texto); }

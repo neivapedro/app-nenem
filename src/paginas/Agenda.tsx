@@ -199,6 +199,14 @@ function DetalheUmaLinha({ texto }: { texto: string }) {
     window.addEventListener('resize', medir);
     return () => window.removeEventListener('resize', medir);
   }, [texto, aberto]);
+  if (!corta && !aberto)
+    return (
+      <span className="td-ag-detalhe">
+        <span ref={ref} className="td-ag-texto">
+          {texto}
+        </span>
+      </span>
+    );
   return (
     <button type="button" className={`td-ag-detalhe ${aberto ? 'aberto' : ''}`} onClick={() => (corta || aberto) && setAberto(!aberto)} aria-expanded={corta || aberto ? aberto : undefined}>
       <span ref={ref} className="td-ag-texto">

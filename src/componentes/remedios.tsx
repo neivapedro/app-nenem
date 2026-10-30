@@ -149,7 +149,7 @@ function CartaoRemedio({ r }: { r: Remedio }) {
 
   // Rótulo à direita da barra: "faltam 17 h", "faltam 40 min" ou "passou da hora"
   const faltaMs = proxima ? new Date(proxima).getTime() - agora.getTime() : 0;
-  const rotuloIntervalo = atrasada ? 'passou da hora' : faltaMs >= 3_600_000 ? `faltam ${Math.round(faltaMs / 3_600_000)} h` : `faltam ${Math.max(1, Math.ceil(faltaMs / 60_000))} min`;
+  const rotuloIntervalo = atrasada ? 'passou da hora' : faltaMs >= 3 * 3_600_000 ? `faltam ${Math.floor(faltaMs / 3_600_000)} h` : faltaMs >= 3_600_000 ? `faltam ${Math.floor(faltaMs / 3_600_000)} h ${Math.floor((faltaMs % 3_600_000) / 60_000)} min` : `faltam ${Math.max(1, Math.floor(faltaMs / 60_000))} min`;
 
   function deiAgora() {
     // Dose em dobro: a última foi há menos da metade do intervalo (sem intervalo, há menos de 30 min)
