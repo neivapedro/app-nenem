@@ -147,6 +147,10 @@ function CartaoRemedio({ r }: { r: Remedio }) {
   // Quanto do intervalo já passou desde a última dose (barra até a próxima)
   const fracao = ultima && proxima && r.intervalo_h ? Math.min(1, Math.max(0, (agora.getTime() - new Date(ultima.inicio).getTime()) / (r.intervalo_h * 3_600_000))) : null;
 
+  // Rótulo à direita da barra: "faltam 17 h", "faltam 40 min" ou "passou da hora"
+  const faltaMs = proxima ? new Date(proxima).getTime() - agora.getTime() : 0;
+  const rotuloIntervalo = atrasada ? 'passou da hora' : faltaMs >= 3_600_000 ? `faltam ${Math.round(faltaMs / 3_600_000)} h` : `faltam ${Math.max(1, Math.ceil(faltaMs / 60_000))} min`;
+
   function deiAgora() {
     // Dose em dobro: a última foi há menos da metade do intervalo (sem intervalo, há menos de 30 min)
     const recente = doseRecente(r, registros, new Date());
@@ -196,16 +200,19 @@ function CartaoRemedio({ r }: { r: Remedio }) {
         </div>
       </div>
       {fracao !== null && (
-        <div
-          className={`sr-barra ${atrasada ? 'atrasada' : ''}`}
-          role="progressbar"
-          aria-label="Tempo até a próxima dose"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(fracao * 100)}
-          aria-valuetext={atrasada ? 'Já passou da hora da próxima dose' : `${Math.round(fracao * 100)}% do intervalo`}
-        >
-          <span style={{ width: `${fracao * 100}%` }} />
+        <div className="sr-linha">
+          <div
+            className={`sr-barra ${atrasada ? 'atrasada' : ''}`}
+            role="progressbar"
+            aria-label="Tempo até a próxima dose"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(fracao * 100)}
+            aria-valuetext={atrasada ? 'Já passou da hora da próxima dose' : `${Math.round(fracao * 100)}% do intervalo`}
+          >
+            <span style={{ width: `${fracao * 100}%` }} />
+          </div>
+          <span className={`sr-rotulo ${atrasada ? 'atrasada' : ''}`}>{rotuloIntervalo}</span>
         </div>
       )}
       <div className="linha">

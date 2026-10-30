@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import '../estilos/hoje.css';
 import { linhaDoTempo } from '../lib/painel';
 import { useZoom } from '../lib/zoom';
-import { aproximar, duracaoCurta, horaPrevista, painelAlimentacao, progresso, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
+import { duracaoCurta, horaPrevista, painelAlimentacao, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
 import type { ResumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
 import { NumeroAnimado } from './numero-animado';
@@ -170,120 +170,49 @@ export function Faixa24h({ registros, agora }: { registros: Registro[]; agora: D
 
 // ---------- Números do dia ----------
 
-interface Numero {
-  chave: string;
-  rotulo: ReactNode;
-  nomeLido: string;
-  valor: string;
-  /** O valor na tela (conta até o número na 1ª vez que a tela aparece) */
-  exibir: ReactNode;
-  /** "de ~9" */
-  referencia: string | null;
-  arcos: Arco[];
-}
-
 const contagem = (n: number) => String(Math.round(n));
 const duracaoOuNada = (ms: number) => (ms ? duracaoCurta(ms) : '—');
-const mlOuNada = (ml: number) => (ml ? `${Math.round(ml)} ml` : '—');
+
+/** "▲ 12% vs. média": discreto; dentro de 5% da média vira "na média" */
+function comparacao(valor: number, media: number | null | undefined): { texto: string; sufixo: string; sentido: 'sobe' | 'desce' | 'igual' } | null {
+  if (media === null || media === undefined || media <= 0 || valor <= 0) return null;
+  const pct = Math.round(((valor - media) / media) * 100);
+  if (Math.abs(pct) < 5) return { texto: 'na média', sufixo: '', sentido: 'igual' };
+  return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
+}
 
 export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean }) {
   const anima = (chave: string, valor: number, formatar: (n: number) => string, minimo?: number) => (
     <NumeroAnimado valor={valor} formatar={formatar} chave={`hoje:${chave}`} minimo={minimo} />
   );
-  const ref = (v: number, tipo: 'contagem' | 'ml' | 'duracao') => (medias && v > 0 ? `de ~${aproximar(v, tipo)}` : null);
-  const itens: Numero[] = [
-    {
-      chave: 'alimentacoes',
-      rotulo: 'Alimentações',
-      nomeLido: 'Alimentações',
-      valor: String(resumo.alimentacoes),
-      exibir: anima('alimentacoes', resumo.alimentacoes, contagem),
-      referencia: ref(medias?.alimentacoes ?? 0, 'contagem'),
-      arcos: [{ fracao: progresso(resumo.alimentacoes, medias?.alimentacoes), cor: 'var(--c-mamada)' }],
-    },
-    {
-      chave: 'peito',
-      rotulo: 'No peito',
-      nomeLido: 'No peito',
-      valor: duracaoOuNada(resumo.peitoMs),
-      exibir: anima('peito', resumo.peitoMs, duracaoOuNada, 60_000),
-      referencia: ref(medias?.peitoMs ?? 0, 'duracao'),
-      arcos: [{ fracao: progresso(resumo.peitoMs, medias?.peitoMs), cor: 'var(--c-mamada)' }],
-    },
-    {
-      chave: 'mamadeira',
-      rotulo: 'Mamadeira',
-      nomeLido: 'Mamadeira',
-      valor: mlOuNada(resumo.ml),
-      exibir: anima('ml', resumo.ml, mlOuNada),
-      referencia: ref(medias?.ml ?? 0, 'ml'),
-      arcos: [{ fracao: progresso(resumo.ml, medias?.ml), cor: 'var(--c-mamadeira)' }],
-    },
-    {
-      chave: 'fraldas',
-      rotulo: 'Fraldas',
-      nomeLido: 'Fraldas',
-      valor: String(resumo.fraldas),
-      exibir: anima('fraldas', resumo.fraldas, contagem),
-      referencia: ref(medias?.fraldas ?? 0, 'contagem'),
-      arcos: [{ fracao: progresso(resumo.fraldas, medias?.fraldas), cor: 'var(--c-fralda)' }],
-    },
-    {
-      chave: 'xixi-coco',
-      // As bolinhas são a legenda dos dois anéis (xixi por fora, cocô por dentro)
-      rotulo: (
-        <>
-          <i className="hp-ponto" style={{ background: 'var(--c-fralda)' }} />
-          Xixi · <i className="hp-ponto" style={{ background: 'var(--c-mamadeira)' }} />
-          cocô
-        </>
-      ),
-      nomeLido: 'Xixi e cocô',
-      valor: `${resumo.xixi} · ${resumo.coco}`,
-      exibir: (
-        <>
-          {anima('xixi', resumo.xixi, contagem)} · {anima('coco', resumo.coco, contagem)}
-        </>
-      ),
-      referencia: medias && medias.xixi + medias.coco > 0 ? `de ~${aproximar(medias.xixi, 'contagem')} · ~${aproximar(medias.coco, 'contagem')}` : null,
-      arcos: [
-        { fracao: progresso(resumo.xixi, medias?.xixi), cor: 'var(--c-fralda)' },
-        { fracao: progresso(resumo.coco, medias?.coco), cor: 'var(--c-mamadeira)' },
-      ],
-    },
-    {
-      chave: 'sono',
-      rotulo: 'Sono',
-      nomeLido: 'Sono',
-      valor: duracaoOuNada(resumo.sonoMs),
-      exibir: anima('sono', resumo.sonoMs, duracaoOuNada, 60_000),
-      referencia: ref(medias?.sonoMs ?? 0, 'duracao'),
-      arcos: [{ fracao: progresso(resumo.sonoMs, medias?.sonoMs), cor: 'var(--c-sono)' }],
-    },
+  const colunas = [
+    { chave: 'alimentacoes', rotulo: 'Alimentações', valor: resumo.alimentacoes, texto: String(resumo.alimentacoes), exibir: anima('alimentacoes', resumo.alimentacoes, contagem), cmp: comparacao(resumo.alimentacoes, medias?.alimentacoes) },
+    { chave: 'fraldas', rotulo: 'Fraldas', valor: resumo.fraldas, texto: String(resumo.fraldas), exibir: anima('fraldas', resumo.fraldas, contagem), cmp: comparacao(resumo.fraldas, medias?.fraldas) },
+    { chave: 'sono', rotulo: 'Sono', valor: resumo.sonoMs, texto: duracaoOuNada(resumo.sonoMs), exibir: anima('sono', resumo.sonoMs, duracaoOuNada, 60_000), cmp: comparacao(resumo.sonoMs, medias?.sonoMs) },
   ];
+  // Detalhes que saíram dos números grandes: uma linha de texto cinza pequena
+  const detalhes = [
+    resumo.peitoMs ? `No peito ${duracaoCurta(resumo.peitoMs)}` : null,
+    resumo.ml ? `Mamadeira ${Math.round(resumo.ml)} ml` : null,
+    resumo.fraldas ? `Xixi ${resumo.xixi} · cocô ${resumo.coco}` : null,
+  ].filter(Boolean);
 
   return (
     <>
       <div className="hp-numeros">
-        {itens.map((it, i) => (
-          <div key={it.chave} className="hp-numero hp-entra" style={{ '--hp-i': i + 2 } as CSSProperties}>
-            <Anel
-              arcos={it.arcos}
-              espessura={it.arcos.length > 1 ? 10 : 12}
-              classe="hp-anel-mini"
-              rotulo={`${it.nomeLido}: ${it.valor === '—' ? 'nada' : it.valor} hoje${it.referencia ? `, ${it.referencia.replace('de ', 'média de ').replace(/~/g, '')} por dia` : ''}`}
-            />
-            <div className="hp-numero-rotulo">{it.rotulo}</div>
-            <div className="hp-numero-valor">{it.exibir}</div>
-            {medias && <div className="hp-numero-ref">{it.referencia ?? ' '}</div>}
+        {colunas.map((c, i) => (
+          <div key={c.chave} className="hp-numero hp-entra" style={{ '--hp-i': i + 2 } as CSSProperties} role="group" aria-label={`${c.rotulo}: ${c.texto === '—' ? 'nada' : c.texto} hoje${c.cmp ? `, ${c.cmp.texto.replace('▲', 'acima:').replace('▼', 'abaixo:')}${c.cmp.sufixo}` : ''}`}>
+            <div className="hp-numero-valor">{c.exibir}</div>
+            <div className="hp-numero-rotulo">{c.rotulo}</div>
+            <div className={`hp-numero-ref ${c.cmp?.sentido ?? ''}`}>{c.cmp?.texto ?? ' '}
+              {c.cmp?.sufixo && <span className="hp-ref-suf">{c.cmp.sufixo}</span>}
+            </div>
           </div>
         ))}
       </div>
-      {nascido && (
-        <p className="hp-numeros-nota">
-          {medias ? `Anéis: hoje comparado com a média ${medias.dias === 1 ? 'de 1 dia' : `dos últimos ${medias.dias} dias`}.` : 'A comparação com a média aparece a partir de amanhã.'}
-        </p>
-      )}
+      {detalhes.length > 0 && <p className="hp-numeros-nota">{detalhes.join(' · ')}</p>}
+      {medias && <p className="hp-numeros-nota">▲▼ comparação com a média {medias.dias === 1 ? 'de 1 dia' : `dos últimos ${medias.dias} dias`}.</p>}
+      {nascido && !medias && <p className="hp-numeros-nota">A comparação com a média dos últimos 7 dias aparece a partir de amanhã.</p>}
     </>
   );
 }

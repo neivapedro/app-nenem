@@ -82,6 +82,9 @@ function Ponteiro({ graus }: { graus: number }) {
   );
 }
 
+const CHAVE_INSTRUCAO = 'app-nenem:dica-relogio';
+const TEXTO_INSTRUCAO = 'Toque num trecho para ver os detalhes; depois arraste o dedo ao redor.';
+
 // ---------- Toque e arrasto ----------
 
 interface Ponto {
@@ -158,6 +161,28 @@ function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: numb
   }, [selChave, sel]);
 
   const escolher = (it: ItemRelogio | null) => setSelChave(it ? chaveItem(it) : null);
+
+  // A instrução ("Toque num trecho…") aparece só até a 1ª vez que alguém toca; depois vira um "i"
+  const [instrucaoVista, setInstrucaoVista] = useState(() => {
+    try {
+      return localStorage.getItem(CHAVE_INSTRUCAO) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [instrucaoAberta, setInstrucaoAberta] = useState(false);
+  const mostraInstrucao = !instrucaoVista || instrucaoAberta;
+  useEffect(() => {
+    if (!sel) return;
+    setInstrucaoAberta(false);
+    if (instrucaoVista) return;
+    setInstrucaoVista(true);
+    try {
+      localStorage.setItem(CHAVE_INSTRUCAO, '1');
+    } catch {
+      /* nada */
+    }
+  }, [sel, instrucaoVista]);
 
   /** O item no ponto tocado: primeiro o anel sob o dedo, depois qualquer anel */
   const itemNoPonto = ({ graus, raio }: Ponto, folga: number | null) => {
@@ -261,7 +286,7 @@ function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: numb
     ? detalhe.frase
     : rel.vazio
       ? 'Nada registrado nas últimas 24 h. Sono, mamadas e fraldas aparecem aqui conforme vocês registram.'
-      : 'Toque num trecho para ver os detalhes; depois arraste o dedo ao redor.';
+      : TEXTO_INSTRUCAO;
 
   return (
     <div className="rd-corpo">
@@ -302,10 +327,16 @@ function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: numb
       </div>
 
       <p className={`rd-dica ${detalhe ? 'rd-dica-ativa' : ''}`} aria-live="polite">
-        {dica}
+        {detalhe || rel.vazio || mostraInstrucao ? (
+          dica
+        ) : (
+          <button type="button" className="rd-info" aria-label="Como usar o relógio" onClick={() => setInstrucaoAberta(true)}>
+            i
+          </button>
+        )}
       </p>
 
-      <ul className="legenda rd-legenda" aria-label="Legenda (de fora para dentro)">
+      <ul className="legenda rd-legenda rd-legenda-linha" aria-label="Legenda (de fora para dentro)">
         <li>
           <span className="chave-caixa" style={{ background: 'var(--c-sono)' }} />
           Sono
@@ -320,11 +351,11 @@ function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: numb
         </li>
         <li>
           <span className="rd-chave-ponto" style={{ background: 'var(--c-fralda)' }} />
-          Fralda com cocô
+          Cocô
         </li>
         <li>
           <span className="rd-chave-ponto rd-chave-vazada" />
-          Só xixi
+          Xixi
         </li>
         <li>
           <span className="rd-chave-agora" />

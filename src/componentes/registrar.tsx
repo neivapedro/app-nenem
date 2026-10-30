@@ -27,6 +27,7 @@ import {
 } from '../lib/registros';
 import type { ConteudoMamadeira, CorFezes, Lado, PoteLeite, Registro, RegistroDe } from '../lib/tipos';
 import { FormExtracao, FormRefeicao, FormRemedio, FormTemperatura } from './registrar-mais';
+import { IconeCor, IconeCoco, IconeOutraHora, IconeXixi, IconeXixiCoco } from './icones-registro';
 import { Campo, Escolhas, Folha, Icone, useUmToque } from './ui';
 
 /** "desde 20:36" se foi hoje; "desde 18/10 20:36" se começou outro dia (cronômetro esquecido) */
@@ -438,19 +439,24 @@ export function FolhaFralda({ aoFechar }: { aoFechar: () => void }) {
       <div className="pilha">
         <div className="grandes t-fralda">
           <button className="botao-grande" onClick={toque(() => registrar(true, false))}>
-            💧<span>Xixi</span>
+            <IconeXixi />
+            <span>Xixi</span>
           </button>
           <button className="botao-grande" onClick={toque(() => registrar(false, true))}>
-            💩<span>Cocô</span>
+            <IconeCoco />
+            <span>Cocô</span>
           </button>
           <button className="botao-grande" onClick={toque(() => registrar(true, true))}>
-            💧💩<span>Os dois</span>
+            <IconeXixiCoco />
+            <span>Os dois</span>
           </button>
         </div>
         <Erro msg={msg} />
         {!verCor ? (
-          <button className="botao texto pequeno" onClick={() => setVerCor(true)}>
-            Anotar a cor do cocô
+          <button type="button" className="linha-acao" onClick={() => setVerCor(true)}>
+            <IconeCor />
+            <span className="linha-acao-texto">Anotar a cor do cocô</span>
+            <Icone nome="seta" />
           </button>
         ) : (
           <Campo rotulo="Cor do cocô (vale para cocô e os dois)" grupo>
@@ -458,8 +464,10 @@ export function FolhaFralda({ aoFechar }: { aoFechar: () => void }) {
           </Campo>
         )}
         {!mudarHora ? (
-          <button className="botao texto pequeno" onClick={() => setMudarHora(true)}>
-            Foi em outro horário
+          <button type="button" className="linha-acao" onClick={() => setMudarHora(true)}>
+            <IconeOutraHora />
+            <span className="linha-acao-texto">Foi em outro horário</span>
+            <Icone nome="seta" />
           </button>
         ) : (
           <CampoHora rotulo="Hora da troca" valor={inicio} aoMudar={setInicio} />
@@ -738,10 +746,12 @@ function EditarFralda({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<Registro
     >
       <div className="grandes t-fralda">
         <button type="button" className={`botao-grande ${xixi ? 'marcado' : ''}`} aria-pressed={xixi} onClick={() => setXixi(!xixi)}>
-          💧<span>Xixi</span>
+          <IconeXixi />
+          <span>Xixi</span>
         </button>
         <button type="button" className={`botao-grande ${coco ? 'marcado' : ''}`} aria-pressed={coco} onClick={() => setCoco(!coco)}>
-          💩<span>Cocô</span>
+          <IconeCoco />
+          <span>Cocô</span>
         </button>
       </div>
       {coco && (

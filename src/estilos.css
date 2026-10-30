@@ -8,8 +8,16 @@
   --texto: #f4f3f1;
   --texto-2: #b0afb5;
   --texto-3: #8f8e96;
-  --destaque: #f4f3f1;
+  /* Cor de marca padrão (petróleo): abas ativas, links, anel de foco e controles segmentados.
+     Distinta das cores de tipo (rosa mamada, azul fralda, roxo sono, verde agenda, marrom mamadeira).
+     --destaque é a cor de marca (ou a cor escolhida em Ajustes); o botão principal usa --botao */
+  --destaque: #5cd3e3;
   --destaque-texto: #0e0f13;
+  /* Botão principal: grafite (no escuro, ~88% de branco, sem o branco puro) */
+  --grafite: #e1e0dd;
+  --grafite-texto: #0e0f13;
+  --botao: var(--grafite);
+  --botao-texto: var(--grafite-texto);
   --bom: #34c759;
   --ruim: #ff6b61;
   --aviso: #ffd60a;
@@ -52,7 +60,7 @@
   /* Barra de abas: pílula de vidro flutuante (src/estilos/vidro.css). --nav-altura é a altura da
      pílula; --nav-base, a distância dela até a borda de baixo; --nav-espaco, o total que ela ocupa
      a partir da borda de baixo (use para nada ficar escondido atrás da barra) */
-  --nav-altura: 60px;
+  --nav-altura: 56px;
   --nav-base: max(10px, calc(env(safe-area-inset-bottom) - 10px));
   --nav-espaco: calc(var(--nav-base) + var(--nav-altura));
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -85,10 +93,12 @@
   --superficie-2: #efece7;
   --borda: #e2ded7;
   --texto: #1b1a1f;
-  --texto-2: #57555e;
-  --texto-3: #67656e;
-  --destaque: #1b1a1f;
+  --texto-2: #4e4c56;
+  --texto-3: #5d5b65;
+  --destaque: #0a6a7d;
   --destaque-texto: #ffffff;
+  --grafite: #1b1a1f;
+  --grafite-texto: #ffffff;
   --bom: #1e7b37;
   --ruim: #c9271b;
   --aviso: #a35200;
@@ -217,7 +227,7 @@ a { color: var(--destaque); }
   min-height: 46px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--borda);
   background: var(--superficie-2); font-weight: 600; cursor: pointer; text-decoration: none; text-align: center;
 }
-.botao.primario { background: var(--destaque); color: var(--destaque-texto); border-color: transparent; }
+.botao.primario { background: var(--botao); color: var(--botao-texto); border-color: transparent; }
 .botao.perigo { color: var(--ruim); }
 .botao.pequeno { min-height: 36px; padding: 0 12px; font-size: 0.85rem; border-radius: 10px; }
 .botao.largo { width: 100%; }
@@ -242,17 +252,8 @@ a { color: var(--destaque); }
 .campo input:focus, .campo select:focus, .campo textarea:focus { outline: 2px solid var(--destaque); outline-offset: -1px; }
 .campo small { color: var(--texto-3); font-size: 0.75rem; }
 
-.escolhas { display: flex; gap: 6px; flex-wrap: wrap; }
-.escolhas button {
-  flex: 1; min-height: 42px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--borda);
-  background: var(--superficie-2); cursor: pointer; font-size: 0.88rem; white-space: nowrap;
-}
-.escolhas button.ativo { background: var(--destaque); color: var(--destaque-texto); border-color: transparent; font-weight: 600; }
+/* Controle segmentado (.escolhas e .abas): um só visual, em src/estilos/sistema.css */
 
-.abas { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--superficie); border: 1px solid var(--borda); border-radius: 14px; }
-.abas button { flex: 1 1 auto; min-width: 0; padding: 0 4px; white-space: nowrap; min-height: 38px; border: 0; border-radius: 10px; background: transparent; color: var(--texto-2); font-weight: 600; cursor: pointer; font-size: 0.88rem; }
-.abas button.ativo { background: var(--superficie-2); color: var(--destaque); }
-@media (max-width: 359px) { .abas button { font-size: 0.78rem; } }
 /* Texto grande (Dynamic Type): botão que não cabe numa linha quebra em duas, nunca é cortado */
 .botao { overflow-wrap: break-word; line-height: 1.2; padding-block: 6px; }
 .abas button { overflow-wrap: normal; }
@@ -339,7 +340,8 @@ a { color: var(--destaque); }
   min-height: 38px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--borda); background: var(--superficie-2);
   cursor: pointer; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
-.chip.ativo { background: var(--destaque); color: var(--destaque-texto); border-color: transparent; font-weight: 600; }
+/* Chip marcado: cor de marca suave (preto cheio fica só no botão principal) */
+.chip.ativo { background: color-mix(in oklab, var(--destaque) 16%, var(--superficie)); color: var(--destaque); border-color: color-mix(in oklab, var(--destaque) 45%, transparent); font-weight: 650; }
 .bolinha { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgb(0 0 0 / 0.2); flex: none; }
 
 .folha-fundo { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.55); display: flex; align-items: flex-end; justify-content: center; }
@@ -452,7 +454,7 @@ details.ajuda[open] summary { margin-bottom: 8px; }
 .noite .folha {
   color-scheme: dark; color: #c9b8a6;
   --fundo: #000; --superficie: #0d0a08; --superficie-2: #1a110c; --borda: #2a221c;
-  --texto: #d9c4ae; --texto-2: #a08e7c; --texto-3: #8a7a6a; --destaque: #6b4a3a; --destaque-texto: #f0e2d2;
+  --texto: #d9c4ae; --texto-2: #a08e7c; --texto-3: #8a7a6a; --destaque: #6b4a3a; --destaque-texto: #f0e2d2; --botao: #6b4a3a; --botao-texto: #f0e2d2;
 }
 .noite .noite-grade { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(84px, 1fr); gap: 10px; }
 .noite > :not(.folha-fundo) button {
@@ -732,9 +734,9 @@ input[type="range"] { width: 100%; accent-color: var(--c-rendimento); }
 .esq-capa .capa-grande { gap: 10px; }
 .esq-capa-nome { height: 30px; border-radius: 10px; }
 .esq-capa-idade { height: 26px; border-radius: 999px; background: var(--superficie); }
-.esq-aba { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 100%; min-width: 0; }
-.esq-icone { width: 22px; height: 22px; border-radius: 7px; }
-.esq-rotulo { width: 30px; height: 7px; border-radius: 4px; }
+.esq-aba { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 100%; min-width: 0; }
+.esq-icone { width: 24px; height: 24px; border-radius: 7px; }
+.esq-rotulo { display: none; }
 @keyframes esq-brilho { to { transform: translateX(100%); } }
 @keyframes esq-aparecer { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {

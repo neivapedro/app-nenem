@@ -132,3 +132,19 @@
 @media (prefers-reduced-motion: reduce) {
   .he-linha, .he-arrastando { transition: none; }
 }
+
+/* ---------- Folhas de registro: linhas de ação (estilo action sheet) e ícones ---------- */
+.linha-acao {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 14px; text-align: left;
+  border-radius: 14px; background: var(--superficie-2); color: var(--texto); font-size: 1rem; font-weight: 550; cursor: pointer;
+  transition: transform 0.15s var(--curva), background-color 0.2s;
+}
+.linha-acao:active { transform: scale(0.985); }
+.linha-acao .ic-reg { color: var(--c-fralda); flex: none; width: 24px; height: 24px; }
+.linha-acao-texto { flex: 1; min-width: 0; }
+.linha-acao > svg:last-child { width: 18px; height: 18px; color: var(--texto-3); flex: none; }
+.ic-reg-xixi { color: var(--c-fralda); }
+.ic-reg-coco { color: var(--c-mamadeira); }
+.ic-reg-dois { color: var(--c-fralda); }
+.botao-grande .ic-reg { width: 32px; height: 32px; }
+@media (prefers-reduced-motion: reduce) { .linha-acao { transition: none; } .linha-acao:active { transform: none; } }

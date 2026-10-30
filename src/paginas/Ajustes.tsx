@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { AvatarBebe, EscolherFotoBebe } from '../componentes/avatar';
 import { FolhaBebe } from '../componentes/bebe';
+import { DicaInstalar } from '../componentes/dica-instalar';
 import { CartaoCalendario } from '../componentes/calendario';
 import { Campo, Icone } from '../componentes/ui';
 import { SITE_URL } from '../config';
@@ -11,9 +12,7 @@ import { ehErroDeRede, traduzirErro } from '../lib/erros';
 import {
   ativarNotificacoes,
   desativarNotificacoes,
-  ehIOS,
   estadoNotificacao,
-  instaladoComoApp,
   notificacaoTeste,
   type EstadoNotificacao,
 } from '../lib/notificacoes';
@@ -470,13 +469,7 @@ function CartaoConta() {
 export function Ajustes() {
   return (
     <div className="pilha">
-      {ehIOS() && !instaladoComoApp() && (
-        <div className="alerta">
-          <span>
-            Para usar como app (e receber avisos): no Safari, toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b> e abra pelo ícone.
-          </span>
-        </div>
-      )}
+      <DicaInstalar dispensavel={false} curta="Instale na Tela de Início para usar como app e receber avisos." />
       <CartaoBebe />
       <CartaoFamilia />
       <CartaoAvisos />

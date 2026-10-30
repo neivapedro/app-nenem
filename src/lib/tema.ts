@@ -42,9 +42,9 @@ export const MODOS: { valor: ModoTema; rotulo: string; dica: string }[] = [
   { valor: 'escuro', rotulo: 'Escuro', dica: 'Sempre escuro' },
 ];
 
-/** Amostras das cores (as mesmas de src/estilos/tema.css) para os botões de escolha */
+/** Amostras das cores (as mesmas de src/estilos.css e tema.css) para os botões de escolha. "Padrão" é a cor de marca (petróleo); quem nunca escolheu cor usa ela, quem já escolheu mantém. O botão principal continua grafite. */
 export const CORES: { valor: CorDestaque; rotulo: string; claro: string; escuro: string }[] = [
-  { valor: 'padrao', rotulo: 'Padrão', claro: '#1b1a1f', escuro: '#f4f3f1' },
+  { valor: 'padrao', rotulo: 'Padrão', claro: '#0a6a7d', escuro: '#5cd3e3' },
   { valor: 'azul', rotulo: 'Azul', claro: '#245bc0', escuro: '#8fb5ff' },
   { valor: 'verde', rotulo: 'Verde', claro: '#1f7356', escuro: '#66d1a4' },
   { valor: 'lilas', rotulo: 'Lilás', claro: '#7446c0', escuro: '#c8adf7' },

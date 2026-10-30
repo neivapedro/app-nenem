@@ -53,7 +53,7 @@
 }
 
 /* ---------- Cor do app ---------- */
-/* Padrão: grafite (quase branco no escuro, quase preto no claro), já definido em estilos.css */
+/* Padrão: cor de marca petróleo (já definida em estilos.css); o botão principal fica grafite (--botao) */
 :root[data-cor="azul"] { --destaque: #8fb5ff; --destaque-texto: #0e0f13; }
 :root[data-cor="verde"] { --destaque: #66d1a4; --destaque-texto: #0e0f13; }
 :root[data-cor="lilas"] { --destaque: #c8adf7; --destaque-texto: #0e0f13; }
@@ -68,11 +68,16 @@
   --destaque-b: color-mix(in oklab, var(--destaque) 6%, var(--superficie));
   --destaque-borda: color-mix(in oklab, var(--destaque) 22%, var(--borda-cartao, var(--borda)));
   --anel: var(--destaque);
+  /* Com cor escolhida, o botão principal também toma a cor */
+  --botao: var(--destaque);
+  --botao-texto: var(--destaque-texto);
 }
 /* De madrugada qualquer cor vira âmbar (azul e branco acordam) */
 :root[data-tema="noite"][data-cor] {
   --destaque: #c9935a;
   --destaque-texto: #140d08;
+  --botao: #c9935a;
+  --botao-texto: #140d08;
   --destaque-a: color-mix(in oklab, #c9935a 7%, var(--superficie));
   --destaque-b: color-mix(in oklab, var(--c-mamada) 5%, var(--superficie));
   --destaque-borda: color-mix(in oklab, #c9935a 14%, var(--borda-cartao));

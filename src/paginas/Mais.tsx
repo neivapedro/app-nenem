@@ -135,6 +135,19 @@ function MiniBarras({ serie }: { serie: number[] }) {
   );
 }
 
+/** Mini-anel de progresso (sem dado de progresso: só o trilho, tracejado) */
+function MiniAnel({ progresso }: { progresso?: number }) {
+  const r = 11;
+  const c = 2 * Math.PI * r;
+  const v = progresso === undefined ? 0 : Math.max(0, Math.min(1, progresso));
+  return (
+    <svg className={`mais-anel ${progresso === undefined ? 'vazio' : ''}`} viewBox="0 0 28 28" aria-hidden="true">
+      <circle className="mais-anel-trilho" cx="14" cy="14" r={r} />
+      {progresso !== undefined && v > 0 && <circle className="mais-anel-valor" cx="14" cy="14" r={r} strokeDasharray={`${v * c} ${c}`} transform="rotate(-90 14 14)" />}
+    </svg>
+  );
+}
+
 type SecaoMais = (typeof SECOES_MAIS)[number];
 
 /** Cartão da grade: ao tocar, cresce e vira a tela da seção (zoom); na volta, a tela encolhe nele */
@@ -154,15 +167,10 @@ function CartaoMais({ s, p, i }: { s: SecaoMais; p?: Previa; i: number }) {
           <Icone nome="seta" />
         </span>
       </span>
+      <span className="mais-grafico">{p?.serie ? <MiniBarras serie={p.serie} /> : <MiniAnel progresso={p?.progresso} />}</span>
       <span className="mais-corpo">
         <span className="mais-titulo">{s.titulo}</span>
         {p && <span className={`mais-previa ${p.alerta ? 'alerta' : ''}`}>{p.texto}</span>}
-        {p?.progresso !== undefined && (
-          <span className="mais-progresso" aria-hidden="true">
-            <span style={{ width: `${Math.round(Math.min(1, p.progresso) * 100)}%` }} />
-          </span>
-        )}
-        {p?.serie && <MiniBarras serie={p.serie} />}
       </span>
     </Link>
   );
