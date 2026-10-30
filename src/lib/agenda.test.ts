@@ -73,12 +73,12 @@ describe('itens automáticos da agenda', () => {
     const itens = itensAutomaticos(b, [], '2026-12-20');
     const mes = itens.filter((i) => i.tipo === 'mesversario');
     expect(mes.map((i) => [i.data, i.titulo])).toEqual([
-      ['2027-01-10', '🎂 Heitor faz 2 meses'],
-      ['2027-02-10', '🎂 Heitor faz 3 meses'],
-      ['2027-03-10', '🎂 Heitor faz 4 meses'],
+      ['2027-01-10', 'Heitor faz 2 meses'],
+      ['2027-02-10', 'Heitor faz 3 meses'],
+      ['2027-03-10', 'Heitor faz 4 meses'],
     ]);
     const doisMeses = itens.find((i) => i.data === '2027-01-10' && i.tipo === 'vacina');
-    expect(doisMeses?.titulo).toBe('💉 Vacinas dos 2 meses');
+    expect(doisMeses?.titulo).toBe('Vacinas dos 2 meses');
     expect(doisMeses?.situacao).toBe('proxima');
     expect(doisMeses?.detalhe).toContain('Pentavalente');
     // As do nascimento, sem marcar, passaram da tolerância

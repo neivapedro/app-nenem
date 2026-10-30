@@ -43,7 +43,7 @@
 /* Mini-fita das 24 h (o componente do painel, mais compacto) */
 .hist-fita { margin: 0 0 8px; padding: 10px 10px 8px; border-radius: 12px; background: color-mix(in srgb, var(--superficie-2) 45%, var(--superficie)); }
 .hist-fita .linha-tempo { gap: 4px; }
-.hist-fita .lt-faixa, .hist-fita .lt-eixo { grid-template-columns: 66px minmax(0, 1fr); gap: 6px; }
+.hist-fita .lt-faixa, .hist-fita .lt-eixo { grid-template-columns: 86px minmax(0, 1fr); gap: 6px; }
 .hist-fita .lt-titulo { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hist-fita .linha-tempo .lt-trilho { height: 14px; border-radius: 4px; }
 .hist-fita .linha-tempo .lt-trilho.sem-fundo { height: 12px; }

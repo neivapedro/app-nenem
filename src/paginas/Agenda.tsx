@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EstadoVazio } from '../componentes/ilustracoes';
 import { Campo, Escolhas, Folha, Icone, Selo } from '../componentes/ui';
@@ -8,7 +8,6 @@ import {
   compromissosAnteriores,
   compromissoVazio,
   datasRepetidas,
-  EMOJI_TIPO,
   itensAutomaticos,
   NOMES_COMPROMISSO,
   OPCOES_AVISO,
@@ -80,7 +79,7 @@ function FolhaCompromisso({ inicial, novo, aoFechar }: { inicial: Compromisso; n
       >
         <Campo rotulo="Tipo" grupo>
           <Escolhas
-            opcoes={(Object.keys(NOMES_COMPROMISSO) as TipoCompromisso[]).map((t) => ({ valor: t, rotulo: `${EMOJI_TIPO[t]} ${NOMES_COMPROMISSO[t]}` }))}
+            opcoes={(Object.keys(NOMES_COMPROMISSO) as TipoCompromisso[]).map((t) => ({ valor: t, rotulo: NOMES_COMPROMISSO[t] }))}
             valor={c.tipo}
             aoMudar={(tipo) => mudar({ tipo })}
           />
@@ -186,22 +185,54 @@ function FolhaCompromisso({ inicial, novo, aoFechar }: { inicial: Compromisso; n
   );
 }
 
+/** Detalhe em 1 linha; se não couber, aparece "ver mais" e o toque expande */
+function DetalheUmaLinha({ texto }: { texto: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [corta, setCorta] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const medir = () => {
+      const el = ref.current;
+      if (el && !aberto) setCorta(el.scrollWidth > el.clientWidth + 1);
+    };
+    medir();
+    window.addEventListener('resize', medir);
+    return () => window.removeEventListener('resize', medir);
+  }, [texto, aberto]);
+  if (!corta && !aberto)
+    return (
+      <span className="td-ag-detalhe">
+        <span ref={ref} className="td-ag-texto">
+          {texto}
+        </span>
+      </span>
+    );
+  return (
+    <button type="button" className={`td-ag-detalhe ${aberto ? 'aberto' : ''}`} onClick={() => (corta || aberto) && setAberto(!aberto)} aria-expanded={corta || aberto ? aberto : undefined}>
+      <span ref={ref} className="td-ag-texto">
+        {texto}
+      </span>
+      {(corta || aberto) && <span className="td-ag-mais">{aberto ? 'ver menos' : 'ver mais'}</span>}
+    </button>
+  );
+}
+
+const ICONE_TIPO_AGENDA: Record<TipoCompromisso, string> = { consulta: 'saude', exame: 'lista', vacina: 'vacina', outro: 'agenda' };
+
 function ItemCompromisso({ c, aoAbrir }: { c: Compromisso; aoAbrir: () => void }) {
   const { hoje } = useDados();
+  const detalhe = [c.local, c.observacao?.trim(), textoAviso(c)].filter(Boolean).join(' · ');
   return (
-    <button className="item t-agenda" onClick={aoAbrir}>
-      <Selo tipo="agenda" />
-      <div className="cresce">
-        <div className="titulo">
-          {EMOJI_TIPO[c.tipo]} {c.titulo}
-        </div>
-        <div className="detalhe">
-          {textoQuando(c, hoje)}
-          {c.local ? ` · ${c.local}` : ''}
-        </div>
-        <div className="detalhe">{textoAviso(c)}</div>
-      </div>
-    </button>
+    <div className="item t-agenda td-ag">
+      <button type="button" className="td-ag-abrir" onClick={aoAbrir}>
+        <Selo tipo="agenda" icone={ICONE_TIPO_AGENDA[c.tipo]} />
+        <span className="cresce">
+          <span className="td-ag-quando">{textoQuando(c, hoje)}</span>
+          <span className="titulo">{c.titulo}</span>
+        </span>
+      </button>
+      <DetalheUmaLinha texto={detalhe} />
+    </div>
   );
 }
 
@@ -214,14 +245,14 @@ function ItemAuto({ i, previa }: { i: ItemAutomatico; previa: boolean }) {
   const conteudo = (
     <>
       <span className="selo t-saude" style={{ background: 'transparent', border: '1.5px dashed color-mix(in srgb, var(--cor) 60%, transparent)' }}>
-        <Icone nome={i.tipo === 'vacina' ? 'vacina' : 'bebe'} />
+        <Icone nome={i.tipo === 'vacina' ? 'vacina' : 'bebe'} duo />
       </span>
       <div className="cresce">
-        <div className="titulo">{i.titulo}</div>
-        {i.tipo === 'vacina' && <div className="detalhe">{i.detalhe}</div>}
-        <div className="detalhe">
+        <div className="td-ag-quando">
           {quando} · automático{previa && i.tipo === 'vacina' ? ' (prévia pela data prevista do parto)' : ''}
         </div>
+        <div className="titulo">{i.titulo}</div>
+        {i.tipo === 'vacina' && <div className="detalhe td-ag-1linha">{i.detalhe}</div>}
       </div>
       {i.situacao === 'atrasada' && <span className="etiqueta ruim">Atrasada</span>}
       {i.situacao === 'agora' && <span className="etiqueta aviso">Já pode tomar</span>}

@@ -15,11 +15,11 @@ import { MenuRapido, useSegurar, type Ponto } from '../componentes/menu-rapido';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { useZoom } from '../lib/zoom';
-import { mediasUltimosDias } from '../lib/hoje';
+import { duracaoCurta, mediasUltimosDias } from '../lib/hoje';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, somarDiasLocal, textoDuracao } from '../lib/datas';
-import { ehIOS, instaladoComoApp } from '../lib/notificacoes';
+import { DicaInstalar } from '../componentes/dica-instalar';
 import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
-import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
+import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, textoFralda, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 import { aplicarAtalho, atalhosPara, type Atalho, type TipoAtalho } from '../lib/atalhos-rapidos';
 import { CHAVE_LAYOUT_HOJE, ehPadrao, layoutPadrao, lerLayout, ordemNaTela, serializarLayout, type IdCartaoHoje, type LayoutHoje } from '../lib/hoje-layout';
@@ -34,40 +34,6 @@ function lerLayoutSalvo(): LayoutHoje {
   } catch {
     return layoutPadrao();
   }
-}
-
-/** No Safari (ainda não instalado): como colocar na Tela de Início */
-function DicaInstalar() {
-  const [fechada, setFechada] = useState(() => {
-    try {
-      return localStorage.getItem('app-nenem:dica-instalar') === '1';
-    } catch {
-      return false;
-    }
-  });
-  if (fechada || !ehIOS() || instaladoComoApp()) return null;
-  return (
-    <div className="alerta info" style={{ alignItems: 'center' }}>
-      <span className="cresce">
-        Para usar como app: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>. Depois abra pelo ícone e entre de novo com o mesmo e-mail e senha.
-      </span>
-      <button
-        className="icone-botao"
-        aria-label="Fechar dica"
-        style={{ width: 32, height: 32 }}
-        onClick={() => {
-          setFechada(true);
-          try {
-            localStorage.setItem('app-nenem:dica-instalar', '1');
-          } catch {
-            /* nada */
-          }
-        }}
-      >
-        <Icone nome="fechar" />
-      </button>
-    </div>
-  );
 }
 
 /** Lembretes do dia: vacina, remédio, leite e primeiros dias (só o que pede ação) */
@@ -197,15 +163,32 @@ export function Hoje() {
   const alimentacao = ultimaAlimentacao(registros);
   const fralda = ultimoDoTipo(registros, 'fralda');
   const sono = ultimoDoTipo(registros, 'sono');
+  const mamadeira = ultimoDoTipo(registros, 'mamadeira');
   const recentes = ordenarRecentes(registros).slice(0, 5);
   const proximo = proximosCompromissos(compromissos, agora)[0];
   const nascido = !!bebe?.nascimento;
   // Média dos últimos 7 dias completos (muda só quando chega registro ou vira o dia)
   const medias = useMemo(() => (nascido ? mediasUltimosDias(registros, hoje, new Date(), bebe?.nascimento ?? null) : null), [registros, hoje, nascido, bebe?.nascimento]);
 
-  const desdeAlimentacao = alimentacao
-    ? `${haQuanto(alimentacao.inicio, agora)}${alimentacao.tipo === 'mamada' && ladoFinal(alimentacao) ? ` · terminou no ${ladoFinal(alimentacao)}` : alimentacao.tipo === 'mamadeira' ? ` · ${alimentacao.dados.ml} ml` : ''}`
-    : 'nenhuma ainda';
+  // Subtítulo dos cartões: 2 linhas fixas (quando · detalhe). Linha vazia fica reservada com espaço.
+  const desdeAlimentacao: [string, string] = andamento.mamada
+    ? ['em andamento', 'cronômetro ligado']
+    : alimentacao
+      ? [haQuanto(alimentacao.inicio, agora), alimentacao.tipo === 'mamada' ? (ladoFinal(alimentacao) ? `terminou no ${ladoFinal(alimentacao)}` : 'no peito') : `${alimentacao.dados.ml} ml`]
+      : ['nenhuma ainda', 'toque para começar'];
+  const desdeMamadeira: [string, string] = mamadeira ? [haQuanto(mamadeira.inicio, agora), resumo.ml ? `${Math.round(resumo.ml)} ml hoje` : 'leite ou fórmula'] : ['nenhuma ainda', 'leite ou fórmula'];
+  const desdeFralda: [string, string] = fralda ? [haQuanto(fralda.inicio, agora), textoFralda(fralda.dados)] : ['nenhuma ainda', 'xixi ou cocô'];
+  const desdeSono: [string, string] = andamento.sono
+    ? [`dormindo há ${duracaoCurta(Math.max(0, agora.getTime() - new Date(andamento.sono.inicio).getTime()))}`, 'toque p/ encerrar']
+    : sono?.fim
+      ? [haQuanto(sono.fim, agora), 'acordado']
+      : ['nenhum ainda', 'toque para começar'];
+  const Desde = ({ v }: { v: [string, string] }) => (
+    <span className="desde">
+      <span>{v[0]}</span>
+      <span className="desde-2">{v[1]}</span>
+    </span>
+  );
 
   const [perguntarSono, setPerguntarSono] = useState(false);
   function acordou(quando?: Date) {
@@ -268,22 +251,22 @@ export function Hoje() {
         <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada} {...segurar('mamada', !andamento.mamada)} {...dicaSegurar}>
           <Selo tipo="mamada" />
           <span className="nome">Mamada</span>
-          <span className="desde">{andamento.mamada ? 'em andamento' : alimentacao ? `Última ${desdeAlimentacao}` : desdeAlimentacao}</span>
+          <Desde v={desdeAlimentacao} />
         </button>
         <button className="acao t-mamadeira" onClick={() => setFolha('mamadeira')} {...segurar('mamadeira')} {...dicaSegurar}>
           <Selo tipo="mamadeira" />
           <span className="nome">Mamadeira</span>
-          <span className="desde">{resumo.mamadeiras ? `${resumo.ml} ml hoje` : 'leite materno ou fórmula'}</span>
+          <Desde v={desdeMamadeira} />
         </button>
         <button className="acao t-fralda" onClick={() => setFolha('fralda')} {...segurar('fralda')} {...dicaSegurar}>
           <Selo tipo="fralda" />
           <span className="nome">Fralda</span>
-          <span className="desde">{fralda ? `Última ${haQuanto(fralda.inicio, agora)}` : 'nenhuma ainda'}</span>
+          <Desde v={desdeFralda} />
         </button>
         <button className={`acao t-sono ${andamento.sono ? 'ativa' : ''}`} onClick={() => (andamento.sono ? acordou() : setFolha('sono'))} {...segurar('sono')} {...dicaSegurar}>
           <Selo tipo="sono" />
           <span className="nome">{andamento.sono ? 'Acordou' : 'Sono'}</span>
-          <span className="desde">{andamento.sono ? 'tocar para encerrar o sono' : sono?.fim ? `Acordado ${haQuanto(sono.fim, agora)}` : 'nenhum ainda'}</span>
+          <Desde v={desdeSono} />
         </button>
         <span id="hoje-dica-segurar" className="oculto-visual">
           Segure para ver atalhos de um toque.

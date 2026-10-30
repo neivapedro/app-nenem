@@ -21,6 +21,7 @@ type Fs = { readFileSync(caminho: URL, cod: 'utf8'): string };
 const fs = (globalThis as unknown as { process: { getBuiltinModule(m: 'node:fs'): Fs } }).process.getBuiltinModule('node:fs');
 const estilosCss = fs.readFileSync(new URL('../estilos.css', import.meta.url), 'utf8');
 const temaCss = fs.readFileSync(new URL('../estilos/tema.css', import.meta.url), 'utf8');
+const sistemaCss = fs.readFileSync(new URL('../estilos/sistema.css', import.meta.url), 'utf8');
 // Arquivos da tela de abertura que existem em public/abertura (só os nomes; nada é carregado)
 const ABERTURAS = Object.keys(import.meta.glob('../../public/abertura/*.png')).map((k) => k.replace('../../public/', ''));
 const MODOS: ModoTema[] = ['auto', 'sistema', 'claro', 'escuro'];
@@ -176,7 +177,7 @@ function casa(sel: string, a: Attrs): number | null {
   return esp;
 }
 
-const regras = [...regrasDeRaiz(estilosCss), ...regrasDeRaiz(temaCss)];
+const regras = [...regrasDeRaiz(estilosCss), ...regrasDeRaiz(temaCss), ...regrasDeRaiz(sistemaCss)];
 function tokens(a: Attrs) {
   const valores: { esp: number; ordem: number; nome: string; v: string }[] = [];
   regras.forEach((r, ordem) => {
@@ -238,6 +239,11 @@ describe('contraste AA em todos os temas e cores', () => {
         }
         // Texto do botão principal / aba / chip marcado
         expect(contraste(t('--destaque-texto'), t('--destaque'))).toBeGreaterThanOrEqual(4.5);
+        // Botão principal (grafite no padrão, a cor escolhida nas outras): texto legível
+        expect(contraste(t('--botao-texto'), t('--botao'))).toBeGreaterThanOrEqual(4.5);
+        // Opção ativa do controle segmentado: texto de marca sobre o "levantado"
+        expect(contraste(t('--destaque'), t('--ds-seg-ativo'))).toBeGreaterThanOrEqual(4.5);
+        expect(contraste(t('--texto-2'), t('--superficie-2'))).toBeGreaterThanOrEqual(4.5);
         // Cores dos tipos como texto, sobre o cartão e o fundo
         for (const c of TIPOS) for (const f of [t('--superficie'), t('--fundo')]) expect(contraste(t(c), f), `${c} sobre ${f}`).toBeGreaterThanOrEqual(4.5);
         // A barra do sistema tem a cor do fundo
@@ -252,6 +258,25 @@ describe('contraste AA em todos os temas e cores', () => {
       expect(tokens({ tema: 'noite', theme: 'dark', cor: c.valor })('--destaque')).toBe(COR_NOITE);
     }
     expect(Object.values(FUNDOS)).toHaveLength(5);
+  });
+
+  it('cor de marca padrão é distinta das cores de tipo (OKLab) e o botão principal continua grafite', () => {
+    for (const v of VARIANTES.filter((x) => x.tema !== 'noite')) {
+      const t = tokens({ ...v, cor: 'padrao' });
+      for (const c of TIPOS) {
+        const [l1, a1, b1] = oklab(t('--destaque'));
+        const [l2, a2, b2] = oklab(t(c));
+        expect(Math.hypot(l1 - l2, a1 - a2, b1 - b2), `marca x ${c} (${v.tema})`).toBeGreaterThanOrEqual(0.09);
+      }
+      // grafite: sem cor (canais próximos) e não é a cor de marca
+      const [, ga, gb] = oklab(t('--botao'));
+      expect(Math.hypot(ga, gb)).toBeLessThan(0.02);
+      expect(t('--botao')).not.toBe(t('--destaque'));
+      // no escuro nada de branco puro no botão
+      if (v.tema === 'escuro') expect(t('--botao').toLowerCase()).not.toBe('#ffffff');
+    }
+    // com cor escolhida, o botão toma a cor (quem já escolheu mantém)
+    expect(tokens({ tema: 'claro', theme: 'light', cor: 'azul' })('--botao')).toBe('#245bc0');
   });
 
   it('noite âmbar: sem azul nem branco forte, tipos ainda distinguíveis', () => {

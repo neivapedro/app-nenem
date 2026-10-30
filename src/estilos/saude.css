@@ -153,7 +153,11 @@
 .sc-dica strong { font-family: var(--sv-redondo, system-ui); }
 
 /* ---------- Remédios ---------- */
-.sr-barra { height: 6px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
+.sr-linha { display: flex; align-items: center; gap: 10px; }
+.sr-linha .sr-barra { flex: 1; min-width: 0; }
+.sr-rotulo { flex: none; font-size: 0.8rem; font-weight: 600; color: var(--texto-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sr-rotulo.atrasada { color: var(--ruim); }
+.sr-barra { height: 10px; border-radius: 999px; background: var(--superficie-2); overflow: hidden; }
 .sr-barra > span { display: block; height: 100%; border-radius: inherit; background: var(--c-agenda); }
 .sr-barra.atrasada > span { background: var(--ruim); }
 

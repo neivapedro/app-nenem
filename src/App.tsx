@@ -330,7 +330,7 @@ function Estrutura() {
         <div className={`nav-itens${ativa < 0 ? ' sem-bolha' : ''}`} style={{ '--aba-i': Math.max(0, ativa) } as CSSProperties}>
           <span className="nav-bolha" aria-hidden="true" />
           {ABAS.map((a) => (
-            <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} className={({ isActive }) => (isActive ? 'ativo' : '')} onClick={comTransicao(a.para)}>
+            <NavLink key={a.para} to={a.para} end={a.para !== '/mais'} aria-label={a.rotulo} className={({ isActive }) => (isActive ? 'ativo' : '')} onClick={comTransicao(a.para)}>
               <Icone nome={a.icone} />
               {'curto' in a && a.curto ? (
                 <span className="nav-rotulo">

@@ -486,15 +486,51 @@ export function Escolhas<T extends string | number | boolean | null>({
   rotulo?: string;
 }) {
   const id = useId();
+  // Um só ponto de parada do Tab (a opção marcada); as setas andam entre as opções (setasSegmentado)
+  const marcada = opcoes.some((o) => o.valor === valor);
   return (
     <div className="escolhas" role="radiogroup" aria-label={rotulo} id={id}>
       {opcoes.map((o) => (
-        <button key={String(o.valor)} type="button" role="radio" aria-checked={valor === o.valor} className={valor === o.valor ? 'ativo' : ''} onClick={() => aoMudar(o.valor)}>
+        <button
+          key={String(o.valor)}
+          type="button"
+          role="radio"
+          aria-checked={valor === o.valor}
+          tabIndex={marcada && valor !== o.valor ? -1 : undefined}
+          className={valor === o.valor ? 'ativo' : ''}
+          onClick={() => aoMudar(o.valor)}
+        >
           {o.rotulo}
         </button>
       ))}
     </div>
   );
+}
+
+/**
+ * Setas nos controles segmentados (radiogroup do <Escolhas> e tablist das abas das telas): ←/→ (↑/↓)
+ * levam o foco à opção vizinha e a escolhem, como no iOS. Um só ouvinte no documento serve todos.
+ */
+export function setasSegmentado(e: KeyboardEvent) {
+  const alvo = e.target as HTMLElement | null;
+  if (!alvo || e.altKey || e.ctrlKey || e.metaKey) return;
+  const grupo = alvo.closest<HTMLElement>('[role="radiogroup"].escolhas, [role="tablist"]');
+  const papel = alvo.getAttribute('role');
+  if (!grupo || (papel !== 'radio' && papel !== 'tab')) return;
+  const passo = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : e.key === 'Home' ? 'ini' : e.key === 'End' ? 'fim' : 0;
+  if (!passo) return;
+  const itens = Array.from(grupo.querySelectorAll<HTMLButtonElement>(`[role="${papel}"]:not(:disabled)`));
+  const i = itens.indexOf(alvo as HTMLButtonElement);
+  if (i < 0) return;
+  const prox = passo === 'ini' ? itens[0] : passo === 'fim' ? itens[itens.length - 1] : itens[(i + passo + itens.length) % itens.length];
+  e.preventDefault();
+  prox.focus();
+  prox.click();
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('keydown', setasSegmentado);
+  // Recarga a quente do Vite: o módulo antigo sai, para as setas não andarem 2 opções
+  import.meta.hot?.dispose(() => document.removeEventListener('keydown', setasSegmentado));
 }
 
 /** Logotipo do app (o mesmo desenho do ícone da Tela de Início) */

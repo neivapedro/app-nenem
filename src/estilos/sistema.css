@@ -1,0 +1,81 @@
+/* ---------- Design system: controle segmentado, cabeçalhos de cartão, legendas (prefixo ds-) ----------
+   Um só controle de escolha no app inteiro: trilho cinza, opção ativa "levantada" (branca no claro,
+   cinza-elevado no escuro) com sombra fina e texto forte na cor de marca. Vale para <Escolhas>
+   (role radiogroup) e para as abas das telas (.abas, role tablist). Preto cheio fica só no botão
+   principal (.botao.primario). Carrega depois das telas (ordem alfabética): vence regras iguais delas. */
+
+:root {
+  --ds-trilho: rgb(118 118 128 / 0.24);
+  --ds-seg-ativo: #3d3f49;
+  --ds-seg-sombra: 0 1px 3px rgb(0 0 0 / 0.4), 0 0 0 0.5px rgb(255 255 255 / 0.06);
+  --ds-seg-texto: var(--destaque);
+}
+:root[data-tema="claro"] {
+  --ds-trilho: rgb(60 60 67 / 0.11);
+  --ds-seg-ativo: #ffffff;
+  --ds-seg-sombra: 0 1px 3px rgb(0 0 0 / 0.14), 0 0 0 0.5px rgb(0 0 0 / 0.05);
+}
+:root[data-tema="noite"] {
+  --ds-trilho: rgb(255 190 120 / 0.08);
+  --ds-seg-ativo: #35271b;
+  --ds-seg-sombra: 0 1px 2px rgb(0 0 0 / 0.5);
+}
+
+.escolhas, .abas {
+  display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 0; border-radius: 12px;
+  background: var(--ds-trilho);
+}
+.escolhas button, .abas button {
+  flex: 1 1 auto; min-width: 0; min-height: 38px; padding: 0 10px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--texto-2); font: inherit; font-size: 0.88rem; font-weight: 600;
+  white-space: nowrap; overflow-wrap: normal; cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.escolhas button.ativo, .abas button.ativo {
+  background: var(--ds-seg-ativo); color: var(--ds-seg-texto); font-weight: 700; box-shadow: var(--ds-seg-sombra);
+}
+.escolhas button:focus-visible, .abas button:focus-visible { outline: 2px solid var(--destaque); outline-offset: 1px; }
+@media (max-width: 359px) { .escolhas button, .abas button { padding: 0 6px; font-size: 0.8rem; } }
+/* Dentro de um cartão o trilho cinza continua visível; na folha também */
+.folha .escolhas, .cartao .abas { background: var(--ds-trilho); }
+
+/* ---------- Cabeçalho de cartão: um tamanho, um peso, ação à direita ---------- */
+main .cartao.cartao > h2,
+main .cartao.cartao .cartao-cab h2,
+.folha .cartao-cab h2,
+main .hist-cab h2, main .dia-cab h2, main .mom-secao h2 {
+  font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; text-transform: none; color: var(--texto);
+  line-height: 1.25;
+}
+main .cartao.cartao > h2 { margin: 0 0 12px; }
+main .cartao.cartao .cartao-cab h2 { margin: 0; }
+main .cartao-cab { align-items: center; }
+
+/* ---------- Legendas e textos de apoio: piso de 12px ---------- */
+.nome-app, .etiqueta, .leitura-titulo, .mapa-dia, .mapa-hora, .mapa-escala, .lt-marca,
+.sv-etapa-sub, .sc-regua-marcas span, .cf-spark-eixo, .cf-mes, .cf-anel-centro span,
+.rd-centro-rotulo, .rd-centro-extra, .kpis .kpi-rotulo, .kpis .kpi-delta, .kpis .kpi-delta.mudo,
+.hp-centro-legenda, .hp-rotulo, .he-desc, .mom-sobre, .ap-tema-texto small, .hist-semana,
+.hist-fita .lt-titulo, .hist-fita .lt-marca, .hist-fita .legenda, .dev-sobre, .pv-dia,
+.foto-mes > .mudo, .foto-mes-rotulo span, .bloco .rotulo, .bloco .valor small, .campo small,
+.botao-grande small, .painel-grafico .leitura, .painel-grafico .leitura-fora, .mom-bloco .rotulo {
+  font-size: max(12px, 0.75rem);
+}
+
+/* Ajustes da 2ª conferência */
+.dica-como, .dica-fechar { border: 0; }
+.ap-tema-texto small { font-size: max(12px, 0.75rem); }
+.ap-cor { font-size: max(12px, 0.75rem); }
+@media (max-width: 380px) {
+  .ap-cores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ap-cor { font-size: max(12px, 0.75rem); letter-spacing: 0; }
+  /* Tabelas de medidas: em tela estreita as células podem quebrar em vez de alargar a página */
+  .tabela-simples th, .tabela-simples td, .saude .tabela-simples td:first-child { white-space: normal; }
+}
+/* Selo do painel de vacinas nunca passa da borda do cartão */
+.sv-resumo-texto > * { max-width: 100%; }
+.sv-resumo-texto .etiqueta, .sv-resumo-texto [class*="selo"], .sv-resumo-texto [class*="pilula"] { white-space: normal; }
+
+/* Acabamento final (conferência geral): palavras não quebram ao meio nos títulos dos cartões do Mais; datas do extrato inteiras */
+.mais-titulo { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.cf-mov-data, .cf-data, [class*="cf-"][class*="data"] { white-space: nowrap; }

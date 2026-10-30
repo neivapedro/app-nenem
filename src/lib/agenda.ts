@@ -178,7 +178,7 @@ export function itensAutomaticos(bebe: Bebe | null, aplicacoes: AplicacaoVacina[
         chave: `vacinas-${data}`,
         tipo: 'vacina',
         data,
-        titulo: `💉 ${g.nomes.length === 1 ? 'Vacina' : 'Vacinas'} ${idadeDaVacina(g.meses)}`,
+        titulo: `${g.nomes.length === 1 ? 'Vacina' : 'Vacinas'} ${idadeDaVacina(g.meses)}`,
         detalhe: g.nomes.join(', '),
         situacao: g.situacao,
       });
@@ -189,7 +189,7 @@ export function itensAutomaticos(bebe: Bebe | null, aplicacoes: AplicacaoVacina[
     for (let n = 1; n <= MESES_MESVERSARIO && itens.filter((i) => i.tipo === 'mesversario').length < MESVERSARIOS_NA_LISTA; n++) {
       const data = somarMeses(nasc, n);
       if (data < hoje) continue;
-      itens.push({ chave: `mesversario-${n}`, tipo: 'mesversario', data, titulo: `🎂 ${nome} faz ${textoMeses(n)}`, detalhe: 'Mesversário' });
+      itens.push({ chave: `mesversario-${n}`, tipo: 'mesversario', data, titulo: `${nome} faz ${textoMeses(n)}`, detalhe: 'Mesversário' });
     }
   }
   return itens.sort((a, b) => a.data.localeCompare(b.data));

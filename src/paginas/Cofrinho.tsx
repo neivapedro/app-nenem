@@ -6,6 +6,7 @@ import { Anel, BarrasHorizontais, GraficoLinhas, Sparkline, type SerieLinha } fr
 import { arquivoPdf, compartilhar, prepararEEnviar } from '../componentes/doc-arquivos';
 import { Visualizador } from '../componentes/doc-visualizador';
 import { Porquinho, PorquinhoMini } from '../componentes/porquinho';
+import { IconeOcasiao } from '../componentes/icones-cofrinho';
 import { Campo, Escolhas, Folha, Icone } from '../componentes/ui';
 import { useDados } from '../dados/contexto';
 import {
@@ -303,13 +304,31 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
   const [msg, setMsg] = useState<string | null>(null);
   const deposito = m.tipo === 'deposito' && !transferir;
   const nomeConta = (id: string) => contas.find((c) => c.id === id)?.nome ?? 'outra conta';
-  // Quem já mandou antes vem primeiro; depois os responsáveis e a família
+  // Mais usados nos lançamentos primeiro (empate: o mais recente); depois os responsáveis e a família
   const nomes = useMemo(() => {
-    const vistos = new Map<string, string>();
-    for (const x of [...cofrinho_movimentos].sort((a, b) => b.data.localeCompare(a.data))) if (x.de?.trim()) vistos.set(x.de.trim().toLocaleLowerCase('pt-BR'), x.de.trim());
-    for (const n of [...membros.map((x) => x.nome.split(' ')[0]), ...NOMES_FAMILIA]) if (n && !vistos.has(n.toLocaleLowerCase('pt-BR'))) vistos.set(n.toLocaleLowerCase('pt-BR'), n);
-    return [...vistos.values()].slice(0, 12);
+    const vistos = new Map<string, { nome: string; vezes: number }>();
+    for (const x of [...cofrinho_movimentos].sort((a, b) => b.data.localeCompare(a.data))) {
+      const n = x.de?.trim();
+      if (!n) continue;
+      const k = n.toLocaleLowerCase('pt-BR');
+      const v = vistos.get(k);
+      if (v) v.vezes++;
+      else vistos.set(k, { nome: n, vezes: 1 });
+    }
+    const usados = [...vistos.values()].sort((a, b) => b.vezes - a.vezes).map((v) => v.nome);
+    const padrao: string[] = [];
+    for (const n of [...membros.map((x) => x.nome.split(' ')[0]), ...NOMES_FAMILIA]) if (n && !vistos.has(n.toLocaleLowerCase('pt-BR')) && !padrao.includes(n)) padrao.push(n);
+    return [...usados, ...padrao].slice(0, 12);
   }, [cofrinho_movimentos, membros]);
+  const ocasioesOrdenadas = useMemo(() => {
+    const vezes = new Map<string, number>();
+    for (const x of cofrinho_movimentos) if (x.ocasiao) vezes.set(x.ocasiao, (vezes.get(x.ocasiao) ?? 0) + 1);
+    return [...OCASIOES].sort((a, b) => (vezes.get(b.id) ?? 0) - (vezes.get(a.id) ?? 0));
+  }, [cofrinho_movimentos]);
+  const [verTodosNomes, setVerTodosNomes] = useState(false);
+  const [verTodasOcasioes, setVerTodasOcasioes] = useState(false);
+  /** 5 primeiros (mais o escolhido, se estiver mais para baixo) ou todos */
+  const cinco = <T,>(lista: T[], todos: boolean, escolhido: (x: T) => boolean) => (todos ? lista : lista.filter((x, i) => i < 5 || escolhido(x)));
 
   async function anexar(f: File | undefined) {
     if (!f) return;
@@ -547,20 +566,28 @@ function FolhaMovimento({ inicial, novo, contas, aoFechar }: { inicial: Moviment
             <Campo rotulo="Quem mandou" grupo>
               <input value={m.de ?? ''} maxLength={80} onChange={(e) => setM({ ...m, de: e.target.value })} placeholder="Ex.: Vovó Maria" autoCapitalize="words" aria-label="Quem mandou" />
               <div className="chips" style={{ marginTop: 8 }}>
-                {nomes.map((n) => (
+                {cinco(nomes, verTodosNomes, (n) => m.de === n).map((n) => (
                   <button key={n} type="button" className={`chip ${m.de === n ? 'ativo' : ''}`} onClick={() => setM({ ...m, de: n })}>
                     {n}
                   </button>
                 ))}
+                {nomes.length > 5 && (
+                  <button type="button" className="chip td-ver-todos" aria-expanded={verTodosNomes} onClick={() => setVerTodosNomes(!verTodosNomes)}>
+                    {verTodosNomes ? 'Ver menos' : 'Ver todos'}
+                  </button>
+                )}
               </div>
             </Campo>
             <Campo rotulo="Ocasião" grupo>
               <div className="chips">
-                {OCASIOES.map((o) => (
-                  <button key={o.id} type="button" className={`chip ${m.ocasiao === o.id ? 'ativo' : ''}`} onClick={() => setM({ ...m, ocasiao: m.ocasiao === o.id ? null : o.id })}>
-                    {o.emoji} {o.nome}
+                {cinco(ocasioesOrdenadas, verTodasOcasioes, (o) => m.ocasiao === o.id).map((o) => (
+                  <button key={o.id} type="button" className={`chip td-chip-ico ${m.ocasiao === o.id ? 'ativo' : ''}`} onClick={() => setM({ ...m, ocasiao: m.ocasiao === o.id ? null : o.id })}>
+                    <IconeOcasiao id={o.id} /> {o.nome}
                   </button>
                 ))}
+                <button type="button" className="chip td-ver-todos" aria-expanded={verTodasOcasioes} onClick={() => setVerTodasOcasioes(!verTodasOcasioes)}>
+                  {verTodasOcasioes ? 'Ver menos' : 'Ver todos'}
+                </button>
               </div>
             </Campo>
             <Campo rotulo="Recado para o Heitor (opcional)" dica="Vai para o mural: para ele ler quando crescer.">
@@ -1001,7 +1028,12 @@ function ListaMovimentos({ movs, contas, aoAbrir, limite, oculto, agrupar }: { m
                   {ehTransferencia(m) && 'Transferência · '}
                   {dataBr(m.data)}
                   {contas.length > 1 && ` · ${nomeConta.get(m.conta_id) ?? ''}`}
-                  {m.ocasiao && ` · ${OCASIAO[m.ocasiao].emoji} ${OCASIAO[m.ocasiao].nome}`}
+                  {m.ocasiao && (
+                    <>
+                      {' · '}
+                      <IconeOcasiao id={m.ocasiao} /> {OCASIAO[m.ocasiao].nome}
+                    </>
+                  )}
                   {m.comprovante && ' · 📎'}
                 </span>
               </span>
@@ -1428,8 +1460,17 @@ export function Cofrinho() {
         )}
         <div className="cf-chips">
           {seguidos >= 2 && <span className="etiqueta bom">🔥 {seguidos} meses seguidos</span>}
-          {r.depositos > 0 && <span className="etiqueta">{r.depositos} {r.depositos === 1 ? 'depósito' : 'depósitos'}</span>}
-          {pessoas > 1 && <span className="etiqueta">{pessoas} pessoas contribuíram</span>}
+          {r.depositos > 0 && (
+            <span className="etiqueta">
+              {r.depositos} {r.depositos === 1 ? 'depósito' : 'depósitos'}
+              {pessoas > 1 && (
+                <>
+                  {' · '}
+                  {pessoas} pessoas<span className="oculto-visual"> contribuíram</span>
+                </>
+              )}
+            </span>
+          )}
         </div>
         {!r.depositos && <p className="mudo">Registre o primeiro depósito para o cofrinho ganhar vida.</p>}
         {(() => {
@@ -1700,7 +1741,11 @@ export function Cofrinho() {
               <figure key={m.id} className="recado">
                 <blockquote>“{m.recado}”</blockquote>
                 <figcaption>
-                  {m.ocasiao ? `${OCASIAO[m.ocasiao].emoji} ` : ''}
+                  {m.ocasiao && (
+                    <>
+                      <IconeOcasiao id={m.ocasiao} />{' '}
+                    </>
+                  )}
                   {m.de || 'Família'} · {dataBr(m.data)}
                 </figcaption>
               </figure>

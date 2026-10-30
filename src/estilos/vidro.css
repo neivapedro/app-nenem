@@ -8,7 +8,7 @@
 
 :root {
   /* Escuro: superfície encorpada; o que está atrás escurece e perde contraste antes do desfoque */
-  --vidro-opaco: 88%;
+  --vidro-opaco: 92%;
   --vidro-filtro: blur(20px) saturate(170%) contrast(0.6) brightness(0.55);
   --vidro-borda: rgb(255 255 255 / 0.1);
   --vidro-brilho: inset 0 1px 0 rgb(255 255 255 / 0.08);
@@ -24,7 +24,7 @@
 }
 :root[data-tema="claro"] {
   /* Claro: o preto que passa por baixo vira cinza claro antes de chegar ao vidro */
-  --vidro-opaco: 88%;
+  --vidro-opaco: 92%;
   --vidro-filtro: blur(20px) saturate(180%) contrast(0.55) brightness(1.29);
   --vidro-borda: rgb(0 0 0 / 0.07);
   --vidro-brilho: inset 0 1px 0 rgb(255 255 255 / 0.85);
@@ -34,7 +34,7 @@
 }
 :root[data-tema="noite"] {
   /* Noite âmbar: mais encorpado e sem brilho branco (nada aceso de madrugada) */
-  --vidro-opaco: 84%;
+  --vidro-opaco: 90%;
   --vidro-filtro: blur(20px) saturate(120%) contrast(0.5) brightness(0.6);
   --vidro-borda: rgb(217 182 138 / 0.08);
   --vidro-brilho: none;
@@ -58,9 +58,24 @@
   /* Só a pílula recebe o toque: o conteúdo ao lado e abaixo dela continua tocável */
   pointer-events: none;
 }
+/* Degradê atrás da barra ("scroll edge effect" do iOS 26): o texto que passa por baixo some
+   suavemente na cor do fundo, de transparente a opaco, em ~40px acima da pílula */
+.nav::before {
+  content: ''; position: absolute; z-index: -1; left: 0; right: 0; bottom: calc(-1 * var(--nav-base));
+  height: calc(var(--nav-espaco) + 40px); pointer-events: none;
+  background: linear-gradient(to bottom, transparent 0, color-mix(in srgb, var(--fundo) 72%, transparent) 38%, var(--fundo) calc(100% - var(--nav-base) * 0.2));
+}
+:root[data-transicao] .nav::before { opacity: 0; }
+
+/* Pílula: a aba ativa se expande (ícone + rótulo) e as outras ficam só com o ícone (24px).
+   --aba-i = posição da ativa; --nav-k = quanto a ativa pesa contra 1 das outras. A bolha usa a
+   mesma conta e a mesma curva do crescimento da aba, então desliza junto. */
 .nav-itens {
+  --nav-k: 2.7;
+  --nav-un: calc((100% - 2 * var(--nav-pad)) / (6 + var(--nav-k)));
+  --nav-mov: 0.42s cubic-bezier(0.3, 0.9, 0.3, 1);
   pointer-events: auto;
-  position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  position: relative; display: flex;
   width: 100%; max-width: 540px; height: var(--nav-altura); padding: var(--nav-pad);
   border-radius: 999px; border: 1px solid var(--vidro-borda);
   background: color-mix(in srgb, var(--superficie) var(--vidro-opaco), transparent);
@@ -69,39 +84,40 @@
   transition: height 0.32s var(--curva);
 }
 .nav a {
-  position: relative; z-index: 1; min-width: 0; height: 100%;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  position: relative; z-index: 1; min-width: 0; height: 100%; flex: 1 1 0;
+  display: flex; align-items: center; justify-content: center; gap: 0;
   border-radius: 999px; text-decoration: none; color: var(--texto-2);
   /* Rótulo das abas não cresce com o tamanho do texto (como no iPhone): 7 abas precisam caber */
-  font-size: clamp(9px, 0.62rem, 10.5px); font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; white-space: nowrap;
-  transition: gap 0.32s var(--curva), color 0.2s ease;
+  font-size: clamp(11px, 0.7rem, 12px); font-weight: 650; line-height: 1.15; letter-spacing: -0.015em; white-space: nowrap;
+  transition: flex-grow var(--nav-mov), color 0.2s ease;
 }
-.nav a.ativo { color: var(--nav-ativo); }
+.nav a.ativo { flex-grow: var(--nav-k); color: var(--nav-ativo); }
+.sem-bolha a { flex-grow: 1 !important; }
 .nav a.ativo svg { color: var(--destaque); }
-.nav svg { width: 22px; height: 22px; flex: none; }
+.nav svg { width: 24px; height: 24px; flex: none; }
 .nav a:focus-visible { outline: 2px solid var(--destaque); outline-offset: -2px; }
+/* Só a aba ativa mostra o texto (as outras têm aria-label) */
 .nav-rotulo {
-  display: block; max-width: 100%; max-height: 1.3em; overflow: hidden;
-  transition: opacity 0.2s ease, max-height 0.32s var(--curva);
+  display: block; max-width: 0; opacity: 0; overflow: hidden;
+  transition: opacity 0.2s ease, max-width var(--nav-mov), margin 0.2s ease;
 }
-/* Bolha atrás da aba acesa: desliza até a nova ao trocar (um tico de mola no fim) */
+.nav a.ativo .nav-rotulo { max-width: 9em; opacity: 1; margin-left: 4px; transition-delay: 0s, 0s, 0s; }
+/* Bolha atrás da aba acesa: desliza até a nova ao trocar */
 .nav-bolha {
-  position: absolute; z-index: 0; top: var(--nav-pad); bottom: var(--nav-pad); left: var(--nav-pad);
-  width: calc((100% - 2 * var(--nav-pad)) / 7);
+  position: absolute; z-index: 0; top: var(--nav-pad); bottom: var(--nav-pad);
+  left: calc(var(--nav-pad) + var(--aba-i, 0) * var(--nav-un));
+  width: calc(var(--nav-k) * var(--nav-un));
   border-radius: 999px;
-  background: color-mix(in oklab, var(--destaque) 14%, transparent);
-  box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--destaque) 16%, transparent);
-  transform: translateX(calc(var(--aba-i, 0) * 100%));
-  transition: transform 0.45s cubic-bezier(0.34, 1.22, 0.5, 1), opacity 0.2s ease;
+  background: color-mix(in oklab, var(--destaque) 16%, transparent);
+  box-shadow: inset 0 0 0 0.5px color-mix(in oklab, var(--destaque) 20%, transparent);
+  transition: left var(--nav-mov), opacity 0.2s ease;
   pointer-events: none;
 }
-:root[data-tema="claro"] .nav-bolha { background: color-mix(in oklab, var(--destaque) 10%, transparent); }
+:root[data-tema="claro"] .nav-bolha { background: color-mix(in oklab, var(--destaque) 11%, transparent); }
 .sem-bolha .nav-bolha { opacity: 0; }
 
-/* Rolando para baixo: a pílula fica mais baixa, só com os ícones; volta ao subir ou parar */
+/* Rolando para baixo: a pílula fica mais baixa; volta ao subir ou parar */
 :root[data-nav-recolhida] .nav-itens { height: var(--nav-altura-p); }
-:root[data-nav-recolhida] .nav a { gap: 0; }
-:root[data-nav-recolhida] .nav-rotulo { opacity: 0; max-height: 0; }
 
 /* 7 abas: "Documentos" não cabe folgado em nenhum iPhone (nem de 430 px); sempre vira "Docs" (o leitor de tela lê o nome inteiro) */
 .rotulo-curto { display: none; }
@@ -109,15 +125,15 @@
   .rotulo-longo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .rotulo-curto { display: inline; }
 }
-/* Telas estreitas (iPhone SE/mini, 320–380 px): letra e ícone um pouco menores, pílula mais larga */
+/* Telas estreitas (iPhone SE/mini, 320–380 px): pílula mais larga e a ativa um pouco mais folgada */
 @media (max-width: 380px) {
-  .nav a { font-size: clamp(8.5px, 0.58rem, 9.5px); }
-  .nav svg { width: 20px; height: 20px; }
+  .nav-itens { --nav-k: 2.6; }
 }
 @media (max-width: 340px) {
   :root { --nav-pad: 3px; }
   .nav { padding-left: max(6px, env(safe-area-inset-left)); padding-right: max(6px, env(safe-area-inset-right)); }
-  .nav a { letter-spacing: -0.035em; }
+  .nav a { letter-spacing: -0.03em; }
+  .nav a.ativo .nav-rotulo { margin-left: 3px; }
 }
 
 /* Troca de tela (View Transitions): a imagem da barra é tirada sem o desfoque de trás; um fundo
@@ -129,12 +145,19 @@
    vira vidro: translúcido, desfocado, com um fio embaixo. Vale para a capa do Hoje compacta. */
 .topo { transition: background-color 0.25s ease, box-shadow 0.25s ease; }
 :root[data-topo-vidro] .topo {
-  background: color-mix(in srgb, var(--fundo) var(--vidro-opaco), transparent);
+  background: color-mix(in srgb, var(--fundo) max(var(--vidro-opaco), 96%), transparent);
   -webkit-backdrop-filter: var(--vidro-filtro); backdrop-filter: var(--vidro-filtro);
   box-shadow: 0 0.5px 0 var(--vidro-linha);
 }
 /* Durante a troca de tela o topo antigo e o novo se cruzam: sólido, sem um aparecer através do outro */
 :root[data-transicao] .topo { background: var(--fundo); -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* Borda suave embaixo do topo de vidro: o texto que sobe vai sumindo, sem corte seco */
+.topo::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 100%; height: 14px; pointer-events: none; opacity: 0; transition: opacity 0.25s ease;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--fundo) 80%, transparent), transparent);
+}
+:root[data-topo-vidro] .topo::after { opacity: 1; }
+:root[data-transicao] .topo::after { opacity: 0; }
 
 /* ---------- Folhas de vidro ---------- */
 .folha {

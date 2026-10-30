@@ -934,10 +934,7 @@ export function SecaoDocumentos() {
   return (
     <div className="pilha">
       <section aria-label="Carteira" className="pilha-p">
-        <div className="linha" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>Carteira</h2>
-          {carteira.length > 0 && <span className="mudo">Toque para mostrar</span>}
-        </div>
+        {carteira.length > 0 && <p className="mudo td-dica-carteira">Toque num cartão para mostrar</p>}
         {carteira.length ? (
           // Empilhados como na Carteira do iPhone: o mais usado fica na frente, inteiro; os outros mostram só a faixa de cima
           <ul className={`carteira-pilha ${carteira.length > 4 ? 'apertada' : ''}`}>
@@ -967,14 +964,15 @@ export function SecaoDocumentos() {
       </div>
       <div className="pilha-p">
         <button
-          className="botao"
-          disabled={zipando !== null || !comArquivo.length}
-          onClick={() => void baixarZip()}
+          className="botao td-contorno"
+          disabled={zipando !== null}
+          aria-disabled={!comArquivo.length || undefined}
+          onClick={() => (comArquivo.length ? void baixarZip() : dados.mostrarAviso({ texto: 'Ainda não há documentos com foto ou PDF' }))}
           aria-label={zipando ?? 'Baixar todos os arquivos dos documentos em .zip'}
         >
           <Icone nome="baixar" /> {zipando ?? (comArquivo.length ? `Baixar tudo em .zip (${comArquivo.reduce((n, d) => n + d.arquivos.length, 0)})` : 'Baixar tudo em .zip')}
         </button>
-        {!comArquivo.length && <p className="mudo" style={{ margin: 0 }}>Quando tiver documentos com foto ou PDF, este botão junta todos num .zip, cada um com o nome do documento.</p>}
+        <p className="mudo td-ajuda">Junta as fotos e PDFs de todos os documentos num arquivo só.</p>
         {zipPronto && zipando === null && (
           <button className="botao" onClick={() => void compartilhar([zipPronto], zipPronto.name)}>
             <Icone nome="compartilhar" /> Compartilhar o .zip
