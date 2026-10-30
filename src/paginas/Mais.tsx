@@ -167,7 +167,8 @@ function CartaoMais({ s, p, i }: { s: SecaoMais; p?: Previa; i: number }) {
           <Icone nome="seta" />
         </span>
       </span>
-      <span className="mais-grafico">{p?.serie ? <MiniBarras serie={p.serie} /> : <MiniAnel progresso={p?.progresso} />}</span>
+      {/* Sem gráfico e sem progresso: nada (um anel tracejado vazio parecia um marcador de lugar) */}
+      {(p?.serie || p?.progresso !== undefined) && <span className="mais-grafico">{p?.serie ? <MiniBarras serie={p.serie} /> : <MiniAnel progresso={p?.progresso} />}</span>}
       <span className="mais-corpo">
         <span className="mais-titulo">{s.titulo}</span>
         {p && <span className={`mais-previa ${p.alerta ? 'alerta' : ''}`}>{p.texto}</span>}
