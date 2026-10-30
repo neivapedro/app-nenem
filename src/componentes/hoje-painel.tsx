@@ -181,7 +181,7 @@ function comparacao(valor: number, media: number | null | undefined, andamentoDo
   const esperado = media * Math.min(1, andamentoDoDia);
   const pct = Math.round(((valor - esperado) / esperado) * 100);
   if (Math.abs(pct) < 8) return { texto: 'na média', sufixo: '', sentido: 'igual' };
-  return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: andamentoDoDia < 1 ? ' vs. ritmo médio' : ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
+  return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: andamentoDoDia < 1 ? ' vs. ritmo' : ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
 }
 
 export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean }) {
@@ -216,7 +216,7 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
         ))}
       </div>
       {detalhes.length > 0 && <p className="hp-numeros-nota">{detalhes.join(' · ')}</p>}
-      {medias && <p className="hp-numeros-nota">▲▼ comparação com a média {medias.dias === 1 ? 'de 1 dia' : `dos últimos ${medias.dias} dias`}.</p>}
+      {medias && colunas.some((c) => c.cmp) && <p className="hp-numeros-nota">▲▼ comparação com a média {medias.dias === 1 ? 'de 1 dia' : `dos últimos ${medias.dias} dias`}.</p>}
       {nascido && !medias && <p className="hp-numeros-nota">A comparação com a média dos últimos 7 dias aparece a partir de amanhã.</p>}
     </>
   );

@@ -148,3 +148,8 @@
 .ic-reg-dois { color: var(--c-fralda); }
 .botao-grande .ic-reg { width: 32px; height: 32px; }
 @media (prefers-reduced-motion: reduce) { .linha-acao { transition: none; } .linha-acao:active { transform: none; } }
+
+/* A prévia do cartão (cópia fora de .acoes) mantém as 2 linhas fixas do subtítulo */
+.mr-previa .desde { display: flex; flex-direction: column; gap: 1px; align-self: stretch; min-width: 0; font-size: 0.8rem; line-height: 1.3; }
+.mr-previa .desde > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-previa .desde-2 { color: var(--texto-3); }
