@@ -75,3 +75,7 @@ main .cartao-cab { align-items: center; }
 /* Selo do painel de vacinas nunca passa da borda do cartão */
 .sv-resumo-texto > * { max-width: 100%; }
 .sv-resumo-texto .etiqueta, .sv-resumo-texto [class*="selo"], .sv-resumo-texto [class*="pilula"] { white-space: normal; }
+
+/* Acabamento final (conferência geral): palavras não quebram ao meio nos títulos dos cartões do Mais; datas do extrato inteiras */
+.mais-titulo { overflow-wrap: normal; word-break: normal; hyphens: none; }
+.cf-mov-data, .cf-data, [class*="cf-"][class*="data"] { white-space: nowrap; }
