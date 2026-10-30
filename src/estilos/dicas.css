@@ -2,15 +2,20 @@
 .dica-faixa {
   display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 6px 6px 12px;
   border-radius: 14px; font-size: 0.85rem; color: var(--texto);
-  background: color-mix(in srgb, var(--marca, var(--c-sono)) 10%, var(--superficie));
-  border: 1px solid color-mix(in srgb, var(--marca, var(--c-sono)) 22%, var(--borda));
+  background: color-mix(in srgb, var(--destaque) 10%, var(--superficie));
+  border: 1px solid color-mix(in srgb, var(--destaque) 22%, var(--borda));
 }
-.dica-faixa > svg { width: 20px; height: 20px; flex: none; color: var(--marca, var(--c-sono)); }
+.dica-faixa > svg { width: 20px; height: 20px; flex: none; color: var(--destaque); }
 .dica-texto { flex: 1; min-width: 0; line-height: 1.25; }
 .dica-como {
   flex: none; min-height: 32px; padding: 0 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 650;
-  color: var(--marca, var(--c-sono)); background: color-mix(in srgb, var(--marca, var(--c-sono)) 14%, transparent);
+  color: var(--destaque); background: color-mix(in srgb, var(--destaque) 14%, transparent);
 }
 .dica-fechar { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--texto-3); }
 .dica-fechar svg { width: 18px; height: 18px; }
 .dica-passos { margin: 0 0 16px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; line-height: 1.4; }
+
+/* Alvo de toque de 44 px sem aumentar o desenho */
+.dica-como, .dica-fechar { position: relative; }
+.dica-como::after, .dica-fechar::after { content: ''; position: absolute; inset: -6px -4px; }
+.dica-fechar::after { inset: -6px; }

@@ -104,3 +104,5 @@
   .rd-arco, .rd-ponto, .rd-setor, .rd-barra { animation: none; }
   .rd-arco, .rd-ponto, .rd-setor, .rd-barra { transition: none; }
 }
+.rd-info { position: relative; }
+.rd-info::after { content: ''; position: absolute; inset: -8px; }
