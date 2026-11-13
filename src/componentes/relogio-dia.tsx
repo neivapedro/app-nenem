@@ -6,6 +6,7 @@
 // registros. A lógica (ângulos, cortes na janela) fica em lib/relogio-dia.
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as EventoPonteiro, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { horaCurta } from '../lib/datas';
 import { duracaoCurta } from '../lib/painel';
 import {
   anguloDoInstante,
@@ -83,7 +84,7 @@ function Ponteiro({ graus }: { graus: number }) {
 }
 
 const CHAVE_INSTRUCAO = 'app-nenem:dica-relogio';
-const TEXTO_INSTRUCAO = 'Toque num trecho para ver os detalhes; depois arraste o dedo ao redor.';
+const TEXTO_INSTRUCAO = 'Toque num trecho colorido do relógio para ver o horário e a duração.';
 
 // ---------- Toque e arrasto ----------
 
@@ -275,9 +276,13 @@ function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: numb
       );
     return (
       <>
-        <span className="rd-centro-rotulo">Sono em 24 h</span>
-        <span className="rd-centro-valor">{rel.sonoMs ? duracaoCurta(rel.sonoMs) : '—'}</span>
-        {rel.acordouEm && <span className="rd-centro-extra">acordado há {duracaoCurta(Math.max(0, agora.getTime() - rel.acordouEm))}</span>}
+        <span className="rd-centro-rotulo">Agora</span>
+        <span className="rd-centro-valor">{horaCurta(agora.toISOString())}</span>
+        {rel.acordouEm ? (
+          <span className="rd-centro-extra">acordado há {duracaoCurta(Math.max(0, agora.getTime() - rel.acordouEm))}</span>
+        ) : (
+          <span className="rd-centro-extra">últimas 24 h</span>
+        )}
       </>
     );
   })();
@@ -336,32 +341,42 @@ function Relogio24h({ registros, minuto }: { registros: Registro[]; minuto: numb
         )}
       </p>
 
-      <ul className="legenda rd-legenda rd-legenda-linha" aria-label="Legenda (de fora para dentro)">
-        <li>
-          <span className="chave-caixa" style={{ background: 'var(--c-sono)' }} />
-          Sono
-        </li>
-        <li>
-          <span className="chave-caixa" style={{ background: 'var(--c-mamada)' }} />
-          Peito
-        </li>
-        <li>
-          <span className="rd-chave-ponto" style={{ background: 'var(--c-mamadeira)' }} />
-          Mamadeira
-        </li>
-        <li>
-          <span className="rd-chave-ponto" style={{ background: 'var(--c-fralda)' }} />
-          Cocô
-        </li>
-        <li>
-          <span className="rd-chave-ponto rd-chave-vazada" />
-          Xixi
-        </li>
-        <li>
-          <span className="rd-chave-agora" />
-          Agora
-        </li>
-      </ul>
+      <p className="rd-como-ler">De fora para dentro: sono, mamadas e fraldas. O ponteiro é o agora e o topo (0h) é meia-noite.</p>
+
+      {!rel.vazio && (
+        <ul className="rd-resumo" aria-label="O que aconteceu nas últimas 24 horas">
+          <li>
+            <span className="rd-chave-barra" style={{ background: 'var(--c-sono)' }} aria-hidden="true" />
+            <span className="rd-resumo-texto">
+              <strong>Sono</strong>
+              <small>{rel.sono.length ? `maior trecho: ${duracaoCurta(Math.max(...rel.sono.map((s) => s.fim - s.ini)))}` : 'nenhum trecho'}</small>
+            </span>
+            <span className="rd-resumo-valor">{rel.sonoMs ? duracaoCurta(rel.sonoMs) : '—'}</span>
+          </li>
+          <li>
+            <span className="rd-chave-barra" style={{ background: 'var(--c-mamada)' }} aria-hidden="true" />
+            <span className="rd-resumo-texto">
+              <strong>Mamadas</strong>
+              <small>
+                <span className="rd-chave-mini" style={{ background: 'var(--c-mamada)' }} aria-hidden="true" /> {rel.alimentacoes.filter((a) => a.tipo === 'mamada').length} no peito ·{' '}
+                <span className="rd-chave-mini rd-redonda" style={{ background: 'var(--c-mamadeira)' }} aria-hidden="true" /> {rel.alimentacoes.filter((a) => a.tipo === 'mamadeira').length} mamadeira
+              </small>
+            </span>
+            <span className="rd-resumo-valor">{rel.alimentacoes.length}</span>
+          </li>
+          <li>
+            <span className="rd-chave-barra rd-chave-fralda" aria-hidden="true" />
+            <span className="rd-resumo-texto">
+              <strong>Fraldas</strong>
+              <small>
+                <span className="rd-chave-mini rd-redonda" style={{ background: 'var(--c-fralda)' }} aria-hidden="true" /> {rel.fraldas.filter((f) => f.coco).length} com cocô ·{' '}
+                <span className="rd-chave-mini rd-redonda rd-chave-vazada" aria-hidden="true" /> {rel.fraldas.filter((f) => !f.coco).length} só xixi
+              </small>
+            </span>
+            <span className="rd-resumo-valor">{rel.fraldas.length}</span>
+          </li>
+        </ul>
+      )}
 
       {/* Para o leitor de tela: os registros em texto, na ordem do tempo */}
       <ul className="oculto-visual" aria-label="Registros das últimas 24 horas">

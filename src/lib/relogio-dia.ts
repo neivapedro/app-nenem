@@ -242,7 +242,7 @@ export function detalheItem(it: ItemRelogio, agora: Date): DetalheItem {
   const h = (t: number) => horaCurta(new Date(t).toISOString());
   if (it.tipo === 'sono') {
     const dur = duracaoCurta(it.fim - it.ini);
-    const quando = it.emAndamento ? `desde ${h(it.ini)}` : `${h(it.ini)}–${h(it.fim)}`;
+    const quando = it.emAndamento ? `desde ${h(it.ini)}` : `das ${h(it.ini)} às ${h(it.fim)}`;
     const extra = it.emAndamento ? 'dormindo agora' : it.cortado ? `começou às ${horaComDia(it.ini, agora)}` : null;
     const frase = it.emAndamento
       ? `Sono desde ${horaComDia(it.ini, agora)}, dormindo há ${dur}`
@@ -254,23 +254,24 @@ export function detalheItem(it: ItemRelogio, agora: Date): DetalheItem {
     const total = l.E + l.D || it.fim - it.ini;
     const dur = duracaoCurta(total);
     const partes = [l.E ? `E ${duracaoCurta(l.E)}` : '', l.D ? `D ${duracaoCurta(l.D)}` : ''].filter(Boolean).join(' · ');
-    const quando = it.emAndamento ? `desde ${h(it.ini)}` : `${h(it.ini)}–${h(it.fim)}`;
+    const lados = [l.E ? `esquerdo ${duracaoCurta(l.E)}` : '', l.D ? `direito ${duracaoCurta(l.D)}` : ''].filter(Boolean).join(' · ');
+    const quando = it.emAndamento ? `desde ${h(it.ini)}` : `das ${h(it.ini)} às ${h(it.fim)}`;
     const fimLado = !it.emAndamento && it.ladoFinal ? `, terminou no ${it.ladoFinal === 'E' ? 'esquerdo' : 'direito'}` : '';
     const frase = `${it.emAndamento ? 'Mamando no peito' : 'Mamada no peito'} ${it.emAndamento ? `desde ${horaComDia(it.ini, agora)}` : `às ${horaComDia(it.ini, agora)}`}, ${dur}${partes ? ` (${partes.replace(' · ', ' e ')})` : ''}${fimLado}`;
-    return { titulo: 'Peito', quando, valor: dur, extra: partes || null, frase };
+    return { titulo: 'Mamada no peito', quando, valor: dur, extra: lados || null, frase };
   }
   if (it.tipo === 'mamadeira') {
     const conteudo = it.conteudo === 'formula' ? 'fórmula' : 'leite materno';
     return {
       titulo: 'Mamadeira',
-      quando: h(it.ini),
+      quando: `às ${h(it.ini)}`,
       valor: `${it.ml ?? 0} ml`,
       extra: conteudo,
       frase: `Mamadeira às ${horaComDia(it.ini, agora)}, ${it.ml ?? 0} ml de ${conteudo}`,
     };
   }
   const oque = textoFralda({ xixi: !!it.xixi, coco: !!it.coco });
-  return { titulo: 'Fralda', quando: h(it.ini), valor: oque, extra: null, frase: `Fralda às ${horaComDia(it.ini, agora)}: ${oque.toLowerCase()}` };
+  return { titulo: 'Fralda', quando: `às ${h(it.ini)}`, valor: oque, extra: null, frase: `Fralda às ${horaComDia(it.ini, agora)}: ${oque.toLowerCase()}` };
 }
 
 /** O resumo lido pelo leitor de tela no lugar do desenho */
