@@ -135,7 +135,7 @@ describe('montarRelogio', () => {
   it('acordado desde o fim do último sono', () => {
     const r = montarRelogio([sono('s1', em(28, 10), em(28, 12, 30))], agora);
     expect(r.acordouEm).toBe(new Date(em(28, 12, 30)).getTime());
-    expect(detalheItem(r.sono[0], agora).quando).toBe('10:00–12:30');
+    expect(detalheItem(r.sono[0], agora).quando).toBe('das 10:00 às 12:30');
   });
 });
 

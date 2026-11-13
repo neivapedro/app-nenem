@@ -106,3 +106,20 @@
 }
 .rd-info { position: relative; }
 .rd-info::after { content: ''; position: absolute; inset: -8px; }
+
+/* Como ler o relógio + o que aconteceu (no lugar da legenda de siglas) */
+.rd-como-ler { margin: 10px 0 0; font-size: 0.78rem; line-height: 1.35; color: var(--texto-2); text-align: center; text-wrap: balance; }
+.rd-resumo { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rd-resumo li {
+  display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 14px; background: var(--superficie-2);
+}
+.rd-chave-barra { width: 6px; height: 34px; border-radius: 3px; }
+.rd-chave-fralda { background: linear-gradient(var(--c-fralda) 0 50%, transparent 50%), var(--c-fralda); opacity: 0.85; }
+.rd-resumo-texto { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.rd-resumo-texto strong { font-size: 0.95rem; font-weight: 650; color: var(--texto); }
+.rd-resumo-texto small { font-size: 0.78rem; line-height: 1.35; color: var(--texto-2); }
+.rd-resumo-valor { font-family: var(--fonte-numeros, ui-rounded, system-ui); font-size: 1.5rem; font-weight: 720; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--texto); }
+.rd-chave-mini { display: inline-block; width: 10px; height: 5px; border-radius: 2px; vertical-align: middle; margin-right: 1px; }
+.rd-chave-mini.rd-redonda { width: 8px; height: 8px; border-radius: 50%; }
+.rd-chave-mini.rd-chave-vazada { background: transparent; border: 2px solid var(--c-fralda); box-sizing: border-box; }

@@ -137,3 +137,62 @@ export function aproximar(valor: number, tipo: 'contagem' | 'ml' | 'duracao'): s
   if (tipo === 'ml') return `${Math.round(valor / 10) * 10} ml`;
   return duracaoCurta(Math.round(valor / (10 * MIN)) * 10 * MIN);
 }
+
+export interface Resumo24h {
+  mamadas: number;
+  peito: number;
+  mamadeiras: number;
+  fraldas: number;
+  xixi: number;
+  coco: number;
+  /** Sono dentro da janela (sonos sobrepostos contam uma vez só) */
+  sonoMs: number;
+  maiorSonoMs: number;
+}
+
+/** Números simples das últimas 24 h para o cartão do Hoje (de `de` até `ate`) */
+export function resumo24h(registros: Registro[], de: Date, ate: Date): Resumo24h {
+  const a = de.getTime();
+  const b = ate.getTime();
+  const r: Resumo24h = { mamadas: 0, peito: 0, mamadeiras: 0, fraldas: 0, xixi: 0, coco: 0, sonoMs: 0, maiorSonoMs: 0 };
+  const sonos: [number, number][] = [];
+  for (const x of registros) {
+    const ini = new Date(x.inicio).getTime();
+    if (x.tipo === 'sono') {
+      const fim = x.fim ? new Date(x.fim).getTime() : b;
+      const i = Math.max(ini, a);
+      const f = Math.min(fim, b);
+      if (f > i) sonos.push([i, f]);
+      continue;
+    }
+    if (ini < a || ini > b) continue;
+    if (x.tipo === 'mamada') {
+      r.mamadas++;
+      r.peito++;
+    } else if (x.tipo === 'mamadeira') {
+      r.mamadas++;
+      r.mamadeiras++;
+    } else if (x.tipo === 'fralda') {
+      r.fraldas++;
+      if (x.dados.coco) r.coco++;
+      if (x.dados.xixi) r.xixi++;
+    }
+  }
+  sonos.sort((p, q) => p[0] - q[0]);
+  let atual: [number, number] | null = null;
+  const fecha = () => {
+    if (!atual) return;
+    const d = atual[1] - atual[0];
+    r.sonoMs += d;
+    r.maiorSonoMs = Math.max(r.maiorSonoMs, d);
+  };
+  for (const s of sonos) {
+    if (atual && s[0] <= atual[1]) atual[1] = Math.max(atual[1], s[1]);
+    else {
+      fecha();
+      atual = [s[0], s[1]];
+    }
+  }
+  fecha();
+  return r;
+}

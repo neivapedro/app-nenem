@@ -367,7 +367,10 @@ export function LinhaTempo({
   fraldas,
   marcas,
   agoraFracao,
+  titulos,
 }: {
+  /** Nomes das linhas (padrão: Sono, Alimentação, Fraldas) */
+  titulos?: { sono: string; alimentacao: string; fraldas: string };
   sono: { de: number; ate: number }[];
   alimentacoes: { em: number; ate: number; tipo: 'mamada' | 'mamadeira' }[];
   fraldas: { em: number; coco: boolean }[];
@@ -391,7 +394,7 @@ export function LinhaTempo({
   return (
     <div className="linha-tempo">
       {faixa(
-        'Sono',
+        titulos?.sono ?? 'Sono',
         sono.map((s, i) => (
           <span
             key={i}
@@ -401,7 +404,7 @@ export function LinhaTempo({
         )),
       )}
       {faixa(
-        'Alimentação',
+        titulos?.alimentacao ?? 'Alimentação',
         alimentacoes.map((a, i) => (
           <span
             key={i}
@@ -415,7 +418,7 @@ export function LinhaTempo({
         )),
       )}
       {faixa(
-        'Fraldas',
+        titulos?.fraldas ?? 'Fraldas',
         fraldas.map((f, i) => (
           <span key={i} className="lt-ponto" style={{ left: `clamp(6px, ${f.em * 100}%, calc(100% - 6px))`, background: f.coco ? 'var(--c-mamadeira)' : 'var(--c-fralda)' }} />
         )),
