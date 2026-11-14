@@ -272,8 +272,9 @@ function desenharPainel(doc: jsPDF, pn: PainelPdf, margem: number, y0: number): 
   let y = y0;
   doc.setFontSize(7.5);
   doc.setTextColor(...CINZA);
-  doc.text(pn.comparacao, margem, y);
-  y += 3;
+  const linhasComp = doc.splitTextToSize(pn.comparacao, LARGURA) as string[];
+  doc.text(linhasComp, margem, y);
+  y += 3 + (linhasComp.length - 1) * 3;
   const cols = 3;
   const gap = 4;
   const kw = (LARGURA - gap * (cols - 1)) / cols;
