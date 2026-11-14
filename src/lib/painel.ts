@@ -442,7 +442,7 @@ export function narrativa(e: EntradaNarrativa): FraseNarrativa[] {
     add(
       'mamadas',
       'alimentacao',
-      [{ destaque: `${um(a.mamadas)} ${a.mamadas === 1 ? 'mamada' : 'mamadas'} por dia` }, ref && soPeito ? ` (referência da OMS: ${REFERENCIA_OMS.de} a ${REFERENCIA_OMS.ate})` : soPeito ? '' : ' no peito, fora as mamadeiras'],
+      [{ destaque: `${um(a.mamadas)} ${a.mamadas === 1 ? 'mamada' : 'mamadas'} por dia` }, ref && soPeito ? ` (referência da OMS: ${REFERENCIA_OMS.de} a ${REFERENCIA_OMS.ate})` : soPeito ? '' : ' no peito (fora as mamadeiras)'],
       3,
     );
   }

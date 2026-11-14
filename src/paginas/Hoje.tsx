@@ -245,13 +245,13 @@ export function Hoje() {
   const cartoes: Record<IdCartaoHoje, ReactNode> = {
     momentos: <MomentosDoDia />,
     // Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela
-    proxima: nascido && !andamento.mamada ? <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} /> : null,
+    proxima: nascido ? <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} /> : null,
     mamadas: nascido ? <MamadasHoje registros={registros} agora={agora} hoje={hoje} nascimento={bebe?.nascimento ?? null} /> : null,
     faixa24h: nascido ? <Faixa24h registros={registros} agora={agora} /> : null,
     relogio: nascido ? <RelogioDia registros={registros} agora={agora} /> : null,
     registrar: (
       <section className="acoes" aria-label="Registrar">
-        <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => !andamento.mamada && setFolha('mamada')} disabled={!!andamento.mamada} {...segurar('mamada', !andamento.mamada)} {...dicaSegurar}>
+        <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => setFolha('mamada')} {...segurar('mamada', true)} {...dicaSegurar}>
           <Selo tipo="mamada" />
           <span className="nome">Mamada</span>
           <Desde v={desdeAlimentacao} />
