@@ -48,3 +48,7 @@ button.mm-bolinha:focus-visible { outline: 2px solid var(--destaque); outline-of
 @media (prefers-reduced-motion: reduce) {
   .mm-bolinha { animation: none; transition: none; }
 }
+
+/* Alvo de toque de 44 px sem mudar o desenho da bolinha */
+.mm-bolinha { position: relative; }
+.mm-bolinha::after { content: ''; position: absolute; inset: -6px; }

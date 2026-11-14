@@ -67,7 +67,8 @@ export function ladoAtivo(r: RegistroDe<'mamada'>): Lado | null {
 
 /** Lado da mamada = o do último trecho (tolera registro antigo sem trechos: null) */
 export function ladoDaMamada(r: RegistroDe<'mamada'>): Lado | null {
-  const segs = r.dados?.segmentos ?? [];
+  // Só E ou D valem (dado corrompido com outro lado não pode derrubar a tela)
+  const segs = (r.dados?.segmentos ?? []).filter((s) => s.lado === 'E' || s.lado === 'D');
   return segs.length ? segs[segs.length - 1].lado : null;
 }
 

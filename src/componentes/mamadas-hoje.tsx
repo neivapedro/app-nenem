@@ -110,7 +110,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
           </p>
         ) : (
           <p>
-            Referência da OMS: a maioria dos bebês mama de <strong>{REFERENCIA_OMS.min} a {REFERENCIA_OMS.max} vezes</strong> em 24 horas (livre demanda, sem horário fixo).
+            Referência da OMS (primeiros 6 meses): a maioria dos bebês mama de <strong>{REFERENCIA_OMS.min} a {REFERENCIA_OMS.max} vezes</strong> em 24 horas (livre demanda, sem horário fixo).
           </p>
         )}
       </div>
