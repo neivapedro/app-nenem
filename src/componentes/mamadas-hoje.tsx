@@ -26,7 +26,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
   const minuto = Math.floor(agora.getTime() / 60_000);
   const [aberta, setAberta] = useState<string | null>(null);
   const d = useMemo(() => {
-    const quando = new Date(minuto * 60_000);
+    const quando = new Date(agora.getTime());
     const itens = alimentacoesDoDia(registros, hoje);
     const ultima = ultimaAlimentacao(registros);
     let ultimoPeito: Registro | null = null;
@@ -66,7 +66,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
             </div>
             {d.proximo && (
               <p className="mm-proximo">
-                Próxima: comece pelo <strong>{nomeLado(d.proximo)}</strong>
+                Lado da próxima: <strong>{nomeLado(d.proximo)}</strong>
               </p>
             )}
           </>
@@ -106,7 +106,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
         {ritmo.fonte === 'proprio' ? (
           <p>
             No ritmo {ritmo.dias === 1 ? 'do último dia' : `dos últimos ${ritmo.dias} dias`}: cerca de <strong>{ritmo.esperado} mamadas por dia</strong>
-            {ritmo.faltam > 0 ? ` · ${ritmo.faltam === 1 ? 'falta 1' : `faltam ${ritmo.faltam}`} até o fim do dia` : ' · hoje já está no ritmo'}
+            {d.itens.length >= ritmo.esperado ? ' · hoje já está no ritmo' : ` · até agora: ${d.itens.length} de ${ritmo.esperado}`}
           </p>
         ) : (
           <p>
@@ -118,7 +118,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
       {/* e. Aviso discreto */}
       {d.aviso && <p className="mm-aviso">{d.aviso}</p>}
 
-      <p className="mm-fontes">OMS · SBP · Ministério da Saúde: livre demanda. Dúvidas? Fale com o pediatra.</p>
+      <p className="mm-fontes">OMS: 8 a 12 em 24 h é a faixa típica, não uma meta · SBP: 8 ou mais por dia é um dos sinais de boa mamada · Ministério da Saúde: livre demanda, sem horário fixo. Dúvidas? Fale com o pediatra.</p>
     </section>
   );
 }

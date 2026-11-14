@@ -58,7 +58,7 @@ export function Anel({ arcos, espessura = 8, rotulo, classe, children }: { arcos
 
 // ---------- Próxima alimentação ----------
 
-const COR_ESTADO = { cedo: 'var(--c-mamada)', perto: 'var(--aviso)', passou: 'var(--ruim)' } as const;
+const COR_ESTADO = { cedo: 'var(--c-mamada)', perto: 'var(--aviso)', passou: 'var(--aviso)' } as const;
 
 export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: Registro[]; agora: Date; aoTocar: () => void }) {
   const p = painelAlimentacao(registros, agora);
