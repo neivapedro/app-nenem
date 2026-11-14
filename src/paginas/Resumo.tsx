@@ -232,7 +232,7 @@ export function Resumo() {
           selecionado={sel}
           aoSelecionar={setSel}
         />
-        <p className="mudo">Livre demanda: sem horário fixo. A faixa da OMS vale para os 6 primeiros meses e é só uma referência; cada bebê tem o seu ritmo. Dúvidas? Fale com o pediatra.</p>
+        <p className="mudo">{mostrarReferencia ? 'Livre demanda: sem horário fixo. A faixa da OMS vale para os 6 primeiros meses e é só uma referência; cada bebê tem o seu ritmo. Dúvidas? Fale com o pediatra.' : 'Livre demanda: sem horário fixo; cada bebê tem o seu ritmo. Dúvidas? Fale com o pediatra.'}</p>
         {totalLados > 0 && (
           <>
             <h3>Lado do peito, por mamada</h3>

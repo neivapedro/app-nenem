@@ -103,19 +103,9 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
         <span className="hp-centro-legenda">{centro.legenda}</span>
       </Anel>
       <span className="hp-proxima-texto">
-        <span className="hp-rotulo">{nome}</span>
-        <span className="hp-ultima">
-          <span className="hp-sem-quebra">{ha}</span>
-          {p.detalhe && (
-            <>
-              {' · '}
-              <span className="hp-sem-quebra">{p.detalhe}</span>
-            </>
-          )}
-        </span>
         {hora ? (
           <>
-            <span className="hp-rotulo hp-espaco">{p.estado === 'passou' ? 'Prevista para' : 'Próxima por volta de'}</span>
+            <span className="hp-rotulo">{p.estado === 'passou' ? 'Prevista para' : 'Próxima mamada'}</span>
             <span className="hp-hora">{hora}</span>
           </>
         ) : (
