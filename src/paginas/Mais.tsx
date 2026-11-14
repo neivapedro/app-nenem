@@ -275,6 +275,8 @@ function Exportar() {
         'dados.json: tudo o que está no app (registros desde o início, saúde, agenda, desenvolvimento, documentos e cofrinho).',
         '  Em "arquivos_no_zip" está onde ficou cada arquivo dentro desta pasta.',
         'registros.csv: mamadas, fraldas, sono e os outros registros, um por linha (abre no Excel, Numbers ou Google Planilhas).',
+        '  Mamadas novas não têm duração (o app guarda só a hora e o lado): as colunas duracao_min, peito_e_min e peito_d_min ficam vazias',
+        '  nelas, e "comecou_no_peito" mostra o lado (E = esquerdo, D = direito). As mamadas antigas continuam com a duração que tinham.',
         'cofrinho.csv: depósitos, retiradas e saldos do cofrinho.',
         'documentos/: os arquivos dos documentos, com o nome que têm no app, separados por categoria (e a lista com números e validades).',
         'cofrinho/comprovantes/: os comprovantes anexados no cofrinho.',

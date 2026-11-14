@@ -297,7 +297,7 @@ export function MenuRapido({ ancora, titulo, atalhos, dedo, aoEscolher, rotuloMa
           {titulo} · um toque salva agora
         </div>
         {atalhos.map((a) => (
-          <button key={a.id} type="button" role="menuitem" className={`mr-item${sob === a.id ? ' mr-sob' : ''}`} data-mr-item={a.id} onClick={() => escolher(a.id)}>
+          <button key={a.id} type="button" role="menuitem" className={`mr-item${sob === a.id ? ' mr-sob' : ''}${a.destaque ? ' mr-destaque' : ''}`} data-mr-item={a.id} onClick={() => escolher(a.id)}>
             <span className="mr-texto">
               <span className="mr-rotulo">{a.rotulo}</span>
               {a.detalhe && <span className="mr-detalhe">{a.detalhe}</span>}

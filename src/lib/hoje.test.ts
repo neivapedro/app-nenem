@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aproximar, duracaoCurta, horaPrevista, mediasUltimosDias, painelAlimentacao, progresso } from './hoje';
+import { alimentacoesDoDia, aproximar, contagemDoDia, duracaoCurta, horaPrevista, ladosDoRegistro, mediasUltimosDias, painelAlimentacao, progresso, proximoLado, ritmoEsperado, textoAlimentacao, textoSemAlimentar } from './hoje';
 import type { Registro } from './tipos';
 
 const base = { familia_id: 'f', bebe_id: 'b', criado_por: null, observacao: null };
@@ -39,7 +39,7 @@ describe('painelAlimentacao', () => {
   it('prevê a próxima pelo intervalo médio e diz o lado em que terminou', () => {
     const regs = [mamada(em('2026-12-02', '12:00'), 10, 10), mamada(em('2026-12-02', '15:00'), 10, 10), mamada(em('2026-12-02', '18:00'), 10, 10)];
     const p = painelAlimentacao(regs, new Date(em('2026-12-02', '19:00')))!;
-    expect(p.detalhe).toBe('terminou no E');
+    expect(p.detalhe).toBe('peito esquerdo e direito');
     expect(p.intervaloMs).toBe(3 * 3_600_000);
     expect(horaPrevista(p)).toBe('21:00');
     expect(p.fracao).toBeCloseTo(1 / 3);
@@ -109,5 +109,74 @@ describe('progresso e aproximar', () => {
     expect(aproximar(284, 'ml')).toBe('280 ml');
     expect(aproximar(13 * 3_600_000 - 2 * 60_000, 'duracao')).toBe('13h');
     expect(aproximar(104 * 60_000, 'duracao')).toBe('1h40');
+  });
+});
+
+// ---------- Mamadas de hoje ----------
+const nova = (t: string, lado: 'E' | 'D'): Registro => ({ ...base, id: String(n++), tipo: 'mamada', inicio: t, fim: t, dados: { segmentos: [{ lado, inicio: t, fim: t }] } }) as Registro;
+const noDia = (dia: string, qtd: number, lado: 'E' | 'D' = 'E') => Array.from({ length: qtd }, (_, i) => nova(em(dia, `${String(6 + i).padStart(2, '0')}:00`), lado));
+
+describe('mamadas do dia', () => {
+  it('lê os lados de registro novo, antigo e sem segmentos', () => {
+    expect(ladosDoRegistro(nova(em('2026-12-02', '10:00'), 'D') as never)).toEqual(['D']);
+    expect(ladosDoRegistro(mamada(em('2026-12-02', '10:00'), 5, 5) as never)).toEqual(['D', 'E']);
+    expect(ladosDoRegistro({ ...(nova(em('2026-12-02', '10:00'), 'D') as object), dados: { segmentos: [] } } as never)).toEqual([]);
+  });
+
+  it('conta lados e mamadeiras; antiga com dois lados é uma mamada só', () => {
+    const regs = [nova(em('2026-12-02', '08:00'), 'E'), nova(em('2026-12-02', '11:00'), 'D'), mamada(em('2026-12-02', '14:00'), 5, 5), mamadeira(em('2026-12-02', '16:00'), 90), nova(em('2026-12-01', '23:00'), 'E')];
+    const it = alimentacoesDoDia(regs, '2026-12-02');
+    expect(it.map((x) => x.tipo)).toEqual(['mamada', 'mamada', 'mamada', 'mamadeira']);
+    expect(contagemDoDia(it)).toEqual({ total: 4, peito: 3, esquerdo: 2, direito: 2, mamadeiras: 1, ml: 90 });
+    expect(textoAlimentacao(it[1])).toBe('11:00 · peito direito');
+    expect(textoAlimentacao(it[3])).toBe('16:00 · mamadeira 90 ml');
+  });
+
+  it('próximo lado é o oposto do último peito (ignora mamadeira)', () => {
+    expect(proximoLado([])).toBeNull();
+    expect(proximoLado([mamadeira(em('2026-12-02', '10:00'))])).toBeNull();
+    expect(proximoLado([nova(em('2026-12-02', '08:00'), 'E'), nova(em('2026-12-02', '11:00'), 'D'), mamadeira(em('2026-12-02', '12:00'))])).toBe('E');
+    // antiga terminou no E: próxima no D
+    expect(proximoLado([mamada(em('2026-12-02', '08:00'), 5, 5)])).toBe('D');
+  });
+});
+
+describe('ritmoEsperado', () => {
+  const agora = new Date(em('2026-12-10', '12:00'));
+  it('sem 2 dias inteiros com dados usa a referência da OMS (8)', () => {
+    const r = ritmoEsperado([], '2026-12-10', agora, null);
+    expect(r).toMatchObject({ fonte: 'oms', esperado: 8, faltam: 8, dias: 0 });
+    const um = ritmoEsperado(noDia('2026-12-09', 10), '2026-12-10', agora, null);
+    expect(um.fonte).toBe('oms');
+  });
+  it('dia do nascimento não conta como inteiro', () => {
+    const regs = [...noDia('2026-12-08', 9), ...noDia('2026-12-09', 9)];
+    expect(ritmoEsperado(regs, '2026-12-10', agora, em('2026-12-08', '05:00')).fonte).toBe('oms');
+    expect(ritmoEsperado(regs, '2026-12-10', agora, em('2026-12-07', '05:00')).fonte).toBe('proprio');
+  });
+  it('média dos últimos 3 dias; faltam considera feitas e a hora; nunca negativo', () => {
+    const regs = [...noDia('2026-12-09', 10), ...noDia('2026-12-08', 10), ...noDia('2026-12-07', 9), ...noDia('2026-12-06', 1), ...noDia('2026-12-10', 3)];
+    const r = ritmoEsperado(regs, '2026-12-10', agora, null);
+    expect(r).toMatchObject({ fonte: 'proprio', dias: 3, esperado: 10 });
+    expect(r.media).toBeCloseTo(29 / 3);
+    expect(r.faltam).toBe(5); // 10-3=7, mas só cabe ceil(9,67*0,5)=5 no resto do dia
+    expect(ritmoEsperado([...regs, ...noDia('2026-12-10', 9)], '2026-12-10', new Date(em('2026-12-10', '23:00')), null).faltam).toBeGreaterThanOrEqual(0);
+    const cheio = [...regs, ...noDia('2026-12-10', 12)];
+    expect(ritmoEsperado(cheio, '2026-12-10', agora, null).faltam).toBe(0);
+  });
+  it('pula dias sem uso do app', () => {
+    const regs = [...noDia('2026-12-09', 8), ...noDia('2026-12-07', 12)];
+    const r = ritmoEsperado(regs, '2026-12-10', agora, null);
+    expect(r).toMatchObject({ fonte: 'proprio', dias: 2, esperado: 10 });
+  });
+});
+
+describe('textoSemAlimentar', () => {
+  const agora = new Date(em('2026-12-10', '18:00'));
+  it('só passa de 3h30', () => {
+    expect(textoSemAlimentar(em('2026-12-10', '14:40'), agora)).toBeNull();
+    expect(textoSemAlimentar(em('2026-12-10', '14:20'), agora)).toBe('Faz 3h40 desde a última mamada.');
+    expect(textoSemAlimentar(null, agora)).toBeNull();
+    expect(textoSemAlimentar(em('2026-12-08', '14:20'), agora)).toBeNull();
   });
 });

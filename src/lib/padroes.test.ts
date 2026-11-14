@@ -68,6 +68,16 @@ describe('meses de vida', () => {
     expect(m2.sonoMs).toBeCloseTo(3_600_000 / 5);
   });
 
+  it('conta mamadas por dia, novas (sem duração) e antigas juntas', () => {
+    const t1 = em('2026-11-16', '08:00');
+    const t2 = em('2026-11-16', '11:00');
+    const nova = { ...base, id: 'n', tipo: 'mamada', inicio: t1, fim: t1, dados: { segmentos: [{ lado: 'E', inicio: t1, fim: t1 }] } } as RegistroDe<'mamada'>;
+    const velha = { ...base, id: 'v', tipo: 'mamada', inicio: t2, fim: em('2026-11-16', '11:20'), dados: { segmentos: [{ lado: 'D', inicio: t2, fim: em('2026-11-16', '11:20') }] } } as RegistroDe<'mamada'>;
+    const [m1] = mesesDeVida([nova, velha], '2026-11-15', '2026-12-20', new Date(em('2026-12-20', '12:00')));
+    expect(m1.mamadas).toBeCloseTo(2 / 30);
+    expect(Number.isFinite(m1.alimentacoes)).toBe(true);
+  });
+
   it('não mostra nada no dia do nascimento e respeita meses curtos', () => {
     expect(mesesDeVida([], '2026-11-15', '2026-11-15', new Date())).toEqual([]);
     const meses = mesesDeVida([], '2027-01-31', '2027-03-05', new Date(em('2027-03-05', '12:00')));

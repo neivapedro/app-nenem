@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
 import { EstadoVazio } from '../componentes/ilustracoes';
 import { GraficosMeses } from '../componentes/meses';
-import { ColunasEmpilhadas, Kpi, LinhaTempo, MapaCalor, Narrativa, Proporcao } from '../componentes/painel';
+import { ColunasEmpilhadas, FaixasHora, Kpi, LinhaTempo, MapaCalor, Narrativa, Proporcao } from '../componentes/painel';
 import { RelatorioPediatra } from '../componentes/relatorio-pediatra';
 import { RelogioPadrao } from '../componentes/relogio-dia';
 import { useAgora, useDados } from '../dados/contexto';
 import { useRegistrosDesde } from '../dados/historico';
-import { chaveDia, dataBr, inicioDoDia, nomeDia, somarDiasLocal, textoDuracao } from '../lib/datas';
-import { diasPainel, foraDoPadrao, inicioDosDados, ladosDoPeito, periodoCoberto, linhaDoTempo, mapaHorarios, mediasPeriodo, narrativa, type MetricaMapa, variacao } from '../lib/painel';
-import { duracaoMediaMamada, intervaloMedioAlimentacao } from '../lib/padroes';
+import { chaveDia, dataBr, diasEntre, inicioDoDia, nomeDia, somarDiasLocal } from '../lib/datas';
+import { diasPainel, foraDoPadrao, inicioDosDados, horasDeMaisMamadas, ladosPorContagem, mamadasPorHora, periodoCoberto, linhaDoTempo, mapaHorarios, mediasPeriodo, narrativa, REFERENCIA_OMS, type MetricaMapa, variacao } from '../lib/painel';
+import { intervaloMedioAlimentacao } from '../lib/padroes';
 
 const PERIODOS = [7, 14, 30, 90] as const;
 type Periodo = (typeof PERIODOS)[number] | 'meses';
@@ -52,8 +52,15 @@ export function Resumo() {
   const inicio = inicioDoDia(de);
   const intervalo = intervaloMedioAlimentacao(regs, inicio, agora);
   const intervaloAntes = intervaloMedioAlimentacao(regs, inicioDoDia(deAnterior), inicio);
-  const mamadaMedia = duracaoMediaMamada(regs, inicio, agora, agora);
-  const lados = ladosDoPeito(regs, inicio, agora, agora);
+  // Lados e horários por CONTAGEM de mamadas (sem duração); amanhã 00:00 para pegar o dia de hoje inteiro
+  const fimPeriodo = inicioDoDia(somarDiasLocal(hoje, 1));
+  const lados = useMemo(() => ladosPorContagem(regs, inicio, fimPeriodo), [regs, inicio, fimPeriodo]);
+  const porHora = useMemo(() => mamadasPorHora(regs, inicio, fimPeriodo), [regs, inicio, fimPeriodo]);
+  const horasFortes = horasDeMaisMamadas(porHora.total);
+  const totalLados = lados.E + lados.D;
+  const idadeDias = bebe?.nascimento ? diasEntre(chaveDia(bebe.nascimento), hoje) : null;
+  // A faixa da OMS vale para os 6 primeiros meses (sem nascimento cadastrado, mostra)
+  const mostrarReferencia = idadeDias === null || idadeDias <= 183;
   const temMamadeira = dias.some((d) => d.ml > 0);
   const nomes = dias.map((d) => d.dia);
   const sel = selData && nomes.includes(selData) ? nomes.indexOf(selData) : null;
@@ -62,8 +69,8 @@ export function Resumo() {
 
   // Destaques em frases (regras simples, sem IA)
   const frases = useMemo(
-    () => narrativa({ dias, anteriores, hoje, inicio: inicioDados, intervaloMs: intervalo, intervaloAntesMs: intervaloAntes, sexo: bebe?.sexo ?? null }),
-    [dias, anteriores, hoje, inicioDados, intervalo, intervaloAntes, bebe?.sexo],
+    () => narrativa({ dias, anteriores, hoje, inicio: inicioDados, intervaloMs: intervalo, intervaloAntesMs: intervaloAntes, sexo: bebe?.sexo ?? null, lados, idadeDias }),
+    [dias, anteriores, hoje, inicioDados, intervalo, intervaloAntes, bebe?.sexo, lados, idadeDias],
   );
   // Dia fora do padrão: só entre os dias inteiros com dados (sem hoje e sem antes do nascimento)
   const considerar = dias.map(
@@ -143,7 +150,7 @@ export function Resumo() {
 
       {/* Indicadores */}
       <section className="kpis" aria-label="Indicadores do período">
-        <Kpi rotulo="Alimentações/dia" valor={um(atual.alimentacoes)} delta={delta(atual.alimentacoes, antes.alimentacoes)} serie={dias.map((d) => d.alimentacoes)} cor="var(--c-mamada)" />
+        <Kpi rotulo="Mamadas/dia" valor={um(atual.alimentacoes)} delta={delta(atual.alimentacoes, antes.alimentacoes)} serie={dias.map((d) => d.alimentacoes)} cor="var(--c-mamada)" detalhe="peito e mamadeira" />
         <Kpi rotulo="Intervalo médio" valor={intervalo ? horasCurto(intervalo) : '—'} delta={intervalo && intervaloAntes ? delta(intervalo, intervaloAntes) : null} cor="var(--c-mamada)" detalhe="entre alimentações" />
         <Kpi rotulo="Sono/dia" valor={horas(atual.sonoMs)} delta={delta(atual.sonoMs, antes.sonoMs)} serie={dias.map((d) => d.sonoMs)} cor="var(--c-sono)" />
         <Kpi
@@ -158,7 +165,12 @@ export function Resumo() {
         {temMamadeira ? (
           <Kpi rotulo="Mamadeira/dia" valor={`${Math.round(atual.ml)} ml`} delta={delta(atual.ml, antes.ml)} serie={dias.map((d) => d.ml)} cor="var(--c-mamadeira)" />
         ) : (
-          <Kpi rotulo="Mamada no peito" valor={mamadaMedia ? horasCurto(mamadaMedia) : '—'} cor="var(--c-mamada)" detalhe="duração média" />
+          <Kpi
+            rotulo="Lado do peito"
+            valor={totalLados ? `${Math.round((Math.max(lados.E, lados.D) / totalLados) * 100)}% ${lados.E >= lados.D ? 'esq.' : 'dir.'}` : '—'}
+            cor="var(--c-mamada)"
+            detalhe="das mamadas"
+          />
         )}
       </section>
       {temAnterior && <p className="mudo" style={{ marginTop: -6 }}>▲▼ = variação em relação aos {n} dias anteriores.</p>}
@@ -187,7 +199,7 @@ export function Resumo() {
             </div>
           </div>
           <p className="mudo">
-            {selDia.mamadas} no peito{selDia.peitoMs ? ` (${textoDuracao(selDia.peitoMs)})` : ''} · {selDia.mamadeiras} mamadeira{selDia.mamadeiras === 1 ? '' : 's'}
+            {selDia.mamadas} no peito · {selDia.mamadeiras} mamadeira{selDia.mamadeiras === 1 ? '' : 's'}
             {selDia.ml ? ` (${selDia.ml} ml)` : ''} · noite {horas(selDia.sonoNoiteMs)} · dia {horas(selDia.sonoDiaMs)} · {selDia.coco} com cocô
           </p>
         </section>
@@ -199,15 +211,15 @@ export function Resumo() {
         <LinhaTempo {...lt} />
       </section>
 
-      {/* Alimentação */}
-      <section className="cartao pilha-p" aria-label="Alimentações por dia">
+      {/* Mamadas por dia */}
+      <section className="cartao pilha-p" aria-label="Mamadas por dia">
         <div className="cartao-titulo">
-          <h2>Alimentações por dia</h2>
+          <h2>Mamadas por dia</h2>
           <span className="mudo">toque num dia para filtrar</span>
         </div>
         <ColunasEmpilhadas
           key={n}
-          rotulo="Alimentações por dia, peito e mamadeira"
+          rotulo="Mamadas por dia, peito e mamadeira"
           dias={nomes}
           series={[
             { id: 'peito', nome: 'Peito', cor: 'var(--c-mamada)', valores: dias.map((d) => d.mamadas) },
@@ -215,22 +227,33 @@ export function Resumo() {
           ]}
           formatar={(v) => um(v)}
           media={atual.alimentacoes}
+          referencia={mostrarReferencia ? { de: REFERENCIA_OMS.de, ate: REFERENCIA_OMS.ate, rotulo: `referência OMS ${REFERENCIA_OMS.de}–${REFERENCIA_OMS.ate}/dia` } : null}
           foraDoPadrao={foraAlim}
           selecionado={sel}
           aoSelecionar={setSel}
         />
-        {lados.E + lados.D > 0 && (
+        <p className="mudo">Livre demanda: sem horário fixo. A faixa da OMS vale para os 6 primeiros meses e é só uma referência; cada bebê tem o seu ritmo. Dúvidas? Fale com o pediatra.</p>
+        {totalLados > 0 && (
           <>
-            <h3>Lado do peito no período</h3>
+            <h3>Lado do peito, por mamada</h3>
             <Proporcao
               partes={[
                 { nome: 'Esquerdo', valor: lados.E, cor: 'var(--c-mamada)' },
                 { nome: 'Direito', valor: lados.D, cor: 'var(--c-sono)' },
               ]}
-              formatar={(v) => textoDuracao(v)}
+              formatar={(v) => `${v} ${v === 1 ? 'mamada' : 'mamadas'}`}
             />
           </>
         )}
+      </section>
+
+      {/* Horários em que mais mama */}
+      <section className="cartao pilha-p" aria-label="Horários em que mais mama">
+        <div className="cartao-titulo">
+          <h2>Horários em que mais mama</h2>
+          <span className="mudo">mamadas por hora do dia</span>
+        </div>
+        <FaixasHora peito={porHora.peito} mamadeira={porHora.mamadeira} fortes={horasFortes} dias={n} />
       </section>
 
       {/* Mapa de horários */}

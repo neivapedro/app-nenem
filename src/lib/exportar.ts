@@ -43,10 +43,13 @@ export function csvRegistros(registros: Registro[], agora: Date, nomeDe: (id: st
     };
     if (r.tipo === 'mamada') {
       const lados = duracaoPorLado(r, agora);
-      n.duracao = minutos(lados.total);
-      n.e = minutos(lados.E);
-      n.dd = minutos(lados.D);
-      n.lado = r.dados.segmentos[0]?.lado ?? '';
+      // Mamada nova não tem duração (só hora e lado): as colunas de minutos ficam vazias, sem 0 que enganaria a média
+      if (lados.total > 0) {
+        n.duracao = minutos(lados.total);
+        n.e = minutos(lados.E);
+        n.dd = minutos(lados.D);
+      }
+      n.lado = r.dados.segmentos?.[0]?.lado ?? '';
     } else if (r.tipo === 'sono') {
       n.duracao = fimMs ? minutos(fimMs - new Date(r.inicio).getTime()) : '';
     } else if (r.tipo === 'mamadeira') {

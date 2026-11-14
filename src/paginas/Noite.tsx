@@ -1,26 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAgora, useDados } from '../dados/contexto';
-import { agoraIso, haQuanto, horaCurta, relogio, textoDuracao } from '../lib/datas';
+import { agoraIso, haQuanto, horaCurta, textoDuracao } from '../lib/datas';
 import { FolhaQueHorasTerminou } from '../componentes/registrar';
 import { useUmToque } from '../componentes/ui';
 import { SeloQuem } from '../componentes/quem';
 import { aplicarTemaAgora } from '../lib/tema';
 import {
-  duracaoPorLado,
-  emAndamento,
   cronometroEsquecido,
   finalizarMamada,
   finalizarMamadaNaHora,
   finalizarSono,
-  iniciarMamada,
   iniciarSono,
-  ladoAtivo,
-  ladoFinal,
+  ladoDaMamada,
+  emAndamento,
+  NOME_LADO,
+  novaMamadaSimples,
   outroLado,
-  pausarMamada,
   textoFralda,
-  trocarLado,
   ultimaAlimentacao,
   ultimoDoTipo,
   ultimoLado,
@@ -80,7 +77,7 @@ export function Noite() {
     if (!quando && cronometroEsquecido(m, new Date())) return setPerguntar('mamada');
     setPerguntar(null);
     const fim = quando ? finalizarMamadaNaHora(m, quando) : finalizarMamada(m, new Date());
-    salvar(fim, `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, m);
+    salvar(fim, 'Mamada encerrada', m);
   }
   function acordouAgora(quando?: Date) {
     if (!sono) return;
@@ -113,15 +110,17 @@ export function Noite() {
     salvar(r, `Fralda: ${textoFralda(r.dados)}`, null);
   }
 
-  function comecar(lado: Lado) {
-    const r = iniciarMamada(baseRegistro(), lado, new Date());
-    salvar(r, `Mamada no peito ${lado}`, null);
+  function registrarMamada(lado: Lado) {
+    const r = novaMamadaSimples(baseRegistro(), lado, new Date());
+    salvar(r, `Mamada registrada (${NOME_LADO[lado].toLowerCase()})`, null);
   }
 
-  const d = m ? duracaoPorLado(m, agora) : null;
-  const ativo = m ? ladoAtivo(m) : null;
-  // Lado em que terminou a última mamada no peito (mesmo que depois tenha vindo uma mamadeira)
+  // Lado da última mamada no peito (mesmo que depois tenha vindo uma mamadeira): sugere o oposto
   const ultimo = ultimoLado(registros);
+  const sugerido: Lado | null = ultimo ? outroLado(ultimo) : null;
+  const textoAlimentacao = alimentacao
+    ? `${haQuanto(alimentacao.inicio, agora)}${alimentacao.tipo === 'mamada' ? (ladoDaMamada(alimentacao) ? ` · peito ${NOME_LADO[ladoDaMamada(alimentacao)!].toLowerCase()}` : '') : ' · mamadeira'}`
+    : '—';
 
   return (
     <div className="noite" role="main" aria-label="Modo noite">
@@ -143,16 +142,12 @@ export function Noite() {
               desfazer
             </button>
           </span>
-        ) : m && d ? (
-          <>
-            Mamando {ativo ? `no peito ${ativo}` : '(pausado)'} · <strong>{relogio(d.total)}</strong>
-          </>
         ) : sono ? (
           <>Dormindo há {textoDuracao(agora.getTime() - new Date(sono.inicio).getTime())}</>
         ) : (
           <>
             <span>
-              Última alimentação: {alimentacao ? `${haQuanto(alimentacao.inicio, agora)}${ultimo ? ` · terminou no ${ultimo}` : ''}` : '—'}
+              Última alimentação: {textoAlimentacao}
               {alimentacao && <SeloQuem id={alimentacao.criado_por} className="quem-noite" />}
             </span>
             Última fralda: {fralda ? haQuanto(fralda.inicio, agora) : '—'}
@@ -160,30 +155,16 @@ export function Noite() {
         )}
       </div>
       <div className="noite-grade">
-        {m ? (
-          <>
-            <button className="ativo" onClick={toque(() => salvar(trocarLado(m, new Date(), ativo ? outroLado(ativo) : outroLado(ladoFinal(m) ?? 'D')), 'Trocou de peito', m))}>
-              Trocar para o {ativo ? outroLado(ativo) : outroLado(ladoFinal(m) ?? 'D')}
-              <small>
-                E {relogio(d!.E)} · D {relogio(d!.D)}
-              </small>
-            </button>
-            <button onClick={toque(() => salvar(ativo ? pausarMamada(m, new Date()) : trocarLado(m, new Date(), ladoFinal(m) ?? 'E'), ativo ? 'Pausado' : 'Continuando', m))}>
-              {ativo ? 'Pausar' : 'Continuar'}
-            </button>
-            <button style={{ gridColumn: '1 / -1' }} onClick={toque(() => finalizarMamadaAgora())}>
-              Finalizar mamada
-            </button>
-          </>
-        ) : (
-          <>
-            <button onClick={toque(() => comecar('E'))}>
-              Peito E{ultimo === 'E' && <small>terminou aqui</small>}
-            </button>
-            <button onClick={toque(() => comecar('D'))}>
-              Peito D{ultimo === 'D' && <small>terminou aqui</small>}
-            </button>
-          </>
+        <button onClick={toque(() => registrarMamada('E'))}>
+          Peito E{sugerido === 'E' && <small>comece por aqui</small>}
+        </button>
+        <button onClick={toque(() => registrarMamada('D'))}>
+          Peito D{sugerido === 'D' && <small>comece por aqui</small>}
+        </button>
+        {m && (
+          <button className="ativo" style={{ gridColumn: '1 / -1' }} onClick={toque(() => finalizarMamadaAgora())}>
+            Encerrar mamada antiga aberta
+          </button>
         )}
         <button onClick={toque(() => fraldaAgora(true, false))}>
           <span className="noite-emoji" aria-hidden="true">💧</span> Xixi

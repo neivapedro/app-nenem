@@ -65,16 +65,44 @@ export function ladoAtivo(r: RegistroDe<'mamada'>): Lado | null {
   return r.dados.segmentos.find((s) => !s.fim)?.lado ?? null;
 }
 
-/** Lado em que terminou a mamada (o último trecho) */
-export function ladoFinal(r: RegistroDe<'mamada'>): Lado | null {
-  const segs = r.dados.segmentos;
+/** Lado da mamada = o do último trecho (tolera registro antigo sem trechos: null) */
+export function ladoDaMamada(r: RegistroDe<'mamada'>): Lado | null {
+  const segs = r.dados?.segmentos ?? [];
   return segs.length ? segs[segs.length - 1].lado : null;
 }
 
-/** Em que lado terminou a mamada mais recente (para mostrar ao começar a próxima) */
+/** Lado em que terminou a mamada (o último trecho). Igual a ladoDaMamada. */
+export const ladoFinal = ladoDaMamada;
+
+/** Lados usados na mamada (sem repetir, E antes de D): mamada nova tem 1; antiga pode ter os 2 */
+export function ladosDaMamada(r: RegistroDe<'mamada'>): Lado[] {
+  const usados = new Set((r.dados?.segmentos ?? []).map((s) => s.lado));
+  return (['E', 'D'] as Lado[]).filter((l) => usados.has(l));
+}
+
+/** Mamada no formato novo (sem duração): termina na mesma hora em que começa */
+export function ehMamadaSimples(r: RegistroDe<'mamada'>): boolean {
+  return !!r.fim && ms(r.fim) === ms(r.inicio);
+}
+
+/** Registro antigo de mamada ainda com o cronômetro aberto (fim nulo) */
+export function ehMamadaEmAndamentoAntiga(r: Registro): r is RegistroDe<'mamada'> {
+  return r.tipo === 'mamada' && !r.fim;
+}
+
+/** Lado da mamada no peito mais recente (para sugerir o oposto na próxima) */
 export function ultimoLado(registros: Registro[]): Lado | null {
-  const ultima = ordenarRecentes(registros.filter((r): r is RegistroDe<'mamada'> => r.tipo === 'mamada'))[0];
-  return ultima ? ladoFinal(ultima) : null;
+  for (const r of ordenarRecentes(registros.filter((x): x is RegistroDe<'mamada'> => x.tipo === 'mamada'))) {
+    const l = ladoDaMamada(r);
+    if (l) return l;
+  }
+  return null;
+}
+
+/** Mamada de um toque: só a hora e o lado (início = fim, um trecho) */
+export function novaMamadaSimples(base: Base, lado: Lado, quando: Date): RegistroDe<'mamada'> {
+  const t = quando.toISOString();
+  return { ...base, tipo: 'mamada', inicio: t, fim: t, observacao: null, dados: { segmentos: [{ lado, inicio: t, fim: t }] } };
 }
 
 type Base = Pick<Registro, 'id' | 'familia_id' | 'bebe_id' | 'criado_por'>;
@@ -196,11 +224,14 @@ export interface ResumoDia {
   sonoMs: number;
   /** Mamadas + mamadeiras */
   alimentacoes: number;
+  /** Mamadas no peito em que o lado esquerdo / direito foi usado (uma antiga com os dois conta nos dois) */
+  esquerdo: number;
+  direito: number;
 }
 
 /** Totais de um dia (fuso do aparelho). O sono conta só a parte dentro do dia. */
 export function resumoDia(registros: Registro[], dia: string, agora: Date): ResumoDia {
-  const r: ResumoDia = { mamadas: 0, peitoMs: 0, mamadeiras: 0, ml: 0, fraldas: 0, xixi: 0, coco: 0, sonoMs: 0, alimentacoes: 0 };
+  const r: ResumoDia = { mamadas: 0, peitoMs: 0, mamadeiras: 0, ml: 0, fraldas: 0, xixi: 0, coco: 0, sonoMs: 0, alimentacoes: 0, esquerdo: 0, direito: 0 };
   const ini = inicioDoDia(dia).getTime();
   const fimDia = inicioDoDia(somarDiasLocal(dia, 1)).getTime();
   // Sonos que se sobrepõem (ex.: os dois celulares marcaram "Dormiu") contam uma vez só
@@ -216,6 +247,9 @@ export function resumoDia(registros: Registro[], dia: string, agora: Date): Resu
     if (x.tipo === 'mamada') {
       r.mamadas++;
       r.peitoMs += duracaoPorLado(x, agora).total;
+      const lados = ladosDaMamada(x);
+      if (lados.includes('E')) r.esquerdo++;
+      if (lados.includes('D')) r.direito++;
     } else if (x.tipo === 'mamadeira') {
       r.mamadeiras++;
       r.ml += Number(x.dados.ml) || 0;
@@ -294,6 +328,11 @@ const quando = (iso: string, agora: Date) => (chaveDia(iso) === chaveDia(agora) 
 
 export function descrever(r: Registro, agora: Date): { titulo: string; detalhe: string } {
   if (r.tipo === 'mamada') {
+    if (ehMamadaSimples(r)) {
+      const lados = ladosDaMamada(r);
+      const peito = lados.length === 2 ? 'peito esquerdo e direito' : lados[0] ? `peito ${NOME_LADO[lados[0]].toLowerCase()}` : 'peito';
+      return { titulo: `Mamada · ${peito}`, detalhe: horaCurta(r.inicio) };
+    }
     const d = duracaoPorLado(r, agora);
     // Menos de 1 minuto aparece em segundos (e não "0 min")
     const lados = (['E', 'D'] as Lado[]).filter((l) => d[l] > 0).map((l) => `${l} ${textoDuracao(d[l], true)}`);
@@ -349,7 +388,8 @@ export function validarRegistro(r: Registro, agora: Date): string | null {
   if ((r.tipo === 'mamada' || r.tipo === 'sono') && r.fim && ms(r.fim) - ms(r.inicio) > 24 * 3_600_000) return 'Duração acima de 24 h: confira as horas.';
   if (r.tipo === 'sono' && r.fim && ms(r.fim) - ms(r.inicio) < 60_000) return 'O sono precisa ter pelo menos 1 minuto.';
   if (r.tipo === 'mamadeira' && !(r.dados.ml > 0 && r.dados.ml <= 500)) return 'Informe a quantidade (até 500 ml).';
-  if (r.tipo === 'mamada' && r.fim && duracaoPorLado(r, agora).total <= 0) return 'Informe os minutos em pelo menos um peito.';
+  if (r.tipo === 'mamada' && r.fim && !(r.dados?.segmentos ?? []).length) return 'Escolha o lado (esquerdo ou direito).';
+  if (r.tipo === 'mamada' && r.fim && ms(r.fim) !== ms(r.inicio) && duracaoPorLado(r, agora).total <= 0) return 'Informe os minutos em pelo menos um peito.';
   if (r.tipo === 'fralda' && !r.dados.xixi && !r.dados.coco) return 'Marque xixi, cocô ou os dois.';
   if (r.tipo === 'remedio' && !r.dados.nome.trim()) return 'Informe o remédio.';
   if (r.tipo === 'temperatura' && !(r.dados.graus >= 30 && r.dados.graus <= 44)) return 'Temperatura entre 30 e 44 °C (ex.: 36,8).';

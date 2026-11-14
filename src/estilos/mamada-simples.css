@@ -1,0 +1,9 @@
+/* Mamada de um toque: opção sugerida no menu de segurar */
+.mr-item.mr-destaque {
+  background: color-mix(in srgb, var(--c-mamada) 12%, transparent);
+  box-shadow: inset 3px 0 0 var(--c-mamada);
+}
+.mr-item.mr-destaque .mr-detalhe {
+  color: var(--c-mamada);
+  font-weight: 600;
+}

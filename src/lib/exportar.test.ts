@@ -97,4 +97,22 @@ describe('planilha dos registros', () => {
     expect([linhas[3][col('xixi')], linhas[3][col('coco')], linhas[3][col('cor_coco')]]).toEqual(['1', '1', 'amarela']);
     expect(linhas[4][col('duracao_min')]).toBe('90,0');
   });
+
+  it('mamada nova (sem duração) sai com minutos vazios e o lado; a antiga mantém a duração', () => {
+    const base = { familia_id: 'f', bebe_id: 'b', criado_por: null, observacao: null };
+    const t = '2026-11-15T13:00:00.000Z';
+    const t2 = '2026-11-15T13:20:00.000Z';
+    const regs = [
+      { ...base, id: '1', tipo: 'mamada', inicio: t, fim: t, dados: { segmentos: [{ lado: 'D', inicio: t, fim: t }] } },
+      { ...base, id: '2', tipo: 'mamada', inicio: '2026-11-15T10:00:00.000Z', fim: t2.replace('13:20', '10:15'), dados: { segmentos: [{ lado: 'E', inicio: '2026-11-15T10:00:00.000Z', fim: '2026-11-15T10:15:00.000Z' }] } },
+    ] as unknown as Registro[];
+    const linhas = csvRegistros(regs, new Date('2026-11-16T00:00:00Z'), () => 'Pedro').replace('﻿', '').split('\n').map((l) => l.split(';'));
+    const col = (nome: string) => linhas[0].indexOf(nome);
+    // Ordenado por início: a antiga (10h) vem primeiro
+    expect(linhas[1][col('duracao_min')]).toBe('15,0');
+    expect(linhas[1][col('comecou_no_peito')]).toBe('E');
+    expect([linhas[2][col('duracao_min')], linhas[2][col('peito_e_min')], linhas[2][col('peito_d_min')]]).toEqual(['', '', '']);
+    expect(linhas[2][col('comecou_no_peito')]).toBe('D');
+    expect(linhas[2].join(';')).not.toMatch(/NaN/);
+  });
 });

@@ -5,6 +5,7 @@ import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/pr
 import { FolhaBebe } from '../componentes/bebe';
 import { CartaoProximaMamada, Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
 import { MomentosDoDia } from '../componentes/momentos';
+import { MamadasHoje } from '../componentes/mamadas-hoje';
 import { RelogioDia } from '../componentes/relogio-dia';
 import { DivisaoDaSemana } from '../componentes/divisao';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
@@ -15,11 +16,11 @@ import { MenuRapido, useSegurar, type Ponto } from '../componentes/menu-rapido';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { useZoom } from '../lib/zoom';
-import { duracaoCurta, mediasUltimosDias } from '../lib/hoje';
+import { alimentacoesDoDia, contagemDoDia, duracaoCurta, haCurto, ladosDoRegistro, mediasUltimosDias, nomeLado } from '../lib/hoje';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, somarDiasLocal, textoDuracao } from '../lib/datas';
 import { DicaInstalar } from '../componentes/dica-instalar';
 import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
-import { cronometroEsquecido, descrever, emAndamento, ladoFinal, ordenarRecentes, resumoDia, textoFralda, ultimaAlimentacao, ultimoDoTipo } from '../lib/registros';
+import { cronometroEsquecido, descrever, emAndamento, ordenarRecentes, resumoDia, textoFralda, ultimoDoTipo } from '../lib/registros';
 import type { Registro, TipoRegistro } from '../lib/tipos';
 import { aplicarAtalho, atalhosPara, type Atalho, type TipoAtalho } from '../lib/atalhos-rapidos';
 import { CHAVE_LAYOUT_HOJE, ehPadrao, layoutPadrao, lerLayout, ordemNaTela, serializarLayout, type IdCartaoHoje, type LayoutHoje } from '../lib/hoje-layout';
@@ -160,10 +161,11 @@ export function Hoje() {
   const [editando, setEditando] = useState<Registro | null>(null);
   const andamento = emAndamento(registros);
   const resumo = resumoDia(registros, hoje, agora);
-  const alimentacao = ultimaAlimentacao(registros);
   const fralda = ultimoDoTipo(registros, 'fralda');
   const sono = ultimoDoTipo(registros, 'sono');
   const mamadeira = ultimoDoTipo(registros, 'mamadeira');
+  const ultimaMamada = ultimoDoTipo(registros, 'mamada');
+  const contagemHoje = useMemo(() => contagemDoDia(alimentacoesDoDia(registros, hoje)), [registros, hoje]);
   const recentes = ordenarRecentes(registros).slice(0, 5);
   const proximo = proximosCompromissos(compromissos, agora)[0];
   const nascido = !!bebe?.nascimento;
@@ -173,8 +175,8 @@ export function Hoje() {
   // Subtítulo dos cartões: 2 linhas fixas (quando · detalhe). Linha vazia fica reservada com espaço.
   const desdeAlimentacao: [string, string] = andamento.mamada
     ? ['em andamento', 'cronômetro ligado']
-    : alimentacao
-      ? [haQuanto(alimentacao.inicio, agora), alimentacao.tipo === 'mamada' ? (ladoFinal(alimentacao) ? `terminou no ${ladoFinal(alimentacao)}` : 'no peito') : `${alimentacao.dados.ml} ml`]
+    : ultimaMamada
+      ? [`Última: ${haCurto(ultimaMamada.inicio, agora)}`, ladosDoRegistro(ultimaMamada).length === 1 ? nomeLado(ladosDoRegistro(ultimaMamada)[0]) : 'no peito']
       : ['nenhuma ainda', 'toque para começar'];
   const desdeMamadeira: [string, string] = mamadeira ? [haQuanto(mamadeira.inicio, agora), resumo.ml ? `${Math.round(resumo.ml)} ml hoje` : 'leite ou fórmula'] : ['nenhuma ainda', 'leite ou fórmula'];
   const desdeFralda: [string, string] = fralda ? [haQuanto(fralda.inicio, agora), textoFralda(fralda.dados)] : ['nenhuma ainda', 'xixi ou cocô'];
@@ -244,6 +246,7 @@ export function Hoje() {
     momentos: <MomentosDoDia />,
     // Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela
     proxima: nascido && !andamento.mamada ? <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} /> : null,
+    mamadas: nascido ? <MamadasHoje registros={registros} agora={agora} hoje={hoje} nascimento={bebe?.nascimento ?? null} /> : null,
     faixa24h: nascido ? <Faixa24h registros={registros} agora={agora} /> : null,
     relogio: nascido ? <RelogioDia registros={registros} agora={agora} /> : null,
     registrar: (
@@ -298,7 +301,7 @@ export function Hoje() {
             Histórico <Icone nome="seta" />
           </Link>
         </div>
-        <NumerosDoDia resumo={resumo} medias={medias} nascido={nascido} />
+        <NumerosDoDia resumo={resumo} medias={medias} nascido={nascido} lados={contagemHoje} />
       </section>
     ),
     divisao: nascido ? <DivisaoDaSemana /> : null,

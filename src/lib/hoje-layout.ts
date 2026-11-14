@@ -7,6 +7,7 @@
 export type IdCartaoHoje =
   | 'momentos'
   | 'proxima'
+  | 'mamadas'
   | 'faixa24h'
   | 'relogio'
   | 'registrar'
@@ -33,9 +34,10 @@ export interface CartaoHoje {
 export const CARTOES_HOJE: CartaoHoje[] = [
   { id: 'momentos', nome: 'Momentos', descricao: 'Mesversário e lembranças do dia (quando houver)', soNascido: true },
   { id: 'proxima', nome: 'Próxima mamada', descricao: 'Anel com a hora prevista da próxima alimentação', soNascido: true },
-  // Mostra as mesmas 24 h do relógio: por padrão só o relógio aparece
+  { id: 'mamadas', nome: 'Mamadas de hoje', descricao: 'Hora e lado da última, quantas hoje e o ritmo do bebê', soNascido: true },
+  // Por padrão só o cartão de mamadas aparece; a faixa e o relógio ficam disponíveis aqui
   { id: 'faixa24h', nome: 'Últimas 24 horas', descricao: 'Faixa com mamadas, sono e fraldas', soNascido: true, padraoOculto: true },
-  { id: 'relogio', nome: 'Relógio 24 h', descricao: 'O dia desenhado em volta de um relógio', soNascido: true },
+  { id: 'relogio', nome: 'Relógio 24 h', descricao: 'O dia desenhado em volta de um relógio', soNascido: true, padraoOculto: true },
   { id: 'registrar', nome: 'Botões de registro', descricao: 'Mamada, mamadeira, fralda e sono', ocultavel: false },
   { id: 'outros', nome: 'Outros registros', descricao: 'Remédio, febre, extração e mais' },
   { id: 'avisos', nome: 'Avisos', descricao: 'Vacina, remédio e leite vencendo (quando pedem ação)' },

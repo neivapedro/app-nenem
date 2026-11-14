@@ -11,8 +11,13 @@ import {
   finalizarSono,
   iniciarMamada,
   iniciarSono,
+  ehMamadaEmAndamentoAntiga,
+  ehMamadaSimples,
   ladoAtivo,
+  ladoDaMamada,
+  ladosDaMamada,
   mamadaManual,
+  novaMamadaSimples,
   pausarMamada,
   resumoDia,
   trocarLado,
@@ -80,7 +85,10 @@ describe('mamada registrada depois', () => {
 
   it('sem minutos não é válida', () => {
     const m = mamadaManual(base, t('14:00').toISOString(), { E: 0, D: 0 }, 'E');
-    expect(validarRegistro(m, t('15:00'))).toMatch(/minutos/);
+    expect(validarRegistro(m, t('15:00'))).toMatch(/lado/);
+    // antiga com trecho de duração zero e fim diferente do início
+    const z = { ...mamadaManual(base, t('14:00').toISOString(), { E: 5, D: 0 }, 'E'), dados: { segmentos: [{ lado: 'E' as const, inicio: t('14:00').toISOString(), fim: t('14:00').toISOString() }] } };
+    expect(validarRegistro({ ...z, fim: t('14:05').toISOString() }, t('15:00'))).toMatch(/minutos/);
   });
 });
 
@@ -102,6 +110,8 @@ describe('resumo do dia', () => {
       // 00:00–02:00 da noite anterior + 13:00–14:30 em andamento
       sonoMs: (2 * 60 + 90) * 60_000,
       alimentacoes: 2,
+      esquerdo: 1,
+      direito: 0,
     });
   });
 });
@@ -192,5 +202,60 @@ describe('finalizar na hora escolhida', () => {
     expect(duracaoPorLado(fim, t('15:00')).E).toBe(12 * 60_000 + 15_000);
     // Hora escolhida antes da pausa: corta
     expect(duracaoPorLado(finalizarMamadaNaHora(m, t('10:05'), t('15:00')), t('15:00')).E).toBe(4 * 60_000 + 30_000);
+  });
+});
+
+describe('mamada de um toque', () => {
+  const simples = (id: string, hora: string, lado: 'E' | 'D') => novaMamadaSimples({ ...base, id }, lado, t(hora));
+
+  it('grava início = fim, um trecho só, e é válida', () => {
+    const m = simples('a', '15:20', 'E');
+    expect(m.inicio).toBe(m.fim);
+    expect(m.dados.segmentos).toEqual([{ lado: 'E', inicio: m.inicio, fim: m.inicio }]);
+    expect(ehMamadaSimples(m)).toBe(true);
+    expect(validarRegistro(m, t('16:00'))).toBeNull();
+    expect(validarRegistro(m, t('15:00'))).toMatch(/futuro/);
+  });
+
+  it('descreve sem duração', () => {
+    expect(descrever(simples('a', '15:20', 'E'), t('16:00'))).toEqual({ titulo: 'Mamada · peito esquerdo', detalhe: '15:20' });
+    expect(descrever(simples('a', '15:20', 'D'), t('16:00')).titulo).toBe('Mamada · peito direito');
+  });
+
+  it('lado e lados da mamada, também de registros antigos', () => {
+    const antiga = mamadaManual(base, t('10:00').toISOString(), { E: 5, D: 8 }, 'E');
+    expect(ladoDaMamada(antiga)).toBe('D');
+    expect(ladosDaMamada(antiga)).toEqual(['E', 'D']);
+    expect(ladosDaMamada(simples('a', '10:00', 'D'))).toEqual(['D']);
+    const semTrechos = { ...antiga, dados: { segmentos: [] } };
+    expect(ladoDaMamada(semTrechos)).toBeNull();
+    expect(ladosDaMamada(semTrechos)).toEqual([]);
+    expect(ladoDaMamada({ ...antiga, dados: {} as never })).toBeNull();
+  });
+
+  it('último lado: o da mamada mais recente; mamadeira não conta; sem histórico = null', () => {
+    expect(ultimoLado([])).toBeNull();
+    const regs = [simples('a', '08:00', 'E'), simples('b', '11:00', 'D'), mamadeira('c', '12:00', 90)];
+    expect(ultimoLado(regs)).toBe('D');
+    expect(ultimoLado([simples('a', '13:00', 'E'), ...regs])).toBe('E');
+  });
+
+  it('registro antigo em andamento é reconhecido e não é "simples"', () => {
+    const aberta = iniciarMamada({ ...base, id: 'o' }, 'E', t('09:00'));
+    expect(ehMamadaEmAndamentoAntiga(aberta)).toBe(true);
+    expect(ehMamadaSimples(aberta)).toBe(false);
+    expect(ehMamadaEmAndamentoAntiga(simples('a', '09:00', 'E'))).toBe(false);
+    expect(ehMamadaEmAndamentoAntiga(mamadeira('m', '09:00', 60))).toBe(false);
+  });
+
+  it('resumo do dia conta esquerdo/direito sem duração; antiga com os dois lados conta nos dois', () => {
+    const regs = [simples('a', '08:00', 'E'), simples('b', '10:00', 'D'), simples('c', '12:00', 'D'), mamadaManual({ ...base, id: 'd' }, t('14:00').toISOString(), { E: 5, D: 5 }, 'E'), mamadeira('m', '15:00', 90)];
+    const r = resumoDia(regs, '2026-11-15', t('20:00'));
+    expect(r.mamadas).toBe(4);
+    expect(r.esquerdo).toBe(2);
+    expect(r.direito).toBe(3);
+    expect(r.alimentacoes).toBe(5);
+    expect(r.peitoMs).toBe(10 * 60_000);
+    expect(resumoDia([simples('a', '08:00', 'E')], '2026-11-15', t('20:00')).peitoMs).toBe(0);
   });
 });

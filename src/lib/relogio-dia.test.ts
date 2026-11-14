@@ -107,6 +107,16 @@ describe('montarRelogio', () => {
     expect(r.sonoMs).toBe(4 * 3_600_000);
   });
 
+  it('mamada nova (sem duração) mostra hora e lado, nunca 0 min', () => {
+    const t = em(28, 11);
+    const nova = { ...base, id: 'n', tipo: 'mamada', inicio: t, fim: t, dados: { segmentos: [{ lado: 'D', inicio: t, fim: t }] } } as Registro;
+    const r = montarRelogio([nova], agora);
+    const d = detalheItem(r.alimentacoes[0], agora);
+    expect(d.frase).toBe('Mamada no peito às 11:00, lado direito');
+    expect(d.valor).toBe('Dir.');
+    expect(d.frase + d.valor + d.quando).not.toMatch(/min|NaN/);
+  });
+
   it('cronômetro de sono esquecido não passa de 3 dias', () => {
     const r = montarRelogio([sono('velho', em(20, 10), null)], agora);
     expect(r.sono).toHaveLength(0);

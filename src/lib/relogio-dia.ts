@@ -251,6 +251,17 @@ export function detalheItem(it: ItemRelogio, agora: Date): DetalheItem {
   }
   if (it.tipo === 'mamada') {
     const l = it.lados ?? { E: 0, D: 0 };
+    // Mamada nova: só hora e lado, sem duração
+    if (l.E + l.D === 0 && it.fim - it.ini < 60_000 && !it.emAndamento) {
+      const lado = it.ladoFinal === 'E' ? 'esquerdo' : it.ladoFinal === 'D' ? 'direito' : null;
+      return {
+        titulo: 'Mamada no peito',
+        quando: `às ${h(it.ini)}`,
+        valor: lado ? (it.ladoFinal === 'E' ? 'Esq.' : 'Dir.') : 'Peito',
+        extra: lado ? `peito ${lado}` : null,
+        frase: `Mamada no peito às ${horaComDia(it.ini, agora)}${lado ? `, lado ${lado}` : ''}`,
+      };
+    }
     const total = l.E + l.D || it.fim - it.ini;
     const dur = duracaoCurta(total);
     const partes = [l.E ? `E ${duracaoCurta(l.E)}` : '', l.D ? `D ${duracaoCurta(l.D)}` : ''].filter(Boolean).join(' · ');

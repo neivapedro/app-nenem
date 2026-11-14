@@ -6,6 +6,7 @@ import '../estilos/hoje.css';
 import { linhaDoTempo } from '../lib/painel';
 import { useZoom } from '../lib/zoom';
 import { duracaoCurta, horaPrevista, painelAlimentacao, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
+import type { ContagemDoDia } from '../lib/hoje';
 import type { ResumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
 import { NumeroAnimado } from './numero-animado';
@@ -184,7 +185,7 @@ function comparacao(valor: number, media: number | null | undefined, andamentoDo
   return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: andamentoDoDia < 1 ? ' vs. ritmo' : ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
 }
 
-export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean }) {
+export function NumerosDoDia({ resumo, medias, nascido, lados }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean; lados: ContagemDoDia }) {
   const anima = (chave: string, valor: number, formatar: (n: number) => string, minimo?: number) => (
     <NumeroAnimado valor={valor} formatar={formatar} chave={`hoje:${chave}`} minimo={minimo} />
   );
@@ -197,8 +198,8 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
   ];
   // Detalhes que saíram dos números grandes: uma linha de texto cinza pequena
   const detalhes = [
-    resumo.peitoMs ? `No peito ${duracaoCurta(resumo.peitoMs)}` : null,
-    resumo.ml ? `Mamadeira ${Math.round(resumo.ml)} ml` : null,
+    lados.peito ? `Peito: esquerdo ${lados.esquerdo} · direito ${lados.direito}` : null,
+    lados.mamadeiras ? `Mamadeira ${lados.mamadeiras}${resumo.ml ? ` (${Math.round(resumo.ml)} ml)` : ''}` : null,
     resumo.fraldas ? `Xixi ${resumo.xixi} · cocô ${resumo.coco}` : null,
   ].filter(Boolean);
 

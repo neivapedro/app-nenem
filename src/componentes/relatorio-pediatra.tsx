@@ -10,8 +10,8 @@ import { chaveDia, dataBr, diasEntre, horaCurta, idadeBebe, inicioDoDia, nomeDia
 import { traduzirErro } from '../lib/erros';
 import { limpar } from '../lib/exportar';
 import { compartilhar } from './doc-arquivos';
-import { diasDoPeriodo, duracaoMediaMamada, intervaloMedioAlimentacao, media, mediasPorMes } from '../lib/padroes';
-import { diasPainel, inicioDosDados, ladosDoPeito, mapaHorarios, mediasPeriodo, periodoCoberto, variacao, type DiaPainel } from '../lib/painel';
+import { diasDoPeriodo, intervaloMedioAlimentacao, media, mediasPorMes } from '../lib/padroes';
+import { diasPainel, inicioDosDados, ladosPorContagem, mapaHorarios, mediasPeriodo, periodoCoberto, REFERENCIA_OMS, variacao, type DiaPainel } from '../lib/painel';
 import { descrever, NOMES_TIPO } from '../lib/registros';
 import type { GraficoPdf, KpiPdf, ModeloRelatorio, PainelPdf } from '../lib/relatorio';
 import { Campo, Escolhas, Icone } from './ui';
@@ -52,7 +52,8 @@ function agrupar(dias: DiaPainel[], tamanho: number): { rotulo: string; dias: Di
   return grupos;
 }
 
-function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: string, hoje: string, agora: Date, comparar: boolean, inicioDados: string | null): PainelPdf {
+function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: string, hoje: string, agora: Date, comparar: boolean, inicioDados: string | null, nascimentoDia: string | null): PainelPdf {
+  const idadeDias = nascimentoDia ? diasEntre(nascimentoDia, ate) : null;
   const n = diasEntre(de, ate) + 1;
   const deAnt = somarDiasLocal(de, -n);
   const ateAnt = somarDiasLocal(de, -1);
@@ -69,22 +70,27 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
   const fim = new Date(Math.min(agora.getTime(), inicioDoDia(somarDiasLocal(ate, 1)).getTime()));
   const intervalo = intervaloMedioAlimentacao(regs, inicio, fim);
   const intervaloAntes = temAnterior ? intervaloMedioAlimentacao(regs, inicioDoDia(deAnt), inicio) : null;
-  const mamada = duracaoMediaMamada(regs, inicio, fim, agora);
-  const lados = ladosDoPeito(regs, inicio, fim, agora);
+  const lados = ladosPorContagem(regs, inicio, fim);
   const temMamadeira = dias.some((d) => d.ml > 0);
   // Minigráfico: no máximo uns 60 pontos
   const passoSerie = Math.max(1, Math.ceil(dias.length / 60));
   const serie = (f: (d: DiaPainel) => number) => dias.filter((_, i) => i % passoSerie === 0).map(f);
 
   const kpis: KpiPdf[] = [
-    { rotulo: 'Alimentações/dia', valor: um(atual.alimentacoes), delta: delta(atual.alimentacoes, antes.alimentacoes), cor: COR.peito, serie: serie((d) => d.alimentacoes) },
+    { rotulo: 'Mamadas/dia', valor: um(atual.alimentacoes), detalhe: 'peito e mamadeira', delta: delta(atual.alimentacoes, antes.alimentacoes), cor: COR.peito, serie: serie((d) => d.alimentacoes) },
     { rotulo: 'Intervalo médio', valor: intervalo ? horasCurto(intervalo) : '—', delta: intervalo && intervaloAntes ? delta(intervalo, intervaloAntes) : null, detalhe: 'entre alimentações', cor: COR.peito },
     { rotulo: 'Sono/dia', valor: horas(atual.sonoMs), delta: delta(atual.sonoMs, antes.sonoMs), cor: COR.sono, serie: serie((d) => d.sonoMs) },
     { rotulo: 'Maior sono seguido', valor: atual.maiorSonoMs ? horasCurto(atual.maiorSonoMs) : '—', delta: delta(atual.maiorSonoMs, antes.maiorSonoMs), detalhe: 'média', cor: COR.sono, serie: serie((d) => d.maiorSonoMs) },
     { rotulo: 'Fraldas/dia', valor: um(atual.fraldas), delta: delta(atual.fraldas, antes.fraldas), cor: COR.fralda, serie: serie((d) => d.fraldas) },
     temMamadeira
       ? { rotulo: 'Mamadeira/dia', valor: `${Math.round(atual.ml)} ml`, delta: delta(atual.ml, antes.ml), cor: COR.mamadeira, serie: serie((d) => d.ml) }
-      : { rotulo: 'Mamada no peito', valor: mamada ? horasCurto(mamada) : '—', detalhe: 'duração média', delta: null, cor: COR.peito },
+      : {
+          rotulo: 'Lado do peito',
+          valor: lados.E + lados.D ? `${Math.round((Math.max(lados.E, lados.D) / (lados.E + lados.D)) * 100)}% ${lados.E >= lados.D ? 'esq.' : 'dir.'}` : '—',
+          detalhe: 'das mamadas',
+          delta: null,
+          cor: COR.peito,
+        },
   ];
 
   // Até 45 colunas: uma por dia; depois, média por semana; bem longo, a cada 30 dias
@@ -99,7 +105,7 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
 
   const graficos: GraficoPdf[] = [
     {
-      titulo: 'Alimentações',
+      titulo: 'Mamadas por dia',
       nota,
       rotulos,
       series: [
@@ -107,6 +113,8 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
         { nome: 'Mamadeira', cor: COR.mamadeira, valores: med((d) => d.mamadeiras) },
       ],
       media: { valor: atual.alimentacoes, texto: `média ${um(atual.alimentacoes)}` },
+      // Faixa típica da OMS para os 6 primeiros meses: só referência
+      referencia: idadeDias === null || idadeDias <= 183 ? { de: REFERENCIA_OMS.de, ate: REFERENCIA_OMS.ate, texto: `OMS ${REFERENCIA_OMS.de}-${REFERENCIA_OMS.ate}/dia` } : undefined,
       formatarEixo: inteiro,
     },
     {
@@ -154,6 +162,7 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
         ? `Variação (+/-) em relação ${n === 1 ? 'ao dia anterior' : `aos ${n} dias anteriores`} (${n === 1 ? dataBr(deAnt) : `${dataBr(deAnt)} a ${dataBr(ateAnt)}`}).`
         : 'Médias por dia do período.',
       inicioDados && inicioDados > de ? `Médias a partir de ${dataBr(inicioDados)}.` : '',
+      idadeDias === null || idadeDias <= 183 ? `Faixa clara no gráfico de mamadas: referência da OMS (${REFERENCIA_OMS.de} a ${REFERENCIA_OMS.ate} mamadas por dia nos primeiros 6 meses). Livre demanda: sem horário fixo.` : '',
       soHoje ? 'Dia de hoje ainda em andamento: números parciais.' : ate === hoje && atual.dias > 0 ? 'Sem contar o dia de hoje, que ainda não acabou.' : '',
     ]
       .filter(Boolean)
@@ -166,10 +175,10 @@ function montarPainel(regs: Parameters<typeof diasPainel>[0], de: string, ate: s
     ],
     proporcao: totalLados
       ? {
-          titulo: 'Lado do peito no período',
+          titulo: 'Mamadas por lado no período',
           partes: [
-            { nome: 'Esquerdo', valor: lados.E, texto: `Esquerdo ${Math.round((lados.E / totalLados) * 100)}% · ${textoDuracao(lados.E)}`, cor: COR.peito },
-            { nome: 'Direito', valor: lados.D, texto: `Direito ${Math.round((lados.D / totalLados) * 100)}% · ${textoDuracao(lados.D)}`, cor: COR.sono },
+            { nome: 'Esquerdo', valor: lados.E, texto: `Esquerdo ${Math.round((lados.E / totalLados) * 100)}% · ${lados.E} ${lados.E === 1 ? 'mamada' : 'mamadas'}`, cor: COR.peito },
+            { nome: 'Direito', valor: lados.D, texto: `Direito ${Math.round((lados.D / totalLados) * 100)}% · ${lados.D} ${lados.D === 1 ? 'mamada' : 'mamadas'}`, cor: COR.sono },
           ],
         }
       : undefined,
@@ -231,7 +240,9 @@ export function RelatorioPediatra() {
         })
         .sort((a, b) => a.inicio.localeCompare(b.inicio));
       const intervalo = intervaloMedioAlimentacao(registros, inicio, fimDoPeriodo);
-      const duracaoMamada = duracaoMediaMamada(registros, inicio, fimDoPeriodo, agora);
+      const lados = ladosPorContagem(registros, inicio, fimDoPeriodo);
+      const totalLados = lados.E + lados.D;
+      const mamadasDia = media(completos.map((d) => d.mamadas));
       const temMamadeira = dias.some((d) => d.ml > 0);
       const percentil = (ind: Indicador, data: string, valor: number | null) => {
         if (valor === null || !nascDia || !bebe?.sexo) return '';
@@ -253,17 +264,17 @@ export function RelatorioPediatra() {
         dias.length <= LIMITE_DIARIO
           ? {
               titulo: 'Resumo por dia',
-              cabecalho: ['Dia', 'Alimentações', 'No peito', 'Mamadeira', 'Fraldas', 'Xixi', 'Cocô', 'Sono'],
+              cabecalho: ['Dia', 'Mamadas', 'Mamadeiras', 'Fraldas', 'Xixi', 'Cocô', 'Sono'],
               linhas: [...dias]
                 .reverse()
-                .map((d) => [dias.length <= 14 ? nomeDia(d.dia, hoje) : dataBr(d.dia), d.alimentacoes, d.peitoMs ? textoDuracao(d.peitoMs) : '', d.ml ? `${d.ml} ml` : '', d.fraldas, d.xixi, d.coco, d.sonoMs ? horas(d.sonoMs) : '']),
+                .map((d) => [dias.length <= 14 ? nomeDia(d.dia, hoje) : dataBr(d.dia), d.mamadas, d.mamadeiras ? `${d.mamadeiras}${d.ml ? ` · ${d.ml} ml` : ''}` : '', d.fraldas, d.xixi, d.coco, d.sonoMs ? horas(d.sonoMs) : '']),
             }
           : {
               titulo: 'Resumo por mês (média por dia)',
-              cabecalho: ['Mês', 'Dias', 'Alimentações', 'No peito', 'Mamadeira', 'Fraldas', 'Xixi', 'Cocô', 'Sono'],
+              cabecalho: ['Mês', 'Dias', 'Mamadas/dia', 'Mamadeira/dia', 'Fraldas', 'Xixi', 'Cocô', 'Sono'],
               linhas: mediasPorMes(completos)
                 .reverse()
-                .map((m) => [`${MESES[Number(m.mes.slice(5)) - 1]}/${m.mes.slice(0, 4)}`, m.dias, um(m.alimentacoes), m.peitoMs ? textoDuracao(m.peitoMs) : '', m.ml ? `${Math.round(m.ml)} ml` : '', um(m.fraldas), um(m.xixi), um(m.coco), m.sonoMs ? horas(m.sonoMs) : '']),
+                .map((m) => [`${MESES[Number(m.mes.slice(5)) - 1]}/${m.mes.slice(0, 4)}`, m.dias, um(m.mamadas), m.mamadeiras ? `${um(m.mamadeiras)}${m.ml ? ` · ${Math.round(m.ml)} ml` : ''}` : '', um(m.fraldas), um(m.xixi), um(m.coco), m.sonoMs ? horas(m.sonoMs) : '']),
             };
 
       const modelo: ModeloRelatorio = {
@@ -275,14 +286,15 @@ export function RelatorioPediatra() {
             : 'Ainda não nasceu',
         periodo: `Período: ${dataBr(de)} a ${dataBr(ate)} (${totalDias} ${totalDias === 1 ? 'dia' : 'dias'}${periodo === 'tudo' && nascDia ? ', desde o nascimento' : ''}${desdeConsulta && consulta ? (de === consulta.data ? `, desde a consulta de ${dataBr(consulta.data).slice(0, 5)}: ${tituloConsulta}` : ', desde o nascimento') : ''})`,
         destaques: [
-          ['Alimentações por dia (média)', um(media(completos.map((d) => d.alimentacoes)))],
+          ['Mamadas no peito por dia (média)', mamadasDia ? um(mamadasDia) : '—'],
+          ['Alimentações por dia (peito + mamadeira)', um(media(completos.map((d) => d.alimentacoes)))],
           ['Intervalo médio entre alimentações', intervalo ? textoDuracao(Math.round(intervalo / 60_000) * 60_000) : '—'],
-          ['Duração média da mamada no peito', duracaoMamada ? textoDuracao(duracaoMamada) : '—'],
+          ['Mamadas por lado', totalLados ? `esquerdo ${Math.round((lados.E / totalLados) * 100)}% · direito ${Math.round((lados.D / totalLados) * 100)}%` : '—'],
           ['Mamadeira por dia (média)', temMamadeira ? `${Math.round(media(completos.map((d) => d.ml)))} ml` : '—'],
           ['Fraldas por dia (média)', um(media(completos.map((d) => d.fraldas)))],
           ['Sono por dia (média)', horas(media(completos.map((d) => d.sonoMs)))],
         ],
-        painel: montarPainel(registros, de, ate, hoje, agora, comparar, inicioDados),
+        painel: montarPainel(registros, de, ate, hoje, agora, comparar, inicioDados, nascDia),
         resumo,
         medidas: linhasMedidas.map((m) => [
           dataBr(m.data),

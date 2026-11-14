@@ -44,11 +44,23 @@ describe('mesclarLayout', () => {
     expect(mesclarLayout({ ordem: ['b', 'a'] }, cat('a', 'n1', 'n2', 'b')).ordem).toEqual(['b', 'a', 'n1', 'n2']);
   });
 
-  it('padrão: a faixa de 24 h começa escondida (o relógio mostra o mesmo); layout salvo não muda', () => {
-    expect(layoutPadrao().ocultos).toEqual(['faixa24h']);
+  it('padrão: mamadas de hoje no lugar do relógio e da faixa (escondidos); layout salvo não muda', () => {
+    expect(layoutPadrao().ocultos).toEqual(['faixa24h', 'relogio']);
+    expect(ordemNaTela(layoutPadrao())).toContain('mamadas');
     expect(ordemNaTela(layoutPadrao())).not.toContain('faixa24h');
+    expect(ordemNaTela(layoutPadrao())).not.toContain('relogio');
     expect(mesclarLayout({ ordem: CARTOES_HOJE.map((c) => c.id), ocultos: [] }).ocultos).toEqual([]);
-    expect(lerLayout(null).ocultos).toEqual(['faixa24h']);
+    expect(lerLayout(null).ocultos).toEqual(['faixa24h', 'relogio']);
+  });
+
+  it('layout antigo salvo (com relógio, sem mamadas): relógio continua e mamadas entra depois da próxima', () => {
+    const antigo = JSON.stringify({ v: 1, ordem: ['momentos', 'proxima', 'faixa24h', 'relogio', 'registrar', 'outros', 'avisos', 'resumo', 'divisao', 'compromisso', 'recentes'], ocultos: ['faixa24h'], fixos: [] });
+    const l = lerLayout(antigo);
+    expect(l.ordem.slice(0, 4)).toEqual(['momentos', 'proxima', 'mamadas', 'faixa24h']);
+    expect(ordemNaTela(l)).toContain('relogio');
+    expect(ordemNaTela(l)).toContain('mamadas');
+    // ids que não existem mais são ignorados
+    expect(lerLayout(JSON.stringify({ ordem: ['xyz', 'relogio'], ocultos: ['xyz'] })).ordem).not.toContain('xyz');
   });
 
   it('não deixa esconder o que não é ocultável', () => {

@@ -96,7 +96,6 @@ export interface TotaisRetro {
   /** Registros no período (todos os tipos) */
   registros: number;
   mamadas: number;
-  peitoMs: number;
   mamadeiras: number;
   ml: number;
   fraldas: number;
@@ -147,7 +146,6 @@ export function totaisDoPeriodo(registros: Registro[], nascimentoIso: string, in
     diasComRegistro: 0,
     registros: 0,
     mamadas: 0,
-    peitoMs: 0,
     mamadeiras: 0,
     ml: 0,
     fraldas: 0,
@@ -187,7 +185,6 @@ export function totaisDoPeriodo(registros: Registro[], nascimentoIso: string, in
   const porMes = new Map<number, { dias: number; sonoMs: number; alimentacoes: number }>();
   for (const d of dias) {
     t.mamadas += d.mamadas;
-    t.peitoMs += d.peitoMs;
     t.mamadeiras += d.mamadeiras;
     t.ml += d.ml;
     t.fraldas += d.fraldas;
