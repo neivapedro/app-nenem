@@ -109,6 +109,13 @@ export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
     const problema = validarRegistro(r, new Date());
     if (problema) return setMsg(problema);
     salvar(r, `Mamada registrada (${NOME_LADO[lado].toLowerCase()})`);
+    // A folha fecha no 1º toque: um 2º toque rápido cairia no botão que fica embaixo (ex.: Fralda). Ignora cliques por um instante.
+    const bloquear = (e: Event) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    document.addEventListener('click', bloquear, true);
+    window.setTimeout(() => document.removeEventListener('click', bloquear, true), 600);
     aoFechar();
   }
 
@@ -119,7 +126,6 @@ export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
         <div className="grandes t-mamada">
           {(['E', 'D'] as Lado[]).map((l) => (
             <button key={l} type="button" className={`botao-grande ${sugerido === l ? 'marcado' : ''}`} onClick={toque(() => registrar(l))}>
-              <Icone nome="tocar" />
               {NOME_LADO[l]}
               {sugerido === l && <small>comece por aqui</small>}
             </button>
@@ -163,7 +169,7 @@ export function FolhaQueHorasTerminou({ r, aoFechar, aoSalvar }: { r: RegistroDe
         }}
       >
         <p className="texto-2">
-          {r.tipo === 'mamada' ? 'A mamada' : 'O sono'} começou {chaveDia(r.inicio) === chaveDia(new Date()) ? 'hoje' : `em ${dataBr(chaveDia(r.inicio)).slice(0, 5)}`} às {horaCurta(r.inicio)} e o cronômetro está contando há {horas} h. Que horas {r.tipo === 'mamada' ? 'terminou' : 'acordou'}?
+          {r.tipo === 'mamada' ? 'Esta mamada antiga ficou aberta' : 'O sono'} {r.tipo === 'mamada' ? '' : 'começou'} {chaveDia(r.inicio) === chaveDia(new Date()) ? 'hoje' : `em ${dataBr(chaveDia(r.inicio)).slice(0, 5)}`} às {horaCurta(r.inicio)} {r.tipo === 'mamada' ? 'há' : 'e o cronômetro está contando há'} {horas} h. Que horas {r.tipo === 'mamada' ? 'terminou' : 'acordou'}?
         </p>
         <CampoHora rotulo={r.tipo === 'mamada' ? 'Terminou às' : 'Acordou às'} valor={quando} aoMudar={setQuando} />
         <Erro msg={msg} />

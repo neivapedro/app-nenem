@@ -173,9 +173,7 @@ export function Hoje() {
   const medias = useMemo(() => (nascido ? mediasUltimosDias(registros, hoje, new Date(), bebe?.nascimento ?? null) : null), [registros, hoje, nascido, bebe?.nascimento]);
 
   // Subtítulo dos cartões: 2 linhas fixas (quando · detalhe). Linha vazia fica reservada com espaço.
-  const desdeAlimentacao: [string, string] = andamento.mamada
-    ? ['em andamento', 'cronômetro ligado']
-    : ultimaMamada
+  const desdeAlimentacao: [string, string] = ultimaMamada
       ? [`Última: ${haCurto(ultimaMamada.inicio, agora)}`, ladosDoRegistro(ultimaMamada).length === 1 ? nomeLado(ladosDoRegistro(ultimaMamada)[0]) : 'no peito']
       : ['nenhuma ainda', 'toque para começar'];
   const desdeMamadeira: [string, string] = mamadeira ? [haQuanto(mamadeira.inicio, agora), resumo.ml ? `${Math.round(resumo.ml)} ml hoje` : 'leite ou fórmula'] : ['nenhuma ainda', 'leite ou fórmula'];
@@ -251,7 +249,7 @@ export function Hoje() {
     relogio: nascido ? <RelogioDia registros={registros} agora={agora} /> : null,
     registrar: (
       <section className="acoes" aria-label="Registrar">
-        <button className={`acao t-mamada ${andamento.mamada ? 'ativa' : ''}`} onClick={() => setFolha('mamada')} {...segurar('mamada', true)} {...dicaSegurar}>
+        <button className="acao t-mamada" onClick={() => setFolha('mamada')} {...segurar('mamada', true)} {...dicaSegurar}>
           <Selo tipo="mamada" />
           <span className="nome">Mamada</span>
           <Desde v={desdeAlimentacao} />
