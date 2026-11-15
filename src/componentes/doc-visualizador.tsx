@@ -41,109 +41,151 @@ function useTelaAcesa() {
   }, []);
 }
 
-/** Imagem com zoom: pinça com dois dedos ou dois toques (2,5×); arrasta para mover */
+/**
+ * Imagem com zoom: pinça com dois dedos ou dois toques (2,5×); com zoom, um dedo arrasta a imagem.
+ * Tudo por transformação (mover + ampliar), sem depender da rolagem nativa, que no iPhone
+ * falhava dentro da galeria de páginas.
+ */
 function ImagemZoom({ url, alt, aoZoom }: { url: string; alt: string; aoZoom: (ampliada: boolean) => void }) {
   const caixa = useRef<HTMLDivElement>(null);
   const img = useRef<HTMLImageElement>(null);
-  const escala = useRef(1);
-  const ultimoToque = useRef<{ t: number; x: number; y: number } | null>(null);
-
-  // Aplica a escala mantendo o ponto (fx, fy) da tela parado
-  const aplicar = (nova: number, fx: number, fy: number) => {
-    const el = caixa.current;
-    const im = img.current;
-    if (!el || !im) return;
-    const antes = escala.current;
-    nova = Math.min(5, Math.max(1, nova));
-    const r = el.getBoundingClientRect();
-    const px = el.scrollLeft + (fx - r.left);
-    const py = el.scrollTop + (fy - r.top);
-    escala.current = nova;
-    if (nova <= 1.01) {
-      escala.current = 1;
-      im.style.width = '';
-      im.style.maxWidth = '';
-      im.style.maxHeight = '';
-      el.style.overflow = 'hidden';
-      el.style.touchAction = '';
-      el.scrollLeft = el.scrollTop = 0;
-      aoZoom(false);
-      return;
-    }
-    // Largura que a imagem ocupa sem zoom (cabe na tela)
-    const nat = im.naturalWidth / im.naturalHeight || 1;
-    const base = Math.min(r.width, r.height * nat);
-    im.style.maxWidth = 'none';
-    im.style.maxHeight = 'none';
-    im.style.width = `${base * nova}px`;
-    el.style.overflow = 'auto';
-    el.style.touchAction = 'none';
-    const k = nova / antes;
-    el.scrollLeft = px * k - (fx - r.left);
-    el.scrollTop = py * k - (fy - r.top);
-    aoZoom(true);
-  };
+  const aoZoomRef = useRef(aoZoom);
+  useEffect(() => {
+    aoZoomRef.current = aoZoom;
+  });
 
   useEffect(() => {
     const el = caixa.current;
-    if (!el) return;
-    let pinca: { d: number; e: number } | null = null;
-    // Arrastar com um dedo depois do zoom: move a imagem em vez de deixar o gesto para a página
-    let arrasto: { x: number; y: number; sl: number; st: number } | null = null;
+    const im = img.current;
+    if (!el || !im) return;
+    let s = 1;
+    let tx = 0;
+    let ty = 0;
+    let ampliada = false;
+    let ultimoToque: { t: number; x: number; y: number } | null = null;
+    let pinca: { d: number; s: number; ux: number; uy: number } | null = null;
+    let arrasto: { x: number; y: number; tx: number; ty: number; moveu: boolean } | null = null;
+    let ultimoTouch = 0;
+
     const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-    const centro = (t: TouchList) => [(t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2] as const;
+    // Posição em relação ao centro da caixa (a imagem fica centrada nela)
+    const rel = (x: number, y: number) => {
+      const r = el.getBoundingClientRect();
+      return [x - r.left - r.width / 2, y - r.top - r.height / 2] as const;
+    };
+    const limite = (v: number, tam: number, caixaTam: number) => {
+      const m = Math.max(0, (tam * s - caixaTam) / 2);
+      return Math.min(m, Math.max(-m, v));
+    };
+    const pintar = (suave = false) => {
+      if (s <= 1.01) {
+        s = 1;
+        tx = ty = 0;
+      } else {
+        tx = limite(tx, im.offsetWidth, el.clientWidth);
+        ty = limite(ty, im.offsetHeight, el.clientHeight);
+      }
+      im.style.transition = suave ? 'transform 0.2s ease-out' : 'none';
+      im.style.transform = s === 1 ? '' : `translate(${tx}px, ${ty}px) scale(${s})`;
+      // Ampliada: o gesto é todo da imagem; sem zoom, o deslize para o lado continua trocando de página
+      el.style.touchAction = s === 1 ? 'pan-x' : 'none';
+      if ((s > 1) !== ampliada) {
+        ampliada = s > 1;
+        aoZoomRef.current(ampliada);
+      }
+    };
+    // Muda a escala mantendo o ponto (px, py) da tela parado
+    const zoomEm = (nova: number, px: number, py: number, suave = false) => {
+      const ux = (px - tx) / s;
+      const uy = (py - ty) / s;
+      s = Math.min(5, Math.max(1, nova));
+      tx = px - s * ux;
+      ty = py - s * uy;
+      pintar(suave);
+    };
+
     const inicio = (ev: TouchEvent) => {
+      ultimoTouch = Date.now();
       if (ev.touches.length === 2) {
         ev.preventDefault();
-        pinca = { d: dist(ev.touches), e: escala.current };
+        const [cx, cy] = rel((ev.touches[0].clientX + ev.touches[1].clientX) / 2, (ev.touches[0].clientY + ev.touches[1].clientY) / 2);
+        pinca = { d: dist(ev.touches), s, ux: (cx - tx) / s, uy: (cy - ty) / s };
         arrasto = null;
-      } else if (ev.touches.length === 1 && escala.current > 1) {
-        arrasto = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, sl: el.scrollLeft, st: el.scrollTop };
+        ultimoToque = null;
+      } else if (ev.touches.length === 1) {
+        arrasto = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, tx, ty, moveu: false };
       }
     };
     const move = (ev: TouchEvent) => {
       if (pinca && ev.touches.length === 2) {
         ev.preventDefault();
-        const [cx, cy] = centro(ev.touches);
-        aplicar(pinca.e * (dist(ev.touches) / pinca.d), cx, cy);
-      } else if (arrasto && ev.touches.length === 1 && escala.current > 1) {
-        ev.preventDefault();
-        el.scrollLeft = arrasto.sl - (ev.touches[0].clientX - arrasto.x);
-        el.scrollTop = arrasto.st - (ev.touches[0].clientY - arrasto.y);
+        const [cx, cy] = rel((ev.touches[0].clientX + ev.touches[1].clientX) / 2, (ev.touches[0].clientY + ev.touches[1].clientY) / 2);
+        s = Math.min(5, Math.max(1, pinca.s * (dist(ev.touches) / pinca.d)));
+        tx = cx - s * pinca.ux;
+        ty = cy - s * pinca.uy;
+        pintar();
+      } else if (arrasto && ev.touches.length === 1) {
+        const dx = ev.touches[0].clientX - arrasto.x;
+        const dy = ev.touches[0].clientY - arrasto.y;
+        if (Math.hypot(dx, dy) > 8) arrasto.moveu = true;
+        if (s > 1) {
+          ev.preventDefault();
+          tx = arrasto.tx + dx;
+          ty = arrasto.ty + dy;
+          pintar();
+        }
       }
     };
     const fim = (ev: TouchEvent) => {
       if (ev.touches.length < 2) pinca = null;
-      // Um dedo continua depois de soltar o outro: recomeça o arrasto dali
-      arrasto = ev.touches.length === 1 && escala.current > 1 ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, sl: el.scrollLeft, st: el.scrollTop } : null;
+      if (ev.touches.length === 1) {
+        // Soltou um dos dedos da pinça: o outro continua arrastando dali
+        arrasto = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, tx, ty, moveu: true };
+        return;
+      }
+      const toque = arrasto;
+      arrasto = null;
+      const c = ev.changedTouches[0];
+      if (!toque || toque.moveu || !c || ev.touches.length) return;
+      // Dois toques rápidos no mesmo lugar: amplia ou volta
+      const agora = Date.now();
+      const u = ultimoToque;
+      if (u && agora - u.t < 320 && Math.hypot(c.clientX - u.x, c.clientY - u.y) < 30) {
+        ev.preventDefault();
+        const [px, py] = rel(c.clientX, c.clientY);
+        if (s > 1) {
+          s = 1;
+          pintar(true);
+        } else zoomEm(2.5, px, py, true);
+        ultimoToque = null;
+      } else ultimoToque = { t: agora, x: c.clientX, y: c.clientY };
     };
+    // Mouse (computador): dois cliques
+    const duplo = (ev: MouseEvent) => {
+      if (Date.now() - ultimoTouch < 600) return;
+      const [px, py] = rel(ev.clientX, ev.clientY);
+      if (s > 1) {
+        s = 1;
+        pintar(true);
+      } else zoomEm(2.5, px, py, true);
+    };
+    pintar();
     el.addEventListener('touchstart', inicio, { passive: false });
     el.addEventListener('touchmove', move, { passive: false });
-    el.addEventListener('touchend', fim);
+    el.addEventListener('touchend', fim, { passive: false });
     el.addEventListener('touchcancel', fim);
+    el.addEventListener('dblclick', duplo);
     return () => {
       el.removeEventListener('touchstart', inicio);
       el.removeEventListener('touchmove', move);
       el.removeEventListener('touchend', fim);
       el.removeEventListener('touchcancel', fim);
+      el.removeEventListener('dblclick', duplo);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div
-      ref={caixa}
-      className="vis-zoom"
-      onPointerUp={(e) => {
-        // Dois toques rápidos no mesmo lugar: amplia ou volta
-        const agora = Date.now();
-        const u = ultimoToque.current;
-        if (u && agora - u.t < 320 && Math.hypot(e.clientX - u.x, e.clientY - u.y) < 30) {
-          aplicar(escala.current > 1 ? 1 : 2.5, e.clientX, e.clientY);
-          ultimoToque.current = null;
-        } else ultimoToque.current = { t: agora, x: e.clientX, y: e.clientY };
-      }}
-    >
+    <div ref={caixa} className="vis-zoom">
       <img ref={img} src={url} alt={alt} draggable={false} />
     </div>
   );
