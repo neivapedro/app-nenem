@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { AvatarBebe, FotoCapa } from './componentes/avatar';
+import { AvatarBebe, FotoCapa, FotoGrande } from './componentes/avatar';
 import { Ilustracao } from './componentes/ilustracoes';
 import { GestosNavegacao } from './componentes/navegacao-gestos';
 import { Protecao } from './componentes/Protecao';
@@ -164,6 +164,8 @@ const capaPorCss = () => {
  */
 function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
   const ref = useRef<HTMLElement>(null);
+  const { bebe: dadosBebe } = useDados();
+  const [fotoAberta, setFotoAberta] = useState(false);
   const [porJs] = useState(() => !capaPorCss());
   useEffect(() => {
     const el = ref.current;
@@ -196,7 +198,14 @@ function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
     };
   }, [porJs]);
   return (
-    <header ref={ref} className={`topo capa${porJs ? ' capa-js' : ''}`}>
+    <header
+      ref={ref}
+      className={`topo capa${porJs ? ' capa-js' : ''}`}
+      onClick={(e) => {
+        // Tocar na foto da capa (fora dos botões e links) abre a foto grande
+        if (dadosBebe?.foto && !(e.target as Element).closest('a, button, .foto-grande')) setFotoAberta(true);
+      }}
+    >
       <div className="capa-foto" aria-hidden="true">
         <FotoCapa classe="capa-img" />
       </div>
@@ -206,7 +215,7 @@ function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
       </div>
       <div className="capa-barra">
         <div className="topo-marca capa-compacta">
-          <AvatarBebe classe="marca-mini" />
+          <AvatarBebe classe="marca-mini" ampliar />
           <div style={{ minWidth: 0 }}>
             <h1>{nome}</h1>
             {sub && <div className="sub">{sub}</div>}
@@ -216,6 +225,7 @@ function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
           <Icone nome="lua" />
         </Link>
       </div>
+      {fotoAberta && <FotoGrande aoFechar={() => setFotoAberta(false)} />}
     </header>
   );
 }
@@ -262,7 +272,7 @@ function Cabecalho() {
             </span>
           </Link>
         ) : (
-          <AvatarBebe classe="marca-mini" />
+          <AvatarBebe classe="marca-mini" ampliar />
         )}
         <div style={{ minWidth: 0 }}>
           <h1>{secao?.titulo ?? aba?.rotulo ?? 'Mais'}</h1>

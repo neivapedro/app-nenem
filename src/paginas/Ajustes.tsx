@@ -53,7 +53,7 @@ function CartaoBebe() {
     <section className="cartao pilha" aria-label="Bebê">
       <div className="cartao-cab" style={{ marginBottom: 0 }}>
         <div className="linha" style={{ gap: 14 }}>
-          <AvatarBebe classe="avatar-grande" />
+          <AvatarBebe classe="avatar-grande" ampliar />
           <h2>{bebe.nome || 'Bebê'}</h2>
         </div>
         <button className="botao pequeno" onClick={() => setEditar(true)}>

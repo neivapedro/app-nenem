@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDados } from '../dados/contexto';
 import { traduzirErro } from '../lib/erros';
 import { reduzirFoto } from '../lib/imagem';
 import { Icone, Marca } from './ui';
+import '../estilos/foto-grande.css';
 
 // Miniatura da foto guardada no aparelho: o topo abre com a foto na hora (e sem internet),
 // sem piscar a ilustração enquanto o endereço temporário da foto é pedido ao servidor.
@@ -155,10 +157,92 @@ const decodificar = (src: string) => (src.startsWith('data:') ? 'sync' : 'async'
  * Foto redonda do bebê; sem foto (ou sem conseguir carregar), a ilustração do app.
  * `classe` dá o tamanho (ex.: "marca-mini" no topo, "avatar-grande" em Ajustes).
  */
-export function AvatarBebe({ classe }: { classe: string }) {
+export function AvatarBebe({ classe, ampliar = false }: { classe: string; ampliar?: boolean }) {
   const [src, falhou] = useFotoBebe('mini');
+  const [aberta, setAberta] = useState(false);
   if (!src) return <Marca classe={`avatar ${classe}`} />;
-  return <img className={`avatar avatar-foto ${classe}`} src={src} alt="" decoding={decodificar(src)} onError={falhou} />;
+  const img = <img className={`avatar avatar-foto ${classe}`} src={src} alt="" decoding={decodificar(src)} onError={falhou} />;
+  if (!ampliar) return img;
+  // Tocar na foto redonda abre a foto grande
+  return (
+    <>
+      <button type="button" className="avatar-botao" onClick={() => setAberta(true)} aria-label="Ver a foto em tamanho grande">
+        {img}
+      </button>
+      {aberta && <FotoGrande aoFechar={() => setAberta(false)} />}
+    </>
+  );
+}
+
+/** Foto do bebê em tela cheia: toque fora, no X, Esc ou arrastar para baixo fecha */
+export function FotoGrande({ aoFechar }: { aoFechar: () => void }) {
+  const { bebe, repo } = useDados();
+  const [mini] = useFotoBebe('mini');
+  const [url, setUrl] = useState<string | null>(null);
+  const [dy, setDy] = useState(0);
+  const inicio = useRef<{ y: number; x: number } | null>(null);
+  const caminho = bebe?.foto ?? null;
+
+  // A versão completa (a que foi enviada); enquanto não chega, a miniatura segura a tela
+  useEffect(() => {
+    if (!caminho) return;
+    let vivo = true;
+    repo
+      .urlFoto(caminho)
+      .then((u) => vivo && u && setUrl(u))
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [repo, caminho]);
+
+  useEffect(() => {
+    const tecla = (e: KeyboardEvent) => e.key === 'Escape' && aoFechar();
+    document.addEventListener('keydown', tecla);
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', tecla);
+      document.body.style.overflow = anterior;
+    };
+  }, [aoFechar]);
+
+  const nome = bebe?.nome?.trim() || 'o bebê';
+  return createPortal(
+    <div
+      className="foto-grande"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Foto de ${nome}`}
+      data-sem-gesto=""
+      style={{ '--fg-dy': `${dy}px`, '--fg-fundo': String(Math.max(0.35, 1 - Math.abs(dy) / 500)) } as React.CSSProperties}
+      onClick={(e) => e.target === e.currentTarget && aoFechar()}
+      onTouchStart={(e) => {
+        inicio.current = { y: e.touches[0].clientY, x: e.touches[0].clientX };
+      }}
+      onTouchMove={(e) => {
+        if (!inicio.current) return;
+        const d = e.touches[0].clientY - inicio.current.y;
+        setDy(Math.abs(d) > 6 ? d : 0);
+      }}
+      onTouchEnd={() => {
+        const d = dy;
+        inicio.current = null;
+        setDy(0);
+        if (Math.abs(d) > 110) aoFechar();
+      }}
+    >
+      <button type="button" className="foto-grande-x" onClick={aoFechar} aria-label="Fechar a foto">
+        <Icone nome="fechar" />
+      </button>
+      {url || mini ? (
+        <img className="foto-grande-img" src={url ?? mini ?? ''} alt={`Foto de ${nome}`} onClick={(e) => e.stopPropagation()} draggable={false} />
+      ) : (
+        <span className="foto-grande-espera">Abrindo a foto…</span>
+      )}
+    </div>,
+    document.body,
+  );
 }
 
 /** Foto grande da capa do Hoje (sem foto, a ilustração do app) */
