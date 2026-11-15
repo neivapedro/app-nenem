@@ -76,3 +76,31 @@
 @media (prefers-reduced-motion: reduce) {
   .carteira-pilha .cartao-carteira { transition: none; }
 }
+
+/* Prévia do documento no cartão da frente */
+.carteira-cabeca { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; }
+.carteira-cabeca .td-dica-carteira { margin: 0; }
+.carteira-olho { flex: none; margin: -2px 0; }
+.carteira-olho svg { width: 20px; height: 20px; }
+
+.cc-previa { position: absolute; inset: calc(var(--faixa) - 4px) 0 0 0; z-index: 0; border-radius: 14px 14px 0 0; overflow: hidden; display: block; background: #fff; animation: cc-previa-entra 0.18s ease-out both; }
+.cc-previa img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+/* Degradês escuros no topo (categoria e título) e embaixo (número): texto branco ≥ 4,5:1 sobre foto clara ou escura */
+.cc-previa::after {
+  content: ''; position: absolute; inset: 0;
+  background:
+    
+    linear-gradient(to top, rgb(0 0 0 / 0.7) 0, rgb(0 0 0 / 0.55) 42px, rgb(0 0 0 / 0) 46%);
+}
+.cartao-carteira.com-previa .cc-corpo { visibility: hidden; }
+.cartao-carteira.com-previa .cc-topo, .cartao-carteira.com-previa .cc-numero { z-index: 2; }
+.cartao-carteira.com-previa { color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.2), 0 -4px 14px rgb(0 0 0 / 0.16), 0 12px 26px rgb(0 0 0 / 0.16); }
+.cartao-carteira.com-previa .cc-topo { text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
+:root[data-tema="noite"] .carteira-pilha .cartao-carteira.com-previa { color: #fff; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), 0 -4px 14px rgb(0 0 0 / 0.3), 0 10px 24px rgb(0 0 0 / 0.35); }
+:root[data-tema="noite"] .cc-previa img { filter: brightness(0.8); }
+:root[data-tema="noite"] .cartao-carteira.com-previa .cc-topo { text-shadow: 0 1px 2px rgb(0 0 0 / 0.5); }
+
+@keyframes cc-previa-entra { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .cc-previa { animation: none; }
+}
