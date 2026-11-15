@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { calendarioDoBebe } from '../../supabase/functions/_shared/vacinas.ts';
 import { prazoTarefa, TAREFAS_PADRAO } from '../../supabase/functions/_shared/primeiros-dias.ts';
 import { FolhaBebe } from '../componentes/bebe';
-import { CartaoProximaMamada, Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
+import { Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
 import { MomentosDoDia } from '../componentes/momentos';
 import { MamadasHoje } from '../componentes/mamadas-hoje';
 import { RelogioDia } from '../componentes/relogio-dia';
@@ -250,7 +250,6 @@ export function Hoje() {
   const cartoes: Record<IdCartaoHoje, ReactNode> = {
     momentos: <MomentosDoDia />,
     // Painel ao vivo (depois do nascimento): a mamada em andamento já tem o cronômetro dela
-    proxima: nascido ? <CartaoProximaMamada registros={registros} agora={agora} aoTocar={() => setFolha('mamada')} /> : null,
     mamadas: nascido ? <MamadasHoje registros={registros} agora={agora} hoje={hoje} nascimento={bebe?.nascimento ?? null} /> : null,
     faixa24h: nascido ? <Faixa24h registros={registros} agora={agora} /> : null,
     relogio: nascido ? <RelogioDia registros={registros} agora={agora} /> : null,

@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import '../estilos/hoje.css';
 import { linhaDoTempo } from '../lib/painel';
 import { useZoom } from '../lib/zoom';
-import { duracaoCurta, horaPrevista, painelAlimentacao, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
+import { duracaoCurta, type MediasDia } from '../lib/hoje';
 import type { ContagemDoDia } from '../lib/hoje';
 import type { ResumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
@@ -53,75 +53,6 @@ export function Anel({ arcos, espessura = 8, rotulo, classe, children }: { arcos
       </svg>
       {children && <span className="hp-anel-centro">{children}</span>}
     </span>
-  );
-}
-
-// ---------- Próxima alimentação ----------
-
-const COR_ESTADO = { cedo: 'var(--c-mamada)', perto: 'var(--aviso)', passou: 'var(--aviso)' } as const;
-
-export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: Registro[]; agora: Date; aoTocar: () => void }) {
-  const p = painelAlimentacao(registros, agora);
-
-  if (!p)
-    return (
-      <button type="button" className="hp-proxima hp-entra hp-cedo" onClick={aoTocar}>
-        <Anel arcos={[{ fracao: 0, cor: COR_ESTADO.cedo }]} espessura={9} rotulo="Nenhuma alimentação registrada" classe="hp-anel-grande">
-          <span className="hp-centro-icone">
-            <Icone nome="mamada" />
-          </span>
-        </Anel>
-        <span className="hp-proxima-texto">
-          <span className="hp-rotulo">Alimentação</span>
-          <span className="hp-ultima">Nenhuma registrada ainda</span>
-          <span className="hp-dica">Toque para registrar a primeira mamada. Com alguns registros, o app prevê a próxima.</span>
-        </span>
-      </button>
-    );
-
-  const nome = p.ultima.tipo === 'mamada' ? 'Última mamada' : 'Última mamadeira';
-  const ha = p.desdeMs < 60_000 ? 'agora' : `há ${duracaoCurta(p.desdeMs)}`;
-  const hora = horaPrevista(p);
-  const cor = COR_ESTADO[p.estado];
-  const centro =
-    p.faltaMs === null
-      ? { valor: duracaoCurta(p.desdeMs), ms: p.desdeMs, sinal: '', legenda: 'desde' }
-      : p.faltaMs > 0
-        ? { valor: duracaoCurta(p.faltaMs), ms: p.faltaMs, sinal: '', legenda: 'faltam' }
-        : { valor: `+${duracaoCurta(-p.faltaMs)}`, ms: -p.faltaMs, sinal: '+', legenda: 'passou' };
-  const rotuloAnel =
-    p.faltaMs === null
-      ? `${nome} ${ha}`
-      : `${Math.round(p.fracao * 100)}% do intervalo médio; ${p.faltaMs > 0 ? `faltam ${duracaoCurta(p.faltaMs)}` : `passou ${duracaoCurta(-p.faltaMs)} do horário previsto`}`;
-
-  return (
-    <button type="button" className={`hp-proxima hp-entra hp-${p.estado}`} style={{ '--hp-cor': cor } as CSSProperties} onClick={aoTocar}>
-      <Anel arcos={[{ fracao: p.fracao, cor }]} espessura={9} rotulo={rotuloAnel} classe="hp-anel-grande">
-        <span className={`hp-centro-valor ${centro.valor.length >= 7 ? 'hp-longo' : ''}`}>
-          <NumeroAnimado valor={centro.ms} formatar={(n) => `${centro.sinal}${duracaoCurta(n)}`} chave="hoje:proxima" minimo={60_000} />
-        </span>
-        <span className="hp-centro-legenda">{centro.legenda}</span>
-      </Anel>
-      <span className="hp-proxima-texto">
-        {hora ? (
-          <>
-            <span className="hp-rotulo">{p.estado === 'passou' ? 'Prevista para' : 'Próxima mamada'}</span>
-            <span className="hp-hora">{hora}</span>
-          </>
-        ) : (
-          <span className="hp-dica">
-            {p.desdeMs > 12 * 3_600_000 ? 'Faz tempo desde a última: registre a próxima para o app voltar a prever.' : 'Com mais alguns registros, o app prevê a próxima.'}
-          </span>
-        )}
-      </span>
-      <span className="hp-rodape">
-        <span className="hp-rodape-texto">{p.intervaloMs ? `Intervalo médio ${duracaoCurta(p.intervaloMs)} · últimas ${JANELA_PREVISAO_H} h` : 'Registrar mamada'}</span>
-        <span className="hp-rodape-acao">
-          {p.intervaloMs ? 'Registrar' : ''}
-          <Icone nome="seta" />
-        </span>
-      </span>
-    </button>
   );
 }
 

@@ -53,10 +53,12 @@ describe('mesclarLayout', () => {
     expect(lerLayout(null).ocultos).toEqual(['faixa24h', 'relogio']);
   });
 
-  it('layout antigo salvo (com relógio, sem mamadas): relógio continua e mamadas entra depois da próxima', () => {
+  it('layout antigo salvo (com relógio, sem mamadas): relógio continua e mamadas entra depois de momentos', () => {
     const antigo = JSON.stringify({ v: 1, ordem: ['momentos', 'proxima', 'faixa24h', 'relogio', 'registrar', 'outros', 'avisos', 'resumo', 'divisao', 'compromisso', 'recentes'], ocultos: ['faixa24h'], fixos: [] });
     const l = lerLayout(antigo);
-    expect(l.ordem.slice(0, 4)).toEqual(['momentos', 'proxima', 'mamadas', 'faixa24h']);
+    // o cartão "Próxima mamada" foi retirado: layout salvo com ele continua valendo, sem ele
+    expect(l.ordem.slice(0, 3)).toEqual(['momentos', 'mamadas', 'faixa24h']);
+    expect(l.ordem).not.toContain('proxima');
     expect(ordemNaTela(l)).toContain('relogio');
     expect(ordemNaTela(l)).toContain('mamadas');
     // ids que não existem mais são ignorados
