@@ -65,6 +65,7 @@ function ImagemZoom({ url, alt, aoZoom }: { url: string; alt: string; aoZoom: (a
       im.style.maxWidth = '';
       im.style.maxHeight = '';
       el.style.overflow = 'hidden';
+      el.style.touchAction = '';
       el.scrollLeft = el.scrollTop = 0;
       aoZoom(false);
       return;
@@ -76,6 +77,7 @@ function ImagemZoom({ url, alt, aoZoom }: { url: string; alt: string; aoZoom: (a
     im.style.maxHeight = 'none';
     im.style.width = `${base * nova}px`;
     el.style.overflow = 'auto';
+    el.style.touchAction = 'none';
     const k = nova / antes;
     el.scrollLeft = px * k - (fx - r.left);
     el.scrollTop = py * k - (fy - r.top);
@@ -86,12 +88,17 @@ function ImagemZoom({ url, alt, aoZoom }: { url: string; alt: string; aoZoom: (a
     const el = caixa.current;
     if (!el) return;
     let pinca: { d: number; e: number } | null = null;
+    // Arrastar com um dedo depois do zoom: move a imagem em vez de deixar o gesto para a página
+    let arrasto: { x: number; y: number; sl: number; st: number } | null = null;
     const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
     const centro = (t: TouchList) => [(t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2] as const;
     const inicio = (ev: TouchEvent) => {
       if (ev.touches.length === 2) {
         ev.preventDefault();
         pinca = { d: dist(ev.touches), e: escala.current };
+        arrasto = null;
+      } else if (ev.touches.length === 1 && escala.current > 1) {
+        arrasto = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, sl: el.scrollLeft, st: el.scrollTop };
       }
     };
     const move = (ev: TouchEvent) => {
@@ -99,10 +106,16 @@ function ImagemZoom({ url, alt, aoZoom }: { url: string; alt: string; aoZoom: (a
         ev.preventDefault();
         const [cx, cy] = centro(ev.touches);
         aplicar(pinca.e * (dist(ev.touches) / pinca.d), cx, cy);
+      } else if (arrasto && ev.touches.length === 1 && escala.current > 1) {
+        ev.preventDefault();
+        el.scrollLeft = arrasto.sl - (ev.touches[0].clientX - arrasto.x);
+        el.scrollTop = arrasto.st - (ev.touches[0].clientY - arrasto.y);
       }
     };
     const fim = (ev: TouchEvent) => {
       if (ev.touches.length < 2) pinca = null;
+      // Um dedo continua depois de soltar o outro: recomeça o arrasto dali
+      arrasto = ev.touches.length === 1 && escala.current > 1 ? { x: ev.touches[0].clientX, y: ev.touches[0].clientY, sl: el.scrollLeft, st: el.scrollTop } : null;
     };
     el.addEventListener('touchstart', inicio, { passive: false });
     el.addEventListener('touchmove', move, { passive: false });
