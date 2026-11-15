@@ -4,22 +4,22 @@
 .avatar-botao:focus-visible { outline: 3px solid var(--destaque, currentColor); outline-offset: 2px; }
 .avatar-botao:active .avatar { transform: scale(0.96); }
 
-.foto-grande {
+.fa-tela {
   position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
-  background: rgb(0 0 0 / calc(0.92 * var(--fg-fundo, 1)));
+  background: rgb(0 0 0 / calc(0.97 * var(--fg-fundo, 1)));
   padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom);
   touch-action: pan-y;
 }
-.foto-grande-img {
+.fa-img {
   max-width: 100%; max-height: 80dvh; position: relative; z-index: 1; object-fit: contain; border-radius: 14px; display: block;
   transform: translateY(var(--fg-dy, 0px)); transition: transform 0.18s ease-out;
   box-shadow: 0 10px 40px rgb(0 0 0 / 0.5);
 }
-.foto-grande-x {
+.fa-x {
   position: absolute; top: calc(env(safe-area-inset-top) + 10px); right: 12px; width: 44px; height: 44px; border-radius: 50%;
   border: 0; display: grid; place-items: center; color: #fff; z-index: 3; background: rgb(255 255 255 / 0.18); cursor: pointer;
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
-.foto-grande-x svg { width: 22px; height: 22px; }
-.foto-grande-espera { color: rgb(255 255 255 / 0.7); font-size: 0.95rem; }
-@media (prefers-reduced-motion: reduce) { .foto-grande-img { transition: none; } }
+.fa-x svg { width: 22px; height: 22px; }
+.fa-espera { color: rgb(255 255 255 / 0.7); font-size: 0.95rem; }
+@media (prefers-reduced-motion: reduce) { .fa-img { transition: none; } }

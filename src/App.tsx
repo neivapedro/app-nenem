@@ -203,7 +203,7 @@ function CapaHoje({ nome, sub }: { nome: string; sub: string }) {
       className={`topo capa${porJs ? ' capa-js' : ''}`}
       onClick={(e) => {
         // Tocar na foto da capa (fora dos botões e links) abre a foto grande
-        if (dadosBebe?.foto && !(e.target as Element).closest('a, button, .foto-grande')) setFotoAberta(true);
+        if (dadosBebe?.foto && !(e.target as Element).closest('a, button, .fa-tela')) setFotoAberta(true);
       }}
     >
       <div className="capa-foto" aria-hidden="true">

@@ -210,7 +210,7 @@ export function FotoGrande({ aoFechar }: { aoFechar: () => void }) {
   const nome = bebe?.nome?.trim() || 'o bebê';
   return createPortal(
     <div
-      className="foto-grande"
+      className="fa-tela"
       role="dialog"
       aria-modal="true"
       aria-label={`Foto de ${nome}`}
@@ -232,13 +232,13 @@ export function FotoGrande({ aoFechar }: { aoFechar: () => void }) {
         if (Math.abs(d) > 110) aoFechar();
       }}
     >
-      <button type="button" className="foto-grande-x" onClick={aoFechar} aria-label="Fechar a foto">
+      <button type="button" className="fa-x" onClick={aoFechar} aria-label="Fechar a foto">
         <Icone nome="fechar" />
       </button>
       {url || mini ? (
-        <img className="foto-grande-img" src={url ?? mini ?? ''} alt={`Foto de ${nome}`} onClick={(e) => e.stopPropagation()} draggable={false} />
+        <img className="fa-img" src={url ?? mini ?? ''} alt={`Foto de ${nome}`} onClick={(e) => e.stopPropagation()} draggable={false} />
       ) : (
-        <span className="foto-grande-espera">Abrindo a foto…</span>
+        <span className="fa-espera">Abrindo a foto…</span>
       )}
     </div>,
     document.body,
