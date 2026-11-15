@@ -18,7 +18,7 @@ import {
   novaMamadaSimples,
   outroLado,
   textoFralda,
-  fimEstimadoDaMamada,
+  fimDaMamada,
   ultimaAlimentacao,
   ultimoDoTipo,
   ultimoLado,
@@ -120,7 +120,7 @@ export function Noite() {
   const ultimo = ultimoLado(registros);
   const sugerido: Lado | null = ultimo ? outroLado(ultimo) : null;
   const textoAlimentacao = alimentacao
-    ? `${haQuanto(fimEstimadoDaMamada(alimentacao), agora)}${alimentacao.tipo === 'mamada' ? (ladoDaMamada(alimentacao) ? ` · peito ${NOME_LADO[ladoDaMamada(alimentacao)!].toLowerCase()}` : '') : ' · mamadeira'}`
+    ? `${haQuanto(fimDaMamada(alimentacao), agora)}${alimentacao.tipo === 'mamada' ? (ladoDaMamada(alimentacao) ? ` · peito ${NOME_LADO[ladoDaMamada(alimentacao)!].toLowerCase()}` : '') : ' · mamadeira'}`
     : '—';
 
   return (
