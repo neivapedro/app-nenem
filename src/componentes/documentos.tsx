@@ -27,6 +27,7 @@ import { idFixo } from '../lib/ids';
 import type { ArquivoDocumento, CategoriaDocumento, Documento } from '../lib/tipos';
 import { arquivoPdf, compartilhar, ehImagem, enviarFotoPronta, nomeGuardado, obterArquivo, paraPdf, prepararEEnviar, useUrlArquivo } from './doc-arquivos';
 import { EditorFoto } from './doc-editor-foto';
+import { CamadaPrevia, usePrevia, usePreviaLigada } from './doc-previa';
 import { useEstadoOffline } from './doc-offline';
 import { Visualizador } from './doc-visualizador';
 import { Ilustracao } from './ilustracoes';
@@ -164,17 +165,19 @@ const COR_CARTEIRA: Record<CategoriaDocumento, string> = {
 };
 
 /** Cartão da carteira: faixa colorida com o nome (é o que aparece na pilha) e a foto do documento */
-function CartaoCarteira({ doc, aoAbrir }: { doc: Documento; aoAbrir: () => void }) {
-  const url = useUrlArquivo(doc.arquivos.find(ehFoto)?.caminho ?? null);
+function CartaoCarteira({ doc, aoAbrir, previa }: { doc: Documento; aoAbrir: () => void; previa?: boolean }) {
+  // Só o cartão da frente mostra o documento; os de trás ficam leves (faixa e título)
+  const url = usePrevia(doc, !!previa);
   return (
-    <button type="button" className="cartao-carteira" style={{ '--cc': COR_CARTEIRA[doc.categoria] ?? COR_CARTEIRA.outros } as CSSProperties} onClick={aoAbrir} aria-label={`Mostrar ${doc.titulo}`}>
+    <button type="button" className={`cartao-carteira ${url ? 'com-previa' : ''}`} style={{ '--cc': COR_CARTEIRA[doc.categoria] ?? COR_CARTEIRA.outros } as CSSProperties} onClick={aoAbrir} aria-label={`Mostrar ${doc.titulo}`}>
       <span className="cc-topo">
         <strong>{doc.titulo}</strong>
         <span>{NOME_CATEGORIA[doc.categoria]}</span>
       </span>
-      <span className={`cc-corpo ${url ? 'com-foto' : ''}`}>
-        {url ? <img src={url} alt="" /> : <Icone nome="documento" />}
+      <span className="cc-corpo">
+        <Icone nome="documento" />
       </span>
+      {url && <CamadaPrevia url={url} />}
       {doc.numero && <span className="cc-numero">{doc.numero}</span>}
     </button>
   );
@@ -816,6 +819,7 @@ export function SecaoDocumentos() {
   const [zipando, setZipando] = useState<string | null>(null);
   const [zipPronto, setZipPronto] = useState<File | null>(null);
   const vacina = usePreparo();
+  const [previaLigada, alternarPrevia] = usePreviaLigada();
 
   const doBebe = useMemo(() => ordenar(documentos.filter((d) => !bebe || d.bebe_id === bebe.id)), [documentos, bebe]);
   const porModelo = useMemo(() => new Map(doBebe.filter((d) => d.modelo_id).map((d) => [d.modelo_id!, d])), [doBebe]);
@@ -934,13 +938,20 @@ export function SecaoDocumentos() {
   return (
     <div className="pilha">
       <section aria-label="Carteira" className="pilha-p">
-        {carteira.length > 0 && <p className="mudo td-dica-carteira">Toque num cartão para mostrar</p>}
+        {carteira.length > 0 && (
+          <div className="carteira-cabeca">
+            <p className="mudo td-dica-carteira">Toque num cartão para mostrar</p>
+            <button type="button" className="icone-botao carteira-olho" onClick={alternarPrevia} aria-label={previaLigada ? 'Esconder a prévia dos documentos' : 'Mostrar a prévia dos documentos'} aria-pressed={!previaLigada}>
+              <Icone nome={previaLigada ? 'olho' : 'olho_fechado'} />
+            </button>
+          </div>
+        )}
         {carteira.length ? (
           // Empilhados como na Carteira do iPhone: o mais usado fica na frente, inteiro; os outros mostram só a faixa de cima
           <ul className={`carteira-pilha ${carteira.length > 4 ? 'apertada' : ''}`}>
-            {[...carteira].reverse().map((d) => (
+            {[...carteira].reverse().map((d, i, todos) => (
               <li key={d.id}>
-                <CartaoCarteira doc={d} aoAbrir={() => mostrar(d)} />
+                <CartaoCarteira doc={d} aoAbrir={() => mostrar(d)} previa={previaLigada && i === todos.length - 1} />
               </li>
             ))}
           </ul>
