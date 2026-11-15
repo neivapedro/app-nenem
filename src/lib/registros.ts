@@ -87,6 +87,20 @@ export function ehMamadaSimples(r: RegistroDe<'mamada'>): boolean {
   return !!r.fim && ms(r.fim) === ms(r.inicio);
 }
 
+/** Tempo padrão de uma mamada no peito: o app só registra a hora em que começou (a família leva ~45 min) */
+export const DURACAO_MAMADA_PADRAO_MS = 45 * 60_000;
+
+/**
+ * Quando a mamada terminou, para contar "há quanto tempo mamou".
+ * Mamada de um toque: início + 45 min. Registro antigo, com duração de verdade: o fim real.
+ * Mamadeira (e qualquer outro registro): a própria hora.
+ */
+export function fimEstimadoDaMamada(r: Registro): string {
+  if (r.tipo !== 'mamada') return r.inicio;
+  if (ehMamadaSimples(r) || !r.fim) return new Date(ms(r.inicio) + DURACAO_MAMADA_PADRAO_MS).toISOString();
+  return r.fim;
+}
+
 /** Registro antigo de mamada ainda com o cronômetro aberto (fim nulo) */
 export function ehMamadaEmAndamentoAntiga(r: Registro): r is RegistroDe<'mamada'> {
   return r.tipo === 'mamada' && !r.fim;

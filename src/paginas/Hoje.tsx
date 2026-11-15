@@ -16,7 +16,7 @@ import { MenuRapido, useSegurar, type Ponto } from '../componentes/menu-rapido';
 import { useAgora, useDados } from '../dados/contexto';
 import { proximosCompromissos, textoQuando } from '../lib/agenda';
 import { useZoom } from '../lib/zoom';
-import { alimentacoesDoDia, contagemDoDia, duracaoCurta, haCurto, ladosDoRegistro, mediasUltimosDias, nomeLado } from '../lib/hoje';
+import { alimentacoesDoDia, contagemDoDia, duracaoCurta, haCurto, haDaAlimentacao, ladosDoRegistro, mediasUltimosDias, nomeLado } from '../lib/hoje';
 import { chaveDia, dataBr, diasEntre, haQuanto, horaCurta, semanasGestacao, somarDiasLocal, textoDuracao } from '../lib/datas';
 import { DicaInstalar } from '../componentes/dica-instalar';
 import { emEstoque, proximaDose, remedioEmUso, situacaoPote } from '../lib/saude';
@@ -174,7 +174,7 @@ export function Hoje() {
 
   // Subtítulo dos cartões: 2 linhas fixas (quando · detalhe). Linha vazia fica reservada com espaço.
   const desdeAlimentacao: [string, string] = ultimaMamada
-      ? [`Última: ${haCurto(ultimaMamada.inicio, agora)}`, ladosDoRegistro(ultimaMamada).length === 1 ? nomeLado(ladosDoRegistro(ultimaMamada)[0]) : 'no peito']
+      ? [`Última: ${haDaAlimentacao(ultimaMamada, agora)}`, ladosDoRegistro(ultimaMamada).length === 1 ? nomeLado(ladosDoRegistro(ultimaMamada)[0]) : 'no peito']
       : ['nenhuma ainda', 'toque para começar'];
   const desdeMamadeira: [string, string] = mamadeira ? [haQuanto(mamadeira.inicio, agora), resumo.ml ? `${Math.round(resumo.ml)} ml hoje` : 'leite ou fórmula'] : ['nenhuma ainda', 'leite ou fórmula'];
   const desdeFralda: [string, string] = fralda ? [haQuanto(fralda.inicio, agora), textoFralda(fralda.dados)] : ['nenhuma ainda', 'xixi ou cocô'];

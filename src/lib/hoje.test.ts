@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { alimentacoesDoDia, aproximar, contagemDoDia, duracaoCurta, horaPrevista, ladosDoRegistro, mediasUltimosDias, painelAlimentacao, progresso, proximoLado, ritmoEsperado, textoAlimentacao, textoSemAlimentar } from './hoje';
+import { alimentacoesDoDia, haDaAlimentacao, aproximar, contagemDoDia, duracaoCurta, horaPrevista, ladosDoRegistro, mediasUltimosDias, painelAlimentacao, progresso, proximoLado, ritmoEsperado, textoAlimentacao, textoSemAlimentar } from './hoje';
 import type { Registro } from './tipos';
+import { DURACAO_MAMADA_PADRAO_MS, fimEstimadoDaMamada, novaMamadaSimples } from './registros';
 
 const base = { familia_id: 'f', bebe_id: 'b', criado_por: null, observacao: null };
 const em = (dia: string, hhmm: string) => new Date(`${dia}T${hhmm}:00-03:00`).toISOString();
@@ -178,5 +179,25 @@ describe('textoSemAlimentar', () => {
     expect(textoSemAlimentar(em('2026-12-10', '14:20'), agora)).toBe('Faz 3h40 desde a última mamada.');
     expect(textoSemAlimentar(null, agora)).toBeNull();
     expect(textoSemAlimentar(em('2026-12-08', '14:20'), agora)).toBeNull();
+  });
+});
+
+describe('há quanto tempo mamou (mamada padrão de 45 min)', () => {
+  const dia = '2026-11-15';
+  it('mamada de um toque: conta desde o início + 45 min', () => {
+    const m = novaMamadaSimples({ id: 'm', familia_id: 'f', bebe_id: 'b', criado_por: null }, 'E', new Date(em(dia, '12:15')));
+    expect(haDaAlimentacao(m, new Date(em(dia, '14:23')))).toBe('há 1h23');
+    expect(haDaAlimentacao(m, new Date(em(dia, '13:00')))).toBe('agora');
+    // ainda dentro dos 45 min: não fica "no futuro"
+    expect(haDaAlimentacao(m, new Date(em(dia, '12:30')))).toBe('agora');
+    expect(fimEstimadoDaMamada(m)).toBe(em(dia, '13:00'));
+  });
+  it('registro antigo com duração real usa o fim de verdade; mamadeira usa a própria hora', () => {
+    const antiga = mamada(em(dia, '10:00'), 10, 5);
+    expect(fimEstimadoDaMamada(antiga)).toBe(em(dia, '10:15'));
+    expect(haDaAlimentacao(antiga, new Date(em(dia, '11:15')))).toBe('há 1h');
+    const mm = mamadeira(em(dia, '10:00'));
+    expect(fimEstimadoDaMamada(mm)).toBe(em(dia, '10:00'));
+    expect(DURACAO_MAMADA_PADRAO_MS).toBe(45 * 60_000);
   });
 });

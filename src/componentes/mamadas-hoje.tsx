@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import '../estilos/mamadas.css';
 import { horaCurta } from '../lib/datas';
-import { alimentacoesDoDia, contagemDoDia, haCurto, ladoOposto, nomeLado, REFERENCIA_OMS, ritmoEsperado, textoAlimentacao, textoPeito, textoSemAlimentar, ladosDoRegistro, type AlimentacaoDoDia } from '../lib/hoje';
+import { alimentacoesDoDia, contagemDoDia, haDaAlimentacao, ladoOposto, nomeLado, REFERENCIA_OMS, ritmoEsperado, textoAlimentacao, textoPeito, textoSemAlimentar, ladosDoRegistro, type AlimentacaoDoDia } from '../lib/hoje';
 import { ultimaAlimentacao } from '../lib/registros';
 import type { Lado, Registro } from '../lib/tipos';
 import { NumeroAnimado } from './numero-animado';
@@ -61,7 +61,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
             <div className="mm-ultima">
               <span className="mm-hora">{horaCurta(ultima.inicio)}</span>
               <span className="mm-ultima-txt">
-                {haCurto(ultima.inicio, d.quando)} · {ultimaTexto}
+                {haDaAlimentacao(ultima, d.quando)} · {ultimaTexto}
               </span>
             </div>
             {d.proximo && (
