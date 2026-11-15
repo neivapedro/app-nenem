@@ -26,6 +26,12 @@ const caminhos: Record<string, ReactNode> = {
   mamadeira: <path d="M10 2h4M9.5 5h5M10 2v3M14 2v3M8 9a3 3 0 0 1 2-3h4a3 3 0 0 1 2 3v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2zM8 12h3.5M8 15.5h3.5" />,
   fralda: <path d="M3 6h18v3.5c0 5.2-4 9.5-9 9.5s-9-4.3-9-9.5zM3 9.5c3 0 5 1.5 6 4M21 9.5c-3 0-5 1.5-6 4" />,
   sono: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  arroto: (
+    <>
+      <circle cx="10" cy="13" r="6.5" />
+      <path d="M10 6.5c0-1.6 1-2.6 2.2-3M7.5 12.5h.01M12.5 12.5h.01M8.5 15.5c.9.8 2.1.8 3 0M19 9.5a4.5 4.5 0 0 1 0 6M21.7 7a8 8 0 0 1 0 11" />
+    </>
+  ),
   mais: <path d="M12 5v14M5 12h14" />,
   fechar: <path d="M18 6 6 18M6 6l12 12" />,
   lixeira: <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />,
@@ -153,6 +159,12 @@ const preenchimentos: Record<string, ReactNode> = {
   mamadeira: <path d="M8 12h8v8a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z" />,
   fralda: <path d="M3 6h18v3.5c0 5.2-4 9.5-9 9.5s-9-4.3-9-9.5z" />,
   sono: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
+  arroto: (
+    <>
+      <circle cx="10" cy="13" r="6.5" />
+      <path d="M10 6.5c0-1.6 1-2.6 2.2-3M7.5 12.5h.01M12.5 12.5h.01M8.5 15.5c.9.8 2.1.8 3 0M19 9.5a4.5 4.5 0 0 1 0 6M21.7 7a8 8 0 0 1 0 11" />
+    </>
+  ),
   lua: <path d="M20.5 13.3A8.5 8.5 0 1 1 10.7 3.5a6.6 6.6 0 0 0 9.8 9.8z" />,
   sino: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9z" />,
   bebe: <circle cx="12" cy="12" r="9" />,

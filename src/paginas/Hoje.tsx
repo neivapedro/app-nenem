@@ -9,7 +9,7 @@ import { MamadasHoje } from '../componentes/mamadas-hoje';
 import { RelogioDia } from '../componentes/relogio-dia';
 import { DivisaoDaSemana } from '../componentes/divisao';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
-import { CartaoMamadaAtiva, CartaoSonoAtivo, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
+import { CartaoArrotoAtivo, CartaoMamadaAtiva, CartaoSonoAtivo, useArroto, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
 import { FolhaEditarHoje } from '../componentes/editar-hoje';
 import { MenuRapido, useSegurar, type Ponto } from '../componentes/menu-rapido';
@@ -183,6 +183,12 @@ export function Hoje() {
     : sono?.fim
       ? [haQuanto(sono.fim, agora), 'acordado']
       : ['nenhum ainda', 'toque para começar'];
+  const arrotoAnterior = ultimoDoTipo(registros, 'arroto');
+  const desdeArroto = andamento.arroto
+    ? `no colo há ${duracaoCurta(Math.max(0, agora.getTime() - new Date(andamento.arroto.inicio).getTime()))} · meta 20 min`
+    : arrotoAnterior?.fim
+      ? `Último: ${haCurto(arrotoAnterior.fim, agora)} · ${duracaoCurta(new Date(arrotoAnterior.fim).getTime() - new Date(arrotoAnterior.inicio).getTime())}`
+      : 'depois da mamada · 20 min';
   const Desde = ({ v }: { v: [string, string] }) => (
     <span className="desde">
       <span>{v[0]}</span>
@@ -190,6 +196,7 @@ export function Hoje() {
     </span>
   );
 
+  const arroto = useArroto();
   const [perguntarSono, setPerguntarSono] = useState(false);
   function acordou(quando?: Date) {
     if (!andamento.sono) return;
@@ -269,6 +276,13 @@ export function Hoje() {
           <span className="nome">{andamento.sono ? 'Acordou' : 'Sono'}</span>
           <Desde v={desdeSono} />
         </button>
+        <button className={`acao t-arroto ar-acao ${andamento.arroto ? 'ativa' : ''}`} onClick={() => (andamento.arroto ? arroto.terminar(andamento.arroto) : arroto.iniciar())}>
+          <Selo tipo="arroto" />
+          <span className="ar-acao-texto">
+            <span className="nome">{andamento.arroto ? 'Terminar arroto' : 'Arroto'}</span>
+            <span className="ar-acao-desde">{desdeArroto}</span>
+          </span>
+        </button>
         <span id="hoje-dica-segurar" className="oculto-visual">
           Segure para ver atalhos de um toque.
         </span>
@@ -345,6 +359,7 @@ export function Hoje() {
 
       {andamento.mamada && <CartaoMamadaAtiva r={andamento.mamada} />}
       {andamento.sono && <CartaoSonoAtivo r={andamento.sono} />}
+      {andamento.arroto && <CartaoArrotoAtivo r={andamento.arroto} />}
       {perguntarSono && andamento.sono && <FolhaQueHorasTerminou r={andamento.sono} aoFechar={() => setPerguntarSono(false)} aoSalvar={(q) => acordou(q)} />}
 
       {/* Cartões na ordem escolhida (fixados primeiro); display: contents, então os vazios não ocupam espaço */}
