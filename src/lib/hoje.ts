@@ -2,7 +2,7 @@
 // médias dos últimos dias e textos curtos para caber nos anéis.
 import { chaveDia, horaCurta, inicioDoDia, somarDiasLocal } from './datas';
 import { diasDoPeriodo, intervaloMedioAlimentacao } from './padroes';
-import { fimEstimadoDaMamada, ultimaAlimentacao } from './registros';
+import { fimDaMamada, ultimaAlimentacao } from './registros';
 import type { Lado, Registro, RegistroDe } from './tipos';
 
 const MIN = 60_000;
@@ -328,9 +328,9 @@ export function textoSemAlimentar(ultimoInicio: string | null, agora: Date): str
 }
 
 /** "há 1h10" (curto, sem espaço no meio); menos de 1 min = "agora"; depois de 1 dia, em dias */
-/** "há 1h23": conta desde o fim da mamada (início + 45 min), não desde a hora em que ela começou */
+/** "há 1h23": conta desde o fim da mamada (hora em que começou + duração registrada) */
 export function haDaAlimentacao(r: Registro, agora: Date): string {
-  return haCurto(fimEstimadoDaMamada(r), agora);
+  return haCurto(fimDaMamada(r), agora);
 }
 
 export function haCurto(iso: string, agora: Date): string {

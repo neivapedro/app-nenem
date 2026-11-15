@@ -3,8 +3,8 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import '../estilos/mamadas.css';
 import { horaCurta } from '../lib/datas';
-import { alimentacoesDoDia, contagemDoDia, haDaAlimentacao, ladoOposto, nomeLado, REFERENCIA_OMS, ritmoEsperado, textoAlimentacao, textoPeito, textoSemAlimentar, ladosDoRegistro, type AlimentacaoDoDia } from '../lib/hoje';
-import { ultimaAlimentacao } from '../lib/registros';
+import { alimentacoesDoDia, contagemDoDia, duracaoCurta, haDaAlimentacao, ladoOposto, nomeLado, REFERENCIA_OMS, ritmoEsperado, textoAlimentacao, textoPeito, textoSemAlimentar, ladosDoRegistro, type AlimentacaoDoDia } from '../lib/hoje';
+import { duracaoDaMamada, ultimaAlimentacao } from '../lib/registros';
 import type { Lado, Registro } from '../lib/tipos';
 import { NumeroAnimado } from './numero-animado';
 
@@ -44,7 +44,7 @@ export function MamadasHoje({ registros, agora, hoje, nascimento }: { registros:
 
   const ultimaTexto = ultima
     ? ultima.tipo === 'mamada'
-      ? textoPeito(ladosDoRegistro(ultima))
+      ? `${textoPeito(ladosDoRegistro(ultima))}${duracaoDaMamada(ultima) ? ` · ${duracaoCurta(duracaoDaMamada(ultima))}` : ''}`
       : Number(ultima.dados.ml)
         ? `mamadeira ${Number(ultima.dados.ml)} ml`
         : 'mamadeira'
