@@ -23,7 +23,6 @@ import {
   quemE,
   recordesDisponiveis,
   selecionarTelas,
-  textoHorasLongas,
   textoKg,
   textoLeite,
   textoMesDeVida,
@@ -377,9 +376,9 @@ function Tela(props: { id: IdTela; bebe: Bebe; pronto: Pronto; pausado: boolean;
               🍼 {textoLeite(t.ml)} de leite na mamadeira
             </E>
           )}
-          {t.peitoMs >= 3_600_000 && (
+          {t.mamadas >= 50 && (
             <E n={4} como="p" classe="retro-texto">
-              São {textoHorasLongas(t.peitoMs)} no peito. Haja colo! 🤱
+              Haja colo! 🤱
             </E>
           )}
           {porDia > 0 && (

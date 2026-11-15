@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { somarDiasLocal } from './datas';
-import { diasPainel, foraDoPadrao, inicioDosDados, ladosDoPeito, linhaDoTempo, mapaHorarios, mediasPeriodo, narrativa, perfilPorHora, periodoCoberto, variacao, type DiaPainel } from './painel';
+import { diasPainel, foraDoPadrao, inicioDosDados, horasDeMaisMamadas, ladosPorContagem, linhaDoTempo, mamadasPorHora, mapaHorarios, mediasPeriodo, narrativa, perfilPorHora, periodoCoberto, variacao, type DiaPainel } from './painel';
 import type { Registro } from './tipos';
 
 const base = { familia_id: 'f', bebe_id: 'b', criado_por: null, observacao: null };
@@ -83,8 +83,28 @@ describe('painel', () => {
     expect(t.sono[0]).toEqual({ de: 0, ate: 4 / 24 });
     expect(t.alimentacoes).toHaveLength(3);
     expect(t.fraldas.filter((f) => f.coco)).toHaveLength(1);
-    const l = ladosDoPeito(regs, new Date(em('2026-12-02', '00:00')), new Date(em('2026-12-03', '00:00')), agora);
-    expect(l).toEqual({ E: 10 * 60_000, D: 5 * 60_000 });
+  });
+
+  it('lados e horários por contagem, com mamada nova (inicio === fim) e antiga juntas', () => {
+    const t = em('2026-12-02', '10:00');
+    const nova = (t0: string, lado: 'E' | 'D'): Registro =>
+      ({ ...base, id: String(n++), tipo: 'mamada', inicio: t0, fim: t0, dados: { segmentos: [{ lado, inicio: t0, fim: t0 }] } }) as Registro;
+    const lista = [nova(t, 'E'), nova(em('2026-12-02', '10:40'), 'D'), nova(em('2026-12-02', '14:00'), 'E'), mamada(em('2026-12-02', '11:00'), 10, 5), mamadeira(em('2026-12-02', '10:05'))];
+    const de = new Date(em('2026-12-02', '00:00'));
+    const ate = new Date(em('2026-12-03', '00:00'));
+    // A antiga com os dois lados conta 1 em cada
+    expect(ladosPorContagem(lista, de, ate)).toEqual({ E: 3, D: 2 });
+    const h = mamadasPorHora(lista, de, ate);
+    expect(h.peito[10]).toBe(2);
+    expect(h.mamadeira[10]).toBe(1);
+    expect(h.total[10]).toBe(3);
+    expect(h.total[11]).toBe(1);
+    expect(horasDeMaisMamadas(h.total)).toEqual([10]);
+    expect(horasDeMaisMamadas(Array(24).fill(1))).toEqual([]);
+    // Nada vira NaN sem duração
+    const d = diasPainel(lista, '2026-12-02', '2026-12-02', agora)[0];
+    expect(Number.isFinite(d.alimentacoes)).toBe(true);
+    expect(d.mamadas).toBe(4);
   });
 
   it('recém-nascido: os dias antes do nascimento não puxam a média para baixo', () => {
@@ -127,6 +147,8 @@ const diaP = (dia: string, x: Partial<DiaPainel> = {}): DiaPainel => ({
   sonoDiaMs: 5 * HORA,
   maiorSonoMs: 3 * HORA,
   alimentacoes: 8,
+  esquerdo: 4,
+  direito: 4,
   ...x,
 });
 /** n dias terminando em `ate`, com `f(i)` para mudar cada um */
@@ -177,7 +199,14 @@ describe('narrativa', () => {
     expect(textos).toContain('As mamadas estão mais espaçadas: 2h34 em média (+9 min)');
     // Dia 25/10 é ontem
     expect(textos).toContain('Dia com mais fraldas: ontem (10)');
-    expect(textos).toContain('Mamadeira: 240 ml/dia, estável');
+  });
+
+  it('só mamadeira: mamadeira estável, sem frase de mamadas no peito', () => {
+    const dias = periodo(hoje, 7, () => ({ ml: 240, mamadeiras: 8, mamadas: 0 }));
+    const anteriores = periodo(ateAntes, 7, () => ({ ml: 238, mamadeiras: 8, mamadas: 0 }));
+    const f = narrativa({ dias, anteriores, hoje, inicio: null });
+    expect(f.map((x) => x.texto)).toContain('Mamadeira: 240 ml/dia, estável');
+    expect(f.some((x) => x.id === 'mamadas')).toBe(false);
   });
 
   it('variações pequenas não viram frase', () => {
@@ -199,7 +228,7 @@ describe('narrativa', () => {
     const dias2 = periodo(hoje, 7, (i, d) => (d < '2026-10-22' ? { alimentacoes: 0, mamadas: 0, fraldas: 0, sonoMs: 0, maiorSonoMs: 0 } : { maiorSonoMs: i === 4 ? 4 * HORA : 2 * HORA }));
     const anteriores = periodo(ateAntes, 7, () => ({ sonoMs: 10 * HORA }));
     const f = narrativa({ dias: dias2, anteriores, hoje, inicio: '2026-10-22' });
-    expect(f.map((x) => x.id)).toEqual(['maior-sono']);
+    expect(f.map((x) => x.id)).toEqual(['maior-sono', 'mamadas']);
     expect(f[0].texto).toBe('Maior sono seguido: 4h00 no sábado (24/10)');
   });
 
@@ -231,5 +260,22 @@ describe('foraDoPadrao', () => {
     // Hoje (último) tem 2 só porque o dia não acabou
     expect(foraDoPadrao([8, 9, 8, 10, 9, 9, 2], [true, true, true, true, true, true, false], 2)).toBeNull();
     expect(foraDoPadrao([8, 9, 20, 9], todos(4), 2)).toBeNull();
+  });
+});
+
+describe('narrativa de mamadas', () => {
+  const hoje = '2026-10-30';
+  const dias = Array.from({ length: 7 }, (_, i) => diaP(somarDiasLocal(hoje, i - 6), { mamadas: 9, alimentacoes: 9 }));
+  const anteriores = Array.from({ length: 7 }, (_, i) => diaP(somarDiasLocal(hoje, i - 13), { mamadas: 9, alimentacoes: 9 }));
+
+  it('mamadas por dia com a referência da OMS (só até 6 meses) e lado por contagem', () => {
+    const f = narrativa({ dias, anteriores, hoje, inicio: null, lados: { E: 33, D: 30 }, idadeDias: 60 });
+    expect(f.find((x) => x.id === 'mamadas')?.texto).toBe('9 mamadas por dia (referência da OMS: 8 a 12)');
+    expect(f.find((x) => x.id === 'lado')?.texto).toBe('Mamou 52% no peito esquerdo');
+    const velho = narrativa({ dias, anteriores, hoje, inicio: null, idadeDias: 300 });
+    expect(velho.find((x) => x.id === 'mamadas')?.texto).toBe('9 mamadas por dia');
+    // Poucas mamadas: sem frase do lado
+    expect(narrativa({ dias, anteriores, hoje, inicio: null, lados: { E: 2, D: 1 } }).some((x) => x.id === 'lado')).toBe(false);
+    for (const x of f) expect(x.texto).not.toMatch(/duração|tempo no peito|NaN/);
   });
 });

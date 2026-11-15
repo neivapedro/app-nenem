@@ -21,6 +21,8 @@ export interface GraficoPdf {
   rotulos: string[];
   series: { nome: string; cor: Rgb; valores: number[] }[];
   media?: { valor: number; texto: string };
+  /** Faixa de referência (banda clara atrás das colunas) */
+  referencia?: { de: number; ate: number; texto: string };
   formatarEixo: (v: number) => string;
 }
 
@@ -145,11 +147,11 @@ function desenharGrafico(doc: jsPDF, g: GraficoPdf, x: number, y: number, w: num
     doc.setTextColor(...CINZA);
     doc.text(g.nota, x + w - 4, y + 6, { align: 'right' });
   }
-  legenda(doc, x + 4, y + 11, [...(g.series.length > 1 ? g.series : []), ...(g.media ? [{ nome: g.media.texto, cor: CINZA, linha: true }] : [])]);
+  legenda(doc, x + 4, y + 11, [...(g.series.length > 1 ? g.series : []), ...(g.media ? [{ nome: g.media.texto, cor: CINZA, linha: true }] : []), ...(g.referencia ? [{ nome: g.referencia.texto, cor: clarear(g.series[0]?.cor ?? CINZA, 0.25) }] : [])]);
 
   const n = g.rotulos.length;
   const totais = g.rotulos.map((_, i) => g.series.reduce((s, se) => s + (se.valores[i] ?? 0), 0));
-  const { teto, passo } = escala(Math.max(...totais, g.media?.valor ?? 0));
+  const { teto, passo } = escala(Math.max(...totais, g.media?.valor ?? 0, g.referencia?.ate ?? 0));
   const ex = x + 12;
   const ew = w - 16;
   const ey = y + 15;
@@ -164,6 +166,12 @@ function desenharGrafico(doc: jsPDF, g: GraficoPdf, x: number, y: number, w: num
     doc.line(ex, yy, ex + ew, yy);
     doc.setTextColor(...CINZA);
     doc.text(g.formatarEixo(v), ex - 1.5, yy + 0.9, { align: 'right' });
+  }
+  if (g.referencia) {
+    const y1 = base - (g.referencia.ate / teto) * eh;
+    const y0 = base - (g.referencia.de / teto) * eh;
+    doc.setFillColor(...clarear(g.series[0]?.cor ?? CINZA, 0.12));
+    doc.rect(ex, y1, ew, y0 - y1, 'F');
   }
   if (!n) return;
   const slot = ew / n;
@@ -264,8 +272,9 @@ function desenharPainel(doc: jsPDF, pn: PainelPdf, margem: number, y0: number): 
   let y = y0;
   doc.setFontSize(7.5);
   doc.setTextColor(...CINZA);
-  doc.text(pn.comparacao, margem, y);
-  y += 3;
+  const linhasComp = doc.splitTextToSize(pn.comparacao, LARGURA) as string[];
+  doc.text(linhasComp, margem, y);
+  y += 3 + (linhasComp.length - 1) * 3;
   const cols = 3;
   const gap = 4;
   const kw = (LARGURA - gap * (cols - 1)) / cols;

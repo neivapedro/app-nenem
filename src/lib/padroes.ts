@@ -1,7 +1,7 @@
 // Séries por dia para os gráficos de padrão e o relatório do pediatra.
 import { somarMeses } from '../../supabase/functions/_shared/tempo.ts';
 import { inicioDoDia, somarDiasLocal } from './datas';
-import { duracaoPorLado, ordenarRecentes, registrosPorDia, resumoDia, type ResumoDia } from './registros';
+import { ordenarRecentes, registrosPorDia, resumoDia, type ResumoDia } from './registros';
 import type { Registro } from './tipos';
 
 export interface DiaResumo extends ResumoDia {
@@ -35,13 +35,6 @@ export function intervaloMedioAlimentacao(registros: Registro[], desde: Date, at
   return n ? soma / n : null;
 }
 
-/** Duração média de uma mamada no peito (ms) no período */
-export function duracaoMediaMamada(registros: Registro[], desde: Date, ate: Date, agora: Date): number | null {
-  const lista = registros.filter((r) => r.tipo === 'mamada' && r.fim && new Date(r.inicio) >= desde && new Date(r.inicio) <= ate);
-  if (!lista.length) return null;
-  return lista.reduce((s, r) => s + (r.tipo === 'mamada' ? duracaoPorLado(r, agora).total : 0), 0) / lista.length;
-}
-
 export function media(valores: number[]): number {
   return valores.length ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
 }
@@ -56,6 +49,8 @@ export interface MesResumo {
   /** Dias completos que entraram na média (hoje não conta) */
   dias: number;
   alimentacoes: number;
+  /** Mamadas no peito por dia */
+  mamadas: number;
   fraldas: number;
   sonoMs: number;
   ml: number;
@@ -82,10 +77,11 @@ export function mesesDeVida(registros: Registro[], nascimento: string, hoje: str
       return t >= de && t < ate;
     });
     let dias = 0;
-    const soma = { alimentacoes: 0, fraldas: 0, sonoMs: 0, ml: 0 };
+    const soma = { alimentacoes: 0, mamadas: 0, fraldas: 0, sonoMs: 0, ml: 0 };
     for (let dia = inicio; dia <= ultimo; dia = somarDiasLocal(dia, 1)) {
       const r = resumoDia(doMes, dia, agora);
       soma.alimentacoes += r.alimentacoes;
+      soma.mamadas += r.mamadas;
       soma.fraldas += r.fraldas;
       soma.sonoMs += r.sonoMs;
       soma.ml += r.ml;
@@ -98,6 +94,7 @@ export function mesesDeVida(registros: Registro[], nascimento: string, hoje: str
       fim,
       dias,
       alimentacoes: soma.alimentacoes / dias,
+      mamadas: soma.mamadas / dias,
       fraldas: soma.fraldas / dias,
       sonoMs: soma.sonoMs / dias,
       ml: soma.ml / dias,
@@ -127,7 +124,9 @@ export interface MesDoPeriodo {
   mes: string;
   dias: number;
   alimentacoes: number;
-  peitoMs: number;
+  /** Mamadas no peito por dia */
+  mamadas: number;
+  mamadeiras: number;
   ml: number;
   fraldas: number;
   xixi: number;
@@ -141,6 +140,6 @@ export function mediasPorMes(dias: DiaResumo[]): MesDoPeriodo[] {
   for (const d of dias) grupos.set(d.dia.slice(0, 7), [...(grupos.get(d.dia.slice(0, 7)) ?? []), d]);
   return [...grupos.entries()].map(([mes, ds]) => {
     const m = (f: (d: DiaResumo) => number) => media(ds.map(f));
-    return { mes, dias: ds.length, alimentacoes: m((d) => d.alimentacoes), peitoMs: m((d) => d.peitoMs), ml: m((d) => d.ml), fraldas: m((d) => d.fraldas), xixi: m((d) => d.xixi), coco: m((d) => d.coco), sonoMs: m((d) => d.sonoMs) };
+    return { mes, dias: ds.length, alimentacoes: m((d) => d.alimentacoes), mamadas: m((d) => d.mamadas), mamadeiras: m((d) => d.mamadeiras), ml: m((d) => d.ml), fraldas: m((d) => d.fraldas), xixi: m((d) => d.xixi), coco: m((d) => d.coco), sonoMs: m((d) => d.sonoMs) };
   });
 }

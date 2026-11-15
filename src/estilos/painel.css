@@ -208,3 +208,34 @@
   .painel-grafico .leitura { max-width: 90%; padding: 6px 8px; font-size: 0.72rem; gap: 2px; }
   .painel-grafico .leitura-fora { font-size: 0.68rem; margin-top: 2px; padding-top: 3px; }
 }
+
+/* ---------- Faixa de referência e horários das mamadas ---------- */
+
+.painel-grafico .ref-banda { fill: var(--c-mamada); fill-opacity: 0.1; pointer-events: none; }
+.chave-banda {
+  display: inline-block;
+  width: 14px;
+  height: 9px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--c-mamada) 16%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--c-mamada) 55%, transparent);
+  flex: none;
+}
+.faixas-hora { display: grid; gap: 8px; }
+.fh-colunas { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 2px; align-items: end; }
+.fh-coluna {
+  all: unset;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 84px auto;
+  align-items: end;
+  cursor: pointer;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.fh-pilha { display: flex; flex-direction: column; justify-content: flex-end; gap: 1px; border-radius: 3px 3px 1px 1px; overflow: hidden; opacity: 0.55; transition: opacity 0.2s; }
+.fh-coluna.forte .fh-pilha, .fh-coluna.ativa .fh-pilha { opacity: 1; }
+.fh-coluna.ativa { outline: 2px solid color-mix(in srgb, var(--texto) 40%, transparent); outline-offset: 1px; border-radius: 3px; }
+.fh-hora { font-size: 0.62rem; color: var(--texto-3); text-align: center; height: 14px; margin-top: 3px; white-space: nowrap; overflow: visible; }
+.fh-leitura { margin: 0; font-size: 0.82rem; }
+@media (prefers-reduced-motion: reduce) { .fh-pilha { transition: none; } }

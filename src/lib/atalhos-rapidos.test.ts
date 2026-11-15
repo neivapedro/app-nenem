@@ -60,11 +60,16 @@ describe('atalhos por tipo', () => {
     expect(atalhosPara('sono', { registros: [sono(10 / 60, null)], agora }).map((a) => a.rotulo)).toEqual(['Acordou agora']);
   });
 
-  it('mamada: o lado sugerido (o outro da última) vem primeiro; com mamada aberta, nada', () => {
+  it('mamada: Esquerdo/Direito, o oposto ao último vem primeiro e destacado', () => {
     const a = atalhosPara('mamada', { registros: [mamada(2, 'E')], agora });
-    expect(a.map((x) => x.rotulo)).toEqual(['Peito direito', 'Peito esquerdo']);
-    expect(a[0].detalhe).toContain('sugerido');
-    expect(atalhosPara('mamada', { registros: [mamada(0.1, 'E', true)], agora })).toEqual([]);
+    expect(a.map((x) => x.rotulo)).toEqual(['Direito', 'Esquerdo']);
+    expect(a[0].destaque).toBe(true);
+    expect(a[0].detalhe).toContain('comece por aqui');
+    expect(a[1].destaque).toBe(false);
+    // Sem histórico: sem sugestão
+    expect(atalhosPara('mamada', { registros: [], agora }).map((x) => x.destaque)).toEqual([false, false]);
+    // Registro antigo aberto não trava o atalho
+    expect(atalhosPara('mamada', { registros: [mamada(0.1, 'E', true)], agora })).toHaveLength(2);
   });
 
   it('remédio: só os em uso', () => {
@@ -95,10 +100,13 @@ describe('aplicarAtalho', () => {
     expect(res.texto).toBe('Fralda registrada (xixi e cocô)');
   });
 
-  it('mamada: inicia o cronômetro; recusa se já tem uma aberta', () => {
+  it('mamada: salva uma mamada simples (início = fim, um lado) e o desfazer exclui', () => {
     const res = aplicarAtalho({ tipo: 'mamada', lado: 'D' }, { registros: [], base: novaBase(), agora });
-    expect(res.ok && res.registro).toMatchObject({ tipo: 'mamada', fim: null, dados: { segmentos: [{ lado: 'D', fim: null }] } });
-    expect(aplicarAtalho({ tipo: 'mamada', lado: 'D' }, { registros: [mamada(0.1, 'E', true)], base: novaBase(), agora }).ok).toBe(false);
+    expect(res.ok && res.registro).toMatchObject({ tipo: 'mamada', inicio: agora.toISOString(), fim: agora.toISOString(), dados: { segmentos: [{ lado: 'D' }] } });
+    expect(res.ok && res.texto).toBe('Mamada registrada (direito)');
+    expect(res.ok && res.desfazer[0]).toMatchObject({ tipo: 'excluir' });
+    // Com um registro antigo aberto, ainda salva
+    expect(aplicarAtalho({ tipo: 'mamada', lado: 'E' }, { registros: [mamada(0.1, 'E', true)], base: novaBase(), agora }).ok).toBe(true);
   });
 
   it('dormiu há 15 min e acordou agora (desfazer devolve o sono aberto)', () => {

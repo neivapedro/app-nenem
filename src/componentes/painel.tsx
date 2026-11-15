@@ -111,6 +111,7 @@ export function ColunasEmpilhadas({
   formatar,
   formatarEixo,
   media,
+  referencia,
   selecionado,
   aoSelecionar,
   rotulo,
@@ -121,6 +122,8 @@ export function ColunasEmpilhadas({
   formatar: (v: number) => string;
   formatarEixo?: (v: number) => string;
   media?: number | null;
+  /** Faixa de referência (banda discreta atrás das colunas), ex.: 8 a 12 mamadas */
+  referencia?: { de: number; ate: number; rotulo: string } | null;
   selecionado: number | null;
   aoSelecionar: (i: number | null) => void;
   rotulo: string;
@@ -130,7 +133,7 @@ export function ColunasEmpilhadas({
   const [toque, setToque] = useState<number | null>(null);
   const n = dias.length;
   const totais = dias.map((_, i) => series.reduce((s, x) => s + (x.valores[i] || 0), 0));
-  const max = Math.max(...totais, media ?? 0, 0);
+  const max = Math.max(...totais, media ?? 0, referencia?.ate ?? 0, 0);
   const passo = passoBonito(max || 1);
   const topo = Math.max(passo, Math.ceil(max / passo) * passo);
   const ticks = Array.from({ length: Math.round(topo / passo) + 1 }, (_, i) => i * passo);
@@ -155,7 +158,7 @@ export function ColunasEmpilhadas({
 
   return (
     <div className="painel-grafico">
-      {(series.length > 1 || (media !== undefined && media !== null && media > 0) || fora) && (
+      {(series.length > 1 || (media !== undefined && media !== null && media > 0) || fora || referencia) && (
         <ul className="legenda" aria-label="Legenda">
           {(series.length > 1 ? series : []).map((s) => (
             <li key={s.id}>
@@ -167,6 +170,12 @@ export function ColunasEmpilhadas({
             <li>
               <span className="chave-linha" style={{ background: 'var(--texto-3)' }} />
               média {formatar(media)}
+            </li>
+          )}
+          {referencia && (
+            <li>
+              <span className="chave-banda" aria-hidden="true" />
+              {referencia.rotulo}
             </li>
           )}
           {fora && (
@@ -181,7 +190,7 @@ export function ColunasEmpilhadas({
         <svg
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={fora ? `${rotulo}. Fora do padrão: ${semana(dias[fora.indice])}, ${diaCurto(dias[fora.indice])}, ${formatar(totais[fora.indice])}, ${motivo}` : rotulo}
+          aria-label={fora ? `${rotulo}${referencia ? `, ${referencia.rotulo}` : ''}. Fora do padrão: ${semana(dias[fora.indice])}, ${diaCurto(dias[fora.indice])}, ${formatar(totais[fora.indice])}, ${motivo}` : rotulo}
           tabIndex={0}
           onKeyDown={tecla}
           onPointerLeave={(e) => e.pointerType === 'mouse' && setToque(null)}
@@ -194,6 +203,7 @@ export function ColunasEmpilhadas({
               </text>
             </g>
           ))}
+          {referencia && <rect className="ref-banda" x={L} y={y(referencia.ate)} width={W - L - R} height={Math.max(0, y(referencia.de) - y(referencia.ate))} />}
           {dias.map((d, i) => {
             const cx = L + banda * i + banda / 2;
             const x = cx - largura / 2;
@@ -355,6 +365,62 @@ export function MapaCalor({
           mais
         </span>
       </div>
+    </div>
+  );
+}
+
+// ---------- Horários em que mais mama (por hora do dia, contando mamadas) ----------
+
+/**
+ * 24 colunas, uma por hora do dia: quantas mamadas começaram naquela hora no
+ * período (peito e mamadeira empilhados). As horas mais fortes ganham destaque.
+ */
+export function FaixasHora({ peito, mamadeira, fortes, dias }: { peito: number[]; mamadeira: number[]; fortes: number[]; dias: number }) {
+  const [hora, setHora] = useState<number | null>(null);
+  const totais = peito.map((v, h) => v + mamadeira[h]);
+  const max = Math.max(1, ...totais);
+  const AH = 84;
+  const mostrado = hora !== null ? hora : null;
+  const porDia = (v: number) => (dias > 0 ? v / dias : v).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  return (
+    <div className="faixas-hora">
+      <div className="fh-colunas" role="img" aria-label={`Mamadas por hora do dia. ${fortes.length ? `Mais mamadas às ${fortes.map((h) => `${h}h`).join(', ')}.` : ''}`}>
+        {totais.map((t, h) => (
+          <button
+            key={h}
+            type="button"
+            tabIndex={-1}
+            className={`fh-coluna ${fortes.includes(h) ? 'forte' : ''} ${mostrado === h ? 'ativa' : ''}`}
+            aria-label={`${h}h: ${t} ${t === 1 ? 'mamada' : 'mamadas'}`}
+            onClick={() => setHora(mostrado === h ? null : h)}
+          >
+            <span className="fh-pilha" style={{ height: `${Math.max(t ? 4 : 0, (t / max) * AH)}px` }}>
+              {mamadeira[h] > 0 && <span style={{ flex: mamadeira[h], background: 'var(--c-mamadeira)' }} />}
+              {peito[h] > 0 && <span style={{ flex: peito[h], background: 'var(--c-mamada)' }} />}
+            </span>
+            <span className="fh-hora">{h % 6 === 0 ? `${h}h` : ''}</span>
+          </button>
+        ))}
+      </div>
+      <p className="texto-2 fh-leitura" aria-live="polite">
+        {mostrado !== null
+          ? `${mostrado}h–${mostrado + 1}h: ${totais[mostrado]} ${totais[mostrado] === 1 ? 'mamada' : 'mamadas'} no período (${porDia(totais[mostrado])} por dia)`
+          : fortes.length
+            ? `Mama mais por volta das ${fortes.map((h) => `${h}h`).join(', ')}. Toque numa coluna para ver.`
+            : 'Toque numa coluna para ver o valor.'}
+      </p>
+      <ul className="legenda" aria-label="Legenda">
+        <li>
+          <span className="chave-caixa" style={{ background: 'var(--c-mamada)' }} />
+          Peito
+        </li>
+        {mamadeira.some((v) => v > 0) && (
+          <li>
+            <span className="chave-caixa" style={{ background: 'var(--c-mamadeira)' }} />
+            Mamadeira
+          </li>
+        )}
+      </ul>
     </div>
   );
 }

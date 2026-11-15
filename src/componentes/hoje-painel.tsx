@@ -6,6 +6,7 @@ import '../estilos/hoje.css';
 import { linhaDoTempo } from '../lib/painel';
 import { useZoom } from '../lib/zoom';
 import { duracaoCurta, horaPrevista, painelAlimentacao, JANELA_PREVISAO_H, type MediasDia } from '../lib/hoje';
+import type { ContagemDoDia } from '../lib/hoje';
 import type { ResumoDia } from '../lib/registros';
 import type { Registro } from '../lib/tipos';
 import { NumeroAnimado } from './numero-animado';
@@ -57,7 +58,7 @@ export function Anel({ arcos, espessura = 8, rotulo, classe, children }: { arcos
 
 // ---------- Próxima alimentação ----------
 
-const COR_ESTADO = { cedo: 'var(--c-mamada)', perto: 'var(--aviso)', passou: 'var(--ruim)' } as const;
+const COR_ESTADO = { cedo: 'var(--c-mamada)', perto: 'var(--aviso)', passou: 'var(--aviso)' } as const;
 
 export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: Registro[]; agora: Date; aoTocar: () => void }) {
   const p = painelAlimentacao(registros, agora);
@@ -102,19 +103,9 @@ export function CartaoProximaMamada({ registros, agora, aoTocar }: { registros: 
         <span className="hp-centro-legenda">{centro.legenda}</span>
       </Anel>
       <span className="hp-proxima-texto">
-        <span className="hp-rotulo">{nome}</span>
-        <span className="hp-ultima">
-          <span className="hp-sem-quebra">{ha}</span>
-          {p.detalhe && (
-            <>
-              {' · '}
-              <span className="hp-sem-quebra">{p.detalhe}</span>
-            </>
-          )}
-        </span>
         {hora ? (
           <>
-            <span className="hp-rotulo hp-espaco">{p.estado === 'passou' ? 'Prevista para' : 'Próxima por volta de'}</span>
+            <span className="hp-rotulo">{p.estado === 'passou' ? 'Prevista para' : 'Próxima mamada'}</span>
             <span className="hp-hora">{hora}</span>
           </>
         ) : (
@@ -184,7 +175,7 @@ function comparacao(valor: number, media: number | null | undefined, andamentoDo
   return { texto: `${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%`, sufixo: andamentoDoDia < 1 ? ' vs. ritmo' : ' vs. média', sentido: pct > 0 ? 'sobe' : 'desce' };
 }
 
-export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean }) {
+export function NumerosDoDia({ resumo, medias, nascido, lados }: { resumo: ResumoDia; medias: MediasDia | null; nascido: boolean; lados: ContagemDoDia }) {
   const anima = (chave: string, valor: number, formatar: (n: number) => string, minimo?: number) => (
     <NumeroAnimado valor={valor} formatar={formatar} chave={`hoje:${chave}`} minimo={minimo} />
   );
@@ -197,8 +188,8 @@ export function NumerosDoDia({ resumo, medias, nascido }: { resumo: ResumoDia; m
   ];
   // Detalhes que saíram dos números grandes: uma linha de texto cinza pequena
   const detalhes = [
-    resumo.peitoMs ? `No peito ${duracaoCurta(resumo.peitoMs)}` : null,
-    resumo.ml ? `Mamadeira ${Math.round(resumo.ml)} ml` : null,
+    lados.peito ? `Peito: esquerdo ${lados.esquerdo} · direito ${lados.direito}` : null,
+    lados.mamadeiras ? `Mamadeira ${lados.mamadeiras}${resumo.ml ? ` (${Math.round(resumo.ml)} ml)` : ''}` : null,
     resumo.fraldas ? `Xixi ${resumo.xixi} · cocô ${resumo.coco}` : null,
   ].filter(Boolean);
 

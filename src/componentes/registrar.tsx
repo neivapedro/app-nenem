@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useAgora, useDados } from '../dados/contexto';
 import { agoraIso, chaveDia, dataBr, deCampoDataHora, horaCurta, paraCampoDataHora, relogio, textoDuracao } from '../lib/datas';
 import {
@@ -6,21 +6,19 @@ import {
   CORES_FEZES,
   corFezes,
   duracaoPorLado,
+  ehMamadaSimples,
   emAndamento,
   finalizarMamada,
   finalizarMamadaNaHora,
   cronometroEsquecido,
   finalizarSono,
-  iniciarMamada,
   iniciarSono,
-  ladoAtivo,
-  ladoFinal,
+  ladoDaMamada,
   mamadaManual,
   NOME_LADO,
+  novaMamadaSimples,
   outroLado,
-  pausarMamada,
   textoFralda,
-  trocarLado,
   ultimoDoTipo,
   ultimoLado,
   validarRegistro,
@@ -81,106 +79,64 @@ function useSalvar() {
 
 // ---------- Mamada no peito ----------
 
-/** Começar uma mamada (cronômetro) ou registrar uma que já passou. */
+type QuandoMamada = 0 | 10 | 20 | 'outra';
+const OPCOES_QUANDO: { valor: QuandoMamada; rotulo: string }[] = [
+  { valor: 0, rotulo: 'Agora' },
+  { valor: 10, rotulo: 'há 10 min' },
+  { valor: 20, rotulo: 'há 20 min' },
+  { valor: 'outra', rotulo: 'outra hora' },
+];
+
+/** Mamada de um toque: escolher o lado já salva. Hora: agora (padrão), há 10/20 min ou outra. */
 export function FolhaMamada({ aoFechar }: { aoFechar: () => void }) {
-  const { registros, baseRegistro, gravar, mostrarAviso, nomeDe } = useDados();
+  const { registros, baseRegistro } = useDados();
   const salvar = useSalvar();
   const ultimo = ultimoLado(registros);
-  const [manual, setManual] = useState(false);
-  const [inicio, setInicioCampo] = useState(() => paraCampoDataHora(new Date(Date.now() - 15 * 60_000).toISOString()));
-  // Enquanto a pessoa não mexe na hora, o início acompanha os minutos digitados (a mamada termina agora)
-  const [mexeuInicio, setMexeuInicio] = useState(false);
-  const setInicio = (v: string) => {
-    setMexeuInicio(true);
-    setInicioCampo(v);
-  };
-  const [min, setMin] = useState<{ E: string; D: string }>({ E: '', D: '' });
-  const [primeiro, setPrimeiro] = useState<Lado>(ultimo ? outroLado(ultimo) : 'E');
-  useEffect(() => {
-    if (mexeuInicio) return;
-    const total = ((Number(min.E) || 0) + (Number(min.D) || 0)) * 60_000;
-    setInicioCampo(paraCampoDataHora(new Date(Date.now() - (total || 15 * 60_000)).toISOString()));
-  }, [min, mexeuInicio]);
-  const [obs, setObs] = useState('');
+  const sugerido: Lado | null = ultimo ? outroLado(ultimo) : null;
+  const [quando, setQuando] = useState<QuandoMamada>(0);
+  const [hora, setHora] = useState(() => paraCampoDataHora(agoraIso()));
   const [msg, setMsg] = useState<string | null>(null);
+  const toque = useUmToque();
 
-  function comecar(lado: Lado) {
-    // Já tem uma rolando (ex.: o outro celular começou agora): não abre outra
-    const ja = emAndamento(registros).mamada;
-    if (ja) {
-      mostrarAviso({ texto: `Já tem uma mamada em andamento${ja.criado_por ? ` (iniciada por ${nomeDe(ja.criado_por)})` : ''}` });
-      return aoFechar();
-    }
-    gravar({ tipo: 'registro', dado: iniciarMamada(baseRegistro(), lado, new Date()) });
-    aoFechar();
-  }
-
-  function salvarManual() {
-    const totalMs = ((Number(min.E) || 0) + (Number(min.D) || 0)) * 60_000;
-    const ini = mexeuInicio ? deCampoDataHora(inicio) : new Date(Date.now() - Math.max(totalMs, 60_000)).toISOString();
-    if (!ini) return setMsg('Informe a hora do início.');
-    if (new Date(ini).getTime() + totalMs > Date.now() + 5 * 60_000) return setMsg('Com esses minutos, a mamada terminaria depois de agora: ajuste a hora em que começou.');
-    const r = { ...mamadaManual(baseRegistro(), ini, { E: Number(min.E) || 0, D: Number(min.D) || 0 }, primeiro), observacao: obs.trim() || null };
+  function registrar(lado: Lado) {
+    let t: Date;
+    if (quando === 'outra') {
+      const iso = deCampoDataHora(hora);
+      if (!iso) return setMsg('Informe a hora da mamada.');
+      t = new Date(iso);
+    } else t = new Date(Date.now() - quando * 60_000);
+    const r = novaMamadaSimples(baseRegistro(), lado, t);
     const problema = validarRegistro(r, new Date());
     if (problema) return setMsg(problema);
-    salvar(r, `Mamada registrada (${textoDuracao(duracaoPorLado(r, new Date()).total)})`);
+    salvar(r, `Mamada registrada (${NOME_LADO[lado].toLowerCase()})`);
+    // A folha fecha no 1º toque: um 2º toque rápido cairia no botão que fica embaixo (ex.: Fralda). Ignora cliques por um instante.
+    const bloquear = (e: Event) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+    document.addEventListener('click', bloquear, true);
+    window.setTimeout(() => document.removeEventListener('click', bloquear, true), 600);
     aoFechar();
   }
 
   return (
-    <Folha titulo="Mamada no peito" aoFechar={aoFechar}>
-      {!manual ? (
-        <div className="pilha">
-          <p className="texto-2">Toque no peito em que o bebê vai começar. O cronômetro conta e você troca de lado quando quiser.</p>
-          <div className="grandes t-mamada">
-            {(['E', 'D'] as Lado[]).map((l) => (
-              <button key={l} className={`botao-grande ${ultimo === l ? 'marcado' : ''}`} onClick={() => comecar(l)}>
-                <Icone nome="tocar" />
-                Peito {NOME_LADO[l].toLowerCase()}
-                {ultimo === l && <small>terminou aqui na última</small>}
-              </button>
-            ))}
-          </div>
-          <button className="botao texto" onClick={() => setManual(true)}>
-            Registrar uma mamada que já passou
-          </button>
-        </div>
-      ) : (
-        <form
-          className="pilha"
-          onSubmit={(e) => {
-            e.preventDefault();
-            salvarManual();
-          }}
-        >
-          <CampoHora rotulo="Começou" valor={inicio} aoMudar={setInicio} />
-          <div className="grade">
-            {(['E', 'D'] as Lado[]).map((l) => (
-              <Campo key={l} rotulo={`Peito ${NOME_LADO[l].toLowerCase()} (min)`}>
-                <input inputMode="numeric" pattern="[0-9]*" value={min[l]} onChange={(e) => setMin({ ...min, [l]: e.target.value.replace(/\D/g, '').slice(0, 3) })} />
-              </Campo>
-            ))}
-          </div>
-          <Campo rotulo="Começou pelo" grupo>
-            <Escolhas
-              opcoes={[
-                { valor: 'E' as Lado, rotulo: 'Esquerdo' },
-                { valor: 'D' as Lado, rotulo: 'Direito' },
-              ]}
-              valor={primeiro}
-              aoMudar={setPrimeiro}
-            />
-          </Campo>
-          <CampoObservacao valor={obs} aoMudar={setObs} />
-          <Erro msg={msg} />
-          <div className="linha">
-            <button type="button" className="botao" onClick={() => setManual(false)}>
-              Voltar
+    <Folha titulo="Mamada" aoFechar={aoFechar}>
+      <div className="pilha">
+        <p className="texto-2">Toque no lado em que o bebê mamou. Salva na hora.</p>
+        <div className="grandes t-mamada">
+          {(['E', 'D'] as Lado[]).map((l) => (
+            <button key={l} type="button" className={`botao-grande ${sugerido === l ? 'marcado' : ''}`} onClick={toque(() => registrar(l))}>
+              {NOME_LADO[l]}
+              {sugerido === l && <small>comece por aqui</small>}
             </button>
-            <button className="botao primario cresce">Salvar mamada</button>
-          </div>
-        </form>
-      )}
+          ))}
+        </div>
+        <Campo rotulo="Quando foi" grupo>
+          <Escolhas opcoes={OPCOES_QUANDO} valor={quando} aoMudar={(v) => (setMsg(null), setQuando(v))} />
+        </Campo>
+        {quando === 'outra' && <CampoHora rotulo="Hora da mamada" valor={hora} aoMudar={setHora} />}
+        <Erro msg={msg} />
+      </div>
     </Folha>
   );
 }
@@ -213,7 +169,7 @@ export function FolhaQueHorasTerminou({ r, aoFechar, aoSalvar }: { r: RegistroDe
         }}
       >
         <p className="texto-2">
-          {r.tipo === 'mamada' ? 'A mamada' : 'O sono'} começou {chaveDia(r.inicio) === chaveDia(new Date()) ? 'hoje' : `em ${dataBr(chaveDia(r.inicio)).slice(0, 5)}`} às {horaCurta(r.inicio)} e o cronômetro está contando há {horas} h. Que horas {r.tipo === 'mamada' ? 'terminou' : 'acordou'}?
+          {r.tipo === 'mamada' ? 'Esta mamada antiga ficou aberta' : 'O sono'} {r.tipo === 'mamada' ? '' : 'começou'} {chaveDia(r.inicio) === chaveDia(new Date()) ? 'hoje' : `em ${dataBr(chaveDia(r.inicio)).slice(0, 5)}`} às {horaCurta(r.inicio)} {r.tipo === 'mamada' ? 'há' : 'e o cronômetro está contando há'} {horas} h. Que horas {r.tipo === 'mamada' ? 'terminou' : 'acordou'}?
         </p>
         <CampoHora rotulo={r.tipo === 'mamada' ? 'Terminou às' : 'Acordou às'} valor={quando} aoMudar={setQuando} />
         <Erro msg={msg} />
@@ -226,77 +182,36 @@ export function FolhaQueHorasTerminou({ r, aoFechar, aoSalvar }: { r: RegistroDe
   );
 }
 
-/** Mamada em andamento: tempo de cada lado, trocar, pausar e finalizar. */
+/**
+ * Só para registros antigos: mamada de antes da mudança que ficou com o
+ * cronômetro aberto (fim nulo). Uma ação clara: Encerrar.
+ */
 export function CartaoMamadaAtiva({ r }: { r: RegistroDe<'mamada'> }) {
   const { gravar, mostrarAviso, nomeDe } = useDados();
-  const agora = useAgora(1000);
-  const d = duracaoPorLado(r, agora);
-  const ativo = ladoAtivo(r);
   const toque = useUmToque();
-  const salvar = (novo: Registro) => gravar({ tipo: 'registro', dado: novo });
-
   const [perguntar, setPerguntar] = useState(false);
-  function finalizar(quando?: Date) {
+  function encerrar(quando?: Date) {
     // Aberta há mais de 3 h: pergunta a hora em vez de salvar tudo isso
     if (!quando && cronometroEsquecido(r, new Date())) return setPerguntar(true);
     setPerguntar(false);
     const fim = quando ? finalizarMamadaNaHora(r, quando) : finalizarMamada(r, new Date());
-    salvar(fim);
-    mostrarAviso({ texto: `Mamada salva (${textoDuracao(duracaoPorLado(fim, new Date()).total, true)})`, desfazer: () => salvar(r) });
+    gravar({ tipo: 'registro', dado: fim });
+    mostrarAviso({ texto: 'Mamada encerrada', desfazer: () => gravar({ tipo: 'registro', dado: r }) });
   }
-
-  function cancelar() {
-    if (!confirm('Descartar esta mamada? Ela não fica registrada.')) return;
-    gravar({ tipo: 'excluir', dado: { alvo: 'registro', id: r.id } });
-    mostrarAviso({ texto: 'Mamada descartada', desfazer: () => salvar(r) });
-  }
-
   return (
-    <section className="cartao cronometro t-mamada pilha" aria-label="Mamada em andamento">
+    <section className="cartao cronometro t-mamada pilha" aria-label="Mamada antiga em andamento">
       <div className="linha entre">
-        <span className="linha" style={{ gap: 8 }}>
-          {ativo && <span className="pulso" aria-hidden="true" />}
-          <strong>{ativo ? `Mamando no peito ${NOME_LADO[ativo].toLowerCase()}` : 'Mamada pausada'}</strong>
-        </span>
+        <strong>Mamada antiga ainda aberta</strong>
         <span className="mudo">
           desde {desde(r.inicio)}
           {r.criado_por ? ` · ${nomeDe(r.criado_por)}` : ''}
         </span>
       </div>
-      <div className="grande" aria-live="off">
-        {relogio(d.total)}
-      </div>
-      <div className="lados">
-        {(['E', 'D'] as Lado[]).map((l) => (
-          <button
-            key={l}
-            className={`lado ${ativo === l ? 'ativo' : ''}`}
-            onClick={toque(() => ativo !== l && salvar(trocarLado(r, new Date(), l)))}
-            aria-pressed={ativo === l}
-          >
-            <span className="tempo">{relogio(d[l])}</span>
-            <span className="rotulo">{ativo === l ? `Peito ${l} · agora` : `Mudar para o ${l}`}</span>
-          </button>
-        ))}
-      </div>
-      <div className="linha">
-        {ativo ? (
-          <button className="botao" onClick={toque(() => salvar(pausarMamada(r, new Date())))}>
-            <Icone nome="pausar" /> Pausar
-          </button>
-        ) : (
-          <button className="botao" onClick={toque(() => salvar(trocarLado(r, new Date(), ladoFinal(r) ?? 'E')))}>
-            <Icone nome="tocar" /> Continuar
-          </button>
-        )}
-        <button className="botao primario cresce" onClick={toque(() => finalizar())}>
-          <Icone nome="parar" /> Finalizar
-        </button>
-      </div>
-      <button className="botao texto pequeno" style={{ alignSelf: 'center' }} onClick={cancelar}>
-        Descartar
+      <p className="texto-2">Esta mamada foi começada antes do registro de um toque e ficou aberta. Encerre para fechá-la.</p>
+      <button className="botao primario largo" onClick={toque(() => encerrar())}>
+        Encerrar
       </button>
-      {perguntar && <FolhaQueHorasTerminou r={r} aoFechar={() => setPerguntar(false)} aoSalvar={(q) => finalizar(q)} />}
+      {perguntar && <FolhaQueHorasTerminou r={r} aoFechar={() => setPerguntar(false)} aoSalvar={(q) => encerrar(q)} />}
     </section>
   );
 }
@@ -664,24 +579,62 @@ interface PropsEditar<T> {
 }
 
 function EditarMamada({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<RegistroDe<'mamada'>>) {
+  const simples = ehMamadaSimples(r);
+  const antigaAberta = !r.fim;
   const d = duracaoPorLado(r, new Date());
   const [inicio, setInicio] = useState(paraCampoDataHora(r.inicio));
+  const [lado, setLado] = useState<Lado>(ladoDaMamada(r) ?? 'E');
   const [min, setMin] = useState({ E: d.E ? String(Math.round(d.E / 60_000)) : '', D: d.D ? String(Math.round(d.D / 60_000)) : '' });
   const [primeiro, setPrimeiro] = useState<Lado>(r.dados.segmentos[0]?.lado ?? 'E');
   const [obs, setObs] = useState(r.observacao ?? '');
   // Valores de quando abriu: se só a observação mudar, os trechos (e o lado em que terminou) ficam como estão
-  const [original] = useState(() => ({ inicio: paraCampoDataHora(r.inicio), E: min.E, D: min.D, primeiro }));
-  if (!r.fim) {
+  const [original] = useState(() => ({ inicio: paraCampoDataHora(r.inicio), E: min.E, D: min.D, primeiro, lado }));
+  if (antigaAberta) {
     return (
       <div className="pilha">
-        <p className="texto-2">Esta mamada está em andamento. Dá para trocar de lado pelo cronômetro na tela Hoje, ou finalizar aqui.</p>
+        <p className="texto-2">Esta mamada antiga ficou com o cronômetro aberto. Encerre para fechá-la.</p>
         <button type="button" className="botao primario" onClick={() => aoSalvar(finalizarMamada(r, new Date()))}>
-          <Icone nome="parar" /> Finalizar agora
+          Encerrar agora
         </button>
         {rodape}
       </div>
     );
   }
+  if (simples) {
+    return (
+      <form
+        className="pilha"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const ini = deCampoDataHora(inicio);
+          if (!ini) return setMsg('Informe a hora.');
+          const mudou = inicio !== original.inicio || lado !== original.lado;
+          const novo: RegistroDe<'mamada'> = mudou ? { ...novaMamadaSimples(r, lado, new Date(ini)) } : { ...r };
+          novo.observacao = obs.trim() || null;
+          const problema = mudou ? validarRegistro(novo, new Date()) : null;
+          if (problema) return setMsg(problema);
+          aoSalvar(novo);
+        }}
+      >
+        <Campo rotulo="Lado" grupo>
+          <Escolhas
+            opcoes={[
+              { valor: 'E' as Lado, rotulo: 'Esquerdo' },
+              { valor: 'D' as Lado, rotulo: 'Direito' },
+            ]}
+            valor={lado}
+            aoMudar={setLado}
+          />
+        </Campo>
+        <CampoHora rotulo="Hora" valor={inicio} aoMudar={setInicio} />
+        <CampoObservacao valor={obs} aoMudar={setObs} />
+        <Erro msg={msg} />
+        <button className="botao primario">Salvar</button>
+        {rodape}
+      </form>
+    );
+  }
+  // Mamada antiga, com duração: mantém os campos que já existiam
   return (
     <form
       className="pilha"

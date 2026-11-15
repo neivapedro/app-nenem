@@ -1,0 +1,54 @@
+/* Cartão "Mamadas de hoje" (prefixo mm-). Só tokens globais: claro, escuro e noite. */
+.mm-cartao { display: flex; flex-direction: column; gap: 14px; }
+.mm-bloco { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.mm-bloco + .mm-bloco { padding-top: 14px; border-top: 1px solid var(--borda); }
+.mm-rotulo { font-size: 0.75rem; font-weight: 600; color: var(--texto-2); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.mm-ultima { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 12px; row-gap: 2px; }
+.mm-hora, .mm-numero { font-family: var(--fonte-numeros, ui-rounded, system-ui); font-size: 2.4rem; font-weight: 740; letter-spacing: -0.03em; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--texto); }
+.mm-ultima-txt { font-size: 1.02rem; font-weight: 650; line-height: 1.3; }
+.mm-proximo { font-size: 0.95rem; color: var(--texto-2); }
+.mm-proximo strong { color: var(--c-mamada); font-weight: 700; }
+.mm-vazio { font-size: 1rem; color: var(--texto-2); }
+
+.mm-total { display: flex; align-items: baseline; gap: 8px; }
+.mm-total-txt { font-size: 1.15rem; font-weight: 650; }
+.mm-partes { font-size: 0.92rem; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+
+/* Bolinhas: uma por mamada; as vazias tracejadas são o que falta para o esperado */
+.mm-bolinhas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.mm-bolinha {
+  --mm-cor: var(--c-mamada);
+  width: 34px; height: 34px; flex: none; display: inline-grid; place-items: center; padding: 0;
+  border-radius: 50%; border: 2px solid var(--mm-cor); background: var(--mm-cor); color: #fff;
+  font-family: var(--fonte-numeros, ui-rounded, system-ui); font-size: 0.78rem; font-weight: 750; letter-spacing: -0.02em;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  animation: mm-pop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.mm-bolinha.mm-mamadeira { --mm-cor: var(--c-mamadeira); }
+button.mm-bolinha { cursor: pointer; }
+button.mm-bolinha:active { transform: scale(0.92); }
+button.mm-bolinha:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.mm-bolinha.mm-ativa { box-shadow: 0 0 0 3px color-mix(in srgb, var(--mm-cor) 30%, transparent); transform: scale(1.08); }
+.mm-bolinha.mm-vazia { background: transparent; border: 2px dashed color-mix(in srgb, var(--texto-3) 70%, transparent); animation-delay: calc(var(--mm-i, 0) * 30ms); }
+.mm-mais { font-size: 0.8rem; font-weight: 650; color: var(--texto-2); padding-right: 2px; }
+.mm-toque { min-height: 1.4em; font-size: 0.88rem; font-weight: 600; color: var(--texto-2); font-variant-numeric: tabular-nums; }
+@keyframes mm-pop { from { opacity: 0; transform: scale(0.6); } }
+
+.mm-ritmo p { font-size: 0.95rem; line-height: 1.45; color: var(--texto); text-wrap: pretty; }
+.mm-ritmo strong { font-weight: 700; }
+.mm-aviso { font-size: 0.88rem; color: var(--texto-2); }
+.mm-fontes { font-size: 0.72rem; line-height: 1.4; color: var(--texto-3); text-wrap: balance; }
+
+@media (max-width: 360px) {
+  .mm-hora, .mm-numero { font-size: 2.1rem; }
+  .mm-bolinha { width: 32px; height: 32px; }
+  .mm-bolinhas { gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mm-bolinha { animation: none; transition: none; }
+}
+
+/* Alvo de toque de 44 px sem mudar o desenho da bolinha */
+.mm-bolinha { position: relative; }
+.mm-bolinha::after { content: ''; position: absolute; inset: -6px; }

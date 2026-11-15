@@ -255,7 +255,7 @@ export function FolhaEditarHoje({ layout, aoMudar, nascido, aoFechar }: { layout
             <ul className="he-lista">{g.ocultos.map((id) => linha(id, 'ocultos'))}</ul>
           </section>
         )}
-        <p className="mudo he-ajuda">Cronômetro de mamada ou sono em andamento sempre aparece no topo.</p>
+        <p className="mudo he-ajuda">Sono em andamento (e mamada antiga aberta) sempre aparece no topo.</p>
         <div className="linha">
           <button type="button" className="botao" disabled={padrao} onClick={() => mudar(layoutPadrao(), 'Ordem padrão restaurada')}>
             <Icone nome="girar" /> Restaurar padrão

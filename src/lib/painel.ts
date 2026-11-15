@@ -2,7 +2,7 @@
 // mapa de horários e linha do tempo. Sem dependências: testado no vitest.
 import { chaveDia, inicioDoDia, somarDiasLocal } from './datas';
 import { media } from './padroes';
-import { duracaoPorLado, juntarIntervalos, registrosPorDia, resumoDia, type ResumoDia } from './registros';
+import { juntarIntervalos, registrosPorDia, resumoDia, type ResumoDia } from './registros';
 import type { Registro } from './tipos';
 
 /** Noite = das 19h às 7h (o resto é sono de dia: as sonecas) */
@@ -72,6 +72,8 @@ export function diasPainel(registros: Registro[], de: string, ate: string, agora
 
 export interface MediasPeriodo {
   alimentacoes: number;
+  /** Mamadas no peito por dia (cada registro conta 1, com ou sem duração) */
+  mamadas: number;
   fraldas: number;
   sonoMs: number;
   maiorSonoMs: number;
@@ -89,6 +91,7 @@ export function mediasPeriodo(dias: DiaPainel[], hoje: string, desde?: string | 
   const completos = validos.length > 1 ? validos.filter((d) => d.dia !== hoje) : validos;
   return {
     alimentacoes: media(completos.map((d) => d.alimentacoes)),
+    mamadas: media(completos.map((d) => d.mamadas)),
     fraldas: media(completos.map((d) => d.fraldas)),
     sonoMs: media(completos.map((d) => d.sonoMs)),
     maiorSonoMs: media(completos.map((d) => d.maiorSonoMs).filter((v) => v > 0)),
@@ -186,19 +189,54 @@ export function linhaDoTempo(registros: Registro[], de: Date, ate: Date, agora: 
   return out;
 }
 
-/** Tempo no peito de cada lado no período */
-export function ladosDoPeito(registros: Registro[], de: Date, ate: Date, agora: Date): { E: number; D: number } {
+/**
+ * Mamadas de cada lado no período, por CONTAGEM (sem duração). Mamada nova tem
+ * um segmento; registro antigo com os dois lados conta 1 em cada lado.
+ */
+export function ladosPorContagem(registros: Registro[], de: Date, ate: Date): { E: number; D: number } {
   const t = { E: 0, D: 0 };
   for (const r of registros) {
     if (r.tipo !== 'mamada') continue;
     const i = ms(r.inicio);
     if (i < de.getTime() || i >= ate.getTime()) continue;
-    const l = duracaoPorLado(r, agora);
-    t.E += l.E;
-    t.D += l.D;
+    const lados = new Set((r.dados.segmentos ?? []).map((s) => s.lado));
+    if (lados.has('E')) t.E++;
+    if (lados.has('D')) t.D++;
   }
   return t;
 }
+
+/**
+ * Quantas mamadas (peito e mamadeira) começaram em cada hora do dia, somando
+ * os dias entre `de` e `ate` (sem incluir `ate`).
+ */
+export function mamadasPorHora(registros: Registro[], de: Date, ate: Date): { peito: number[]; mamadeira: number[]; total: number[] } {
+  const peito = Array<number>(24).fill(0);
+  const mamadeira = Array<number>(24).fill(0);
+  for (const r of registros) {
+    if (r.tipo !== 'mamada' && r.tipo !== 'mamadeira') continue;
+    const t = ms(r.inicio);
+    if (t < de.getTime() || t >= ate.getTime()) continue;
+    (r.tipo === 'mamada' ? peito : mamadeira)[new Date(t).getHours()]++;
+  }
+  return { peito, mamadeira, total: peito.map((v, h) => v + mamadeira[h]) };
+}
+
+/** Horas com mais mamadas: as de maior contagem (mínimo 2 mamadas e 60% do pico), no máximo `quantas`, em ordem do dia */
+export function horasDeMaisMamadas(porHora: number[], quantas = 3): number[] {
+  const pico = Math.max(0, ...porHora);
+  if (pico < 2) return [];
+  return porHora
+    .map((v, h) => ({ v, h }))
+    .filter((x) => x.v >= pico * 0.6)
+    .sort((a, b) => b.v - a.v || a.h - b.h)
+    .slice(0, quantas)
+    .map((x) => x.h)
+    .sort((a, b) => a - b);
+}
+
+/** Referência da OMS: 8 a 12 mamadas em 24 h nos primeiros 6 meses (faixa típica, não meta) */
+export const REFERENCIA_OMS = { de: 8, ate: 12 } as const;
 
 // ---------- Dia fora do padrão ----------
 
@@ -244,7 +282,7 @@ export type IconeFrase = 'sono' | 'recorde' | 'intervalo' | 'alimentacao' | 'mam
 export type ParteFrase = string | { destaque: string };
 
 export interface FraseNarrativa {
-  id: 'sono' | 'maior-sono' | 'intervalo' | 'alimentacoes' | 'mamadeira' | 'fraldas';
+  id: 'sono' | 'maior-sono' | 'intervalo' | 'mamadas' | 'alimentacoes' | 'lado' | 'mamadeira' | 'fraldas';
   icone: IconeFrase;
   partes: ParteFrase[];
   /** A frase inteira em texto simples (leitor de tela e testes) */
@@ -263,6 +301,10 @@ export interface EntradaNarrativa {
   intervaloMs?: number | null;
   intervaloAntesMs?: number | null;
   sexo?: 'M' | 'F' | null;
+  /** Mamadas por lado no período (contagem); sem isso a frase do lado não entra */
+  lados?: { E: number; D: number } | null;
+  /** Idade do bebê em dias: a referência da OMS vale para os 6 primeiros meses */
+  idadeDias?: number | null;
 }
 
 const MIN = 60_000;
@@ -310,7 +352,7 @@ export function narrativa(e: EntradaNarrativa): FraseNarrativa[] {
   const a = mediasPeriodo(dias, hoje, inicio);
   const b = mediasPeriodo(anteriores, hoje, inicio);
   const P = palavrasPeriodo(n);
-  const ORDEM: FraseNarrativa['id'][] = ['sono', 'maior-sono', 'intervalo', 'alimentacoes', 'mamadeira', 'fraldas'];
+  const ORDEM: FraseNarrativa['id'][] = ['sono', 'maior-sono', 'intervalo', 'mamadas', 'alimentacoes', 'lado', 'mamadeira', 'fraldas'];
   const candidatas: { f: FraseNarrativa; peso: number }[] = [];
   const add = (id: FraseNarrativa['id'], icone: IconeFrase, partes: ParteFrase[], peso: number) => {
     const texto = partes.map((p) => (typeof p === 'string' ? p : p.destaque)).join('');
@@ -390,6 +432,29 @@ export function narrativa(e: EntradaNarrativa): FraseNarrativa[] {
     const rel = dif / b.alimentacoes;
     if (Math.abs(dif) >= 0.5 && Math.abs(rel) >= 0.08)
       add('alimentacoes', 'alimentacao', ['Foram ', { destaque: `${um(a.alimentacoes)} alimentações por dia` }, `, ${um(Math.abs(dif))} ${maisMenos(dif)} que ${P.antesLongo}`], 5 + Math.abs(rel) * 60);
+  }
+
+  // Mamadas por dia, com a faixa de referência da OMS (informação, nunca cobrança)
+  const comMamada = completos.filter((d) => d.mamadas > 0);
+  if (comMamada.length >= 3 && a.mamadas > 0) {
+    const ref = e.idadeDias === undefined || e.idadeDias === null || e.idadeDias <= 183;
+    const soPeito = !completos.some((d) => d.mamadeiras > 0);
+    add(
+      'mamadas',
+      'alimentacao',
+      [{ destaque: `${um(a.mamadas)} ${a.mamadas === 1 ? 'mamada' : 'mamadas'} por dia` }, ref && soPeito ? ` (referência da OMS: ${REFERENCIA_OMS.de} a ${REFERENCIA_OMS.ate})` : soPeito ? '' : ' no peito (fora as mamadeiras)'],
+      3,
+    );
+  }
+
+  // Lado: parcela das mamadas em cada peito (contagem)
+  if (e.lados) {
+    const tot = e.lados.E + e.lados.D;
+    if (tot >= 6) {
+      const esq = e.lados.E >= e.lados.D;
+      const pct = Math.round(((esq ? e.lados.E : e.lados.D) / tot) * 100);
+      add('lado', 'alimentacao', ['Mamou ', { destaque: `${pct}% no peito ${esq ? 'esquerdo' : 'direito'}` }], pct >= 55 ? 2.5 : 1.5);
+    }
   }
 
   // Mamadeira (ml por dia), só quando ela faz parte da rotina nos dois períodos

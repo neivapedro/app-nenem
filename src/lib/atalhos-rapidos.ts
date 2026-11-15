@@ -1,12 +1,12 @@
 /*
  * Registro rápido: segurar um botão de registro do Hoje abre um menu com
  * atalhos de um toque (os volumes de mamadeira mais usados, xixi/cocô,
- * dormiu/acordou agora, peito E/D...). Aqui ficam as contas (funções puras):
+ * dormiu/acordou agora, mamada esquerdo/direito...). Aqui ficam as contas (funções puras):
  * quais atalhos mostrar e que registro cada um cria (e como desfazer).
  */
 import type { Operacao } from '../dados/fila';
 import { horaCurta, textoDuracao } from './datas';
-import { emAndamento, iniciarMamada, iniciarSono, finalizarSono, NOME_LADO, outroLado, textoFralda, ultimoDoTipo, ultimoLado, validarRegistro } from './registros';
+import { emAndamento, novaMamadaSimples, iniciarSono, finalizarSono, NOME_LADO, outroLado, textoFralda, ultimoDoTipo, ultimoLado, validarRegistro } from './registros';
 import { remedioEmUso } from './saude';
 import type { ConteudoMamadeira, Lado, Registro, RegistroDe, Remedio } from './tipos';
 
@@ -29,6 +29,8 @@ export interface Atalho {
   icone?: string;
   emoji?: string;
   acao: AcaoAtalho;
+  /** Opção sugerida (ganha destaque no menu) */
+  destaque?: boolean;
 }
 
 type Base = Pick<Registro, 'id' | 'familia_id' | 'bebe_id' | 'criado_por'>;
@@ -125,16 +127,18 @@ export function atalhosPara(tipo: TipoAtalho, ctx: ContextoAtalhos): Atalho[] {
     ];
   }
   if (tipo === 'mamada') {
-    if (emAndamento(registros).mamada) return [];
     const ultimo = ultimoLado(registros);
-    const primeiro: Lado = ultimo ? outroLado(ultimo) : 'E';
-    return ([primeiro, outroLado(primeiro)] as Lado[]).map((l) => ({
-      id: `mamada-${l}`,
-      rotulo: `Peito ${NOME_LADO[l].toLowerCase()}`,
-      detalhe: ultimo && l === primeiro ? `sugerido · terminou no ${ultimo} na última` : 'começa o cronômetro',
-      icone: 'tocar',
-      acao: { tipo: 'mamada', lado: l },
-    }));
+    const primeiro: Lado | null = ultimo ? outroLado(ultimo) : null;
+    return (['E', 'D'] as Lado[])
+      .sort((x, y) => (x === primeiro ? -1 : y === primeiro ? 1 : 0))
+      .map((l) => ({
+        id: `mamada-${l}`,
+        rotulo: NOME_LADO[l],
+        detalhe: l === primeiro ? 'comece por aqui' : undefined,
+        destaque: l === primeiro,
+        icone: 'tocar',
+        acao: { tipo: 'mamada', lado: l },
+      }));
   }
   if (tipo === 'remedio') {
     const hoje = ctx.hoje ?? agora.toISOString().slice(0, 10);
@@ -200,9 +204,8 @@ export function aplicarAtalho(acao: AcaoAtalho, ctx: { registros: Registro[]; ba
       return simples(r, `Extração registrada (${acao.ml_e + acao.ml_d} ml)`);
     }
     case 'mamada': {
-      if (emAndamento(registros).mamada) return { ok: false, texto: 'Já tem uma mamada em andamento' };
-      const r = iniciarMamada(base, acao.lado, agora);
-      return { ok: true, ops: [{ tipo: 'registro', dado: r }], texto: `Mamada começou no peito ${NOME_LADO[acao.lado].toLowerCase()}`, desfazer: [excluir(r)], registro: r };
+      const r = novaMamadaSimples(base, acao.lado, agora);
+      return simples(r, `Mamada registrada (${NOME_LADO[acao.lado].toLowerCase()})`);
     }
     case 'dormiu': {
       if (emAndamento(registros).sono) return { ok: false, texto: 'O sono já está sendo contado' };

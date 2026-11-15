@@ -146,7 +146,6 @@ describe('totais e recordes', () => {
 
   it('soma alimentações, leite, fraldas e sono (sem contar duas vezes o sono repetido)', () => {
     expect(t).toMatchObject({ dias: 2, mamadas: 6, mamadeiras: 3, ml: 300, fraldas: 5, xixi: 5, coco: 2, diasComRegistro: 2 });
-    expect(t.peitoMs).toBe((20 + 10 + 30 + 15 * 3) * 60_000);
     // 3h no dia 2 (21h–24h) + 4h10 no dia 3 + 2h30 da soneca
     expect(t.sonoMs).toBe((3 * 60 + 4 * 60 + 10 + 150) * 60_000);
   });
