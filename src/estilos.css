@@ -291,6 +291,7 @@ a { color: var(--destaque); }
 .t-mamadeira { --cor: var(--c-mamadeira); }
 .t-fralda { --cor: var(--c-fralda); }
 .t-sono { --cor: var(--c-sono); }
+.t-arroto { --cor: var(--c-mamadeira); }
 .t-agenda { --cor: var(--c-agenda); }
 /* Tipos menos frequentes reaproveitam as cores validadas (o ícone e o nome identificam) */
 .t-remedio, .t-temperatura, .t-saude { --cor: var(--c-agenda); }

@@ -14,8 +14,8 @@ import type { Registro, TipoRegistro } from '../lib/tipos';
 type Filtro = 'todos' | 'alimentacao' | 'fralda' | 'sono' | 'saude';
 
 const FILTROS: { valor: Filtro; rotulo: string; tipos: TipoRegistro[]; nenhum: string }[] = [
-  { valor: 'todos', rotulo: 'Tudo', tipos: ['mamada', 'mamadeira', 'fralda', 'sono', 'remedio', 'temperatura', 'extracao', 'refeicao'], nenhum: 'Nenhum registro' },
-  { valor: 'alimentacao', rotulo: 'Mamadas', tipos: ['mamada', 'mamadeira'], nenhum: 'Nenhuma mamada' },
+  { valor: 'todos', rotulo: 'Tudo', tipos: ['mamada', 'mamadeira', 'fralda', 'sono', 'remedio', 'temperatura', 'extracao', 'refeicao', 'arroto'], nenhum: 'Nenhum registro' },
+  { valor: 'alimentacao', rotulo: 'Mamadas', tipos: ['mamada', 'mamadeira', 'arroto'], nenhum: 'Nenhuma mamada' },
   { valor: 'fralda', rotulo: 'Fraldas', tipos: ['fralda'], nenhum: 'Nenhuma fralda' },
   { valor: 'sono', rotulo: 'Sono', tipos: ['sono'], nenhum: 'Nenhum sono' },
   { valor: 'saude', rotulo: 'Saúde', tipos: ['remedio', 'temperatura'], nenhum: 'Nada de saúde' },

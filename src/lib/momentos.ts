@@ -343,6 +343,7 @@ const NOME_REGISTRO: Record<Registro['tipo'], string> = {
   temperatura: 'Temperatura',
   extracao: 'Extração',
   refeicao: 'Refeição',
+  arroto: 'Arroto',
 };
 
 /**

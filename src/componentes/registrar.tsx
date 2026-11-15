@@ -11,8 +11,11 @@ import {
   finalizarMamada,
   finalizarMamadaNaHora,
   cronometroEsquecido,
+  finalizarArroto,
   finalizarSono,
+  iniciarArroto,
   iniciarSono,
+  META_ARROTO_MS,
   ladoDaMamada,
   mamadaManual,
   NOME_LADO,
@@ -490,6 +493,93 @@ export function CartaoSonoAtivo({ r }: { r: RegistroDe<'sono'> }) {
   );
 }
 
+// ---------- Arroto: bebê em pé depois de mamar, no mínimo 20 min ----------
+
+/** Começar e terminar o arroto com um toque (o botão do Hoje e o cartão usam o mesmo caminho) */
+export function useArroto() {
+  const { registros, baseRegistro, gravar, mostrarAviso } = useDados();
+  function iniciar() {
+    // O outro celular pode ter marcado agora mesmo
+    if (emAndamento(registros).arroto) return mostrarAviso({ texto: 'O arroto já está sendo contado' });
+    const novo = iniciarArroto(baseRegistro(), new Date());
+    gravar({ tipo: 'registro', dado: novo });
+    mostrarAviso({ texto: 'Arroto: cronômetro de 20 min iniciado', desfazer: () => gravar({ tipo: 'excluir', dado: { alvo: 'registro', id: novo.id } }) });
+  }
+  function terminar(r: RegistroDe<'arroto'>, quando?: Date) {
+    const fim = finalizarArroto(r, quando ?? new Date());
+    gravar({ tipo: 'registro', dado: fim });
+    const dur = new Date(fim.fim!).getTime() - new Date(r.inicio).getTime();
+    mostrarAviso({
+      texto: `Arroto salvo (${textoDuracao(dur, true)}${dur >= META_ARROTO_MS ? ' · meta cumprida' : ''})`,
+      desfazer: () => gravar({ tipo: 'registro', dado: r }),
+    });
+  }
+  return { iniciar, terminar };
+}
+
+export function CartaoArrotoAtivo({ r }: { r: RegistroDe<'arroto'> }) {
+  const { nomeDe, bebe } = useDados();
+  const { terminar } = useArroto();
+  const agora = useAgora(1000);
+  const toque = useUmToque();
+  const passou = Math.max(0, agora.getTime() - new Date(r.inicio).getTime());
+  const cumpriu = passou >= META_ARROTO_MS;
+  const falta = Math.max(0, META_ARROTO_MS - passou);
+  const pct = Math.min(100, (passou / META_ARROTO_MS) * 100);
+  // Esqueceu aberto (mais de 2 h): encerra com a meta de 20 min em vez de contar horas que não foram de arroto
+  const acabar = () => terminar(r, cronometroEsquecido(r, new Date()) ? new Date(new Date(r.inicio).getTime() + META_ARROTO_MS) : undefined);
+  return (
+    <section className={`cartao cronometro t-arroto ar-cartao pilha ${cumpriu ? 'ar-ok' : ''}`} aria-label="Arroto em andamento">
+      <div className="linha entre">
+        <span className="linha" style={{ gap: 8 }}>
+          <span className="pulso" aria-hidden="true" />
+          <strong>No colo, em pé</strong>
+        </span>
+        <span className="mudo">
+          desde {desde(r.inicio)}
+          {r.criado_por ? ` · ${nomeDe(r.criado_por)}` : ''}
+        </span>
+      </div>
+      <div className="grande">{relogio(passou)}</div>
+      <div className="ar-barra" role="progressbar" aria-valuemin={0} aria-valuemax={20} aria-valuenow={Math.min(20, Math.floor(passou / 60_000))} aria-label="Meta de 20 minutos">
+        <span style={{ width: `${pct}%` }} />
+      </div>
+      <p className="ar-texto">{cumpriu ? `Meta de 20 min cumprida. Já pode deitar ${bebe?.nome || 'o bebê'}.` : `Faltam ${Math.ceil(falta / 60_000)} min para a meta de 20 min.`}</p>
+      <button className="botao primario largo" onClick={toque(() => acabar())}>
+        {cumpriu ? 'Terminar' : 'Terminar antes'}
+      </button>
+    </section>
+  );
+}
+
+function EditarArroto({ r, aoSalvar, rodape, msg, setMsg }: PropsEditar<RegistroDe<'arroto'>>) {
+  const [inicio, setInicio] = useState(paraCampoDataHora(r.inicio));
+  const [fim, setFim] = useState(r.fim ? paraCampoDataHora(r.fim) : '');
+  const [obs, setObs] = useState(r.observacao ?? '');
+  return (
+    <form
+      className="pilha"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const ini = deCampoDataHora(inicio);
+        if (!ini) return setMsg('Informe quando começou.');
+        const mesmasHoras = inicio === paraCampoDataHora(r.inicio) && fim === (r.fim ? paraCampoDataHora(r.fim) : '');
+        const novo: RegistroDe<'arroto'> = mesmasHoras ? { ...r, observacao: obs.trim() || null } : { ...r, inicio: ini, fim: deCampoDataHora(fim), observacao: obs.trim() || null };
+        const problema = mesmasHoras ? null : validarRegistro(novo, new Date());
+        if (problema) return setMsg(problema);
+        aoSalvar(novo);
+      }}
+    >
+      <CampoHora rotulo="Começou" valor={inicio} aoMudar={setInicio} />
+      <CampoHora rotulo="Terminou (vazio = ainda no colo)" valor={fim} aoMudar={setFim} opcional />
+      <CampoObservacao valor={obs} aoMudar={setObs} />
+      <Erro msg={msg} />
+      <button className="botao primario">Salvar</button>
+      {rodape}
+    </form>
+  );
+}
+
 // ---------- Editar qualquer registro (Histórico) ----------
 
 export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void }) {
@@ -541,6 +631,7 @@ export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void
     temperatura: 'Editar temperatura',
     extracao: 'Editar extração',
     refeicao: 'Editar refeição',
+    arroto: 'Editar arroto',
   } as const;
   const atualizar = (texto: string) => (novo: Registro) => {
     salvar(novo, texto, r);
@@ -562,6 +653,7 @@ export function FolhaEditar({ r, aoFechar }: { r: Registro; aoFechar: () => void
       {r.tipo === 'mamada' && <EditarMamada r={r} aoSalvar={(novo) => (salvar(novo, 'Mamada atualizada', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
       {r.tipo === 'fralda' && <EditarFralda r={r} aoSalvar={(novo) => (salvar(novo, 'Fralda atualizada', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
       {r.tipo === 'sono' && <EditarSono r={r} aoSalvar={(novo) => (salvar(novo, 'Sono atualizado', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
+      {r.tipo === 'arroto' && <EditarArroto r={r} aoSalvar={(novo) => (salvar(novo, 'Arroto atualizado', r), aoFechar())} rodape={rodape} setMsg={setMsg} msg={msg} />}
       {r.tipo === 'remedio' && <FormRemedio inicial={r} aoSalvar={atualizar('Remédio atualizado')} rodape={rodape} />}
       {r.tipo === 'temperatura' && <FormTemperatura inicial={r} aoSalvar={atualizar('Temperatura atualizada')} rodape={rodape} />}
       {r.tipo === 'extracao' && <FormExtracao inicial={r} aoSalvar={salvarExtracao} rodape={rodape} />}

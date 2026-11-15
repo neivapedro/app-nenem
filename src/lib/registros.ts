@@ -10,6 +10,7 @@ export const NOMES_TIPO: Record<TipoRegistro, string> = {
   temperatura: 'Temperatura',
   extracao: 'Extração de leite',
   refeicao: 'Refeição',
+  arroto: 'Arroto',
 };
 
 export const NOME_LADO: Record<Lado, string> = { E: 'Esquerdo', D: 'Direito' };
@@ -157,9 +158,9 @@ export function finalizarMamadaNaHora(r: RegistroDe<'mamada'>, quando: Date, ago
 }
 
 /** Cronômetro aberto há tempo demais (provavelmente esquecido): mamada > 3 h, sono > 14 h */
-export const LIMITE_ESQUECIDO_MS = { mamada: 3 * 3_600_000, sono: 14 * 3_600_000 } as const;
+export const LIMITE_ESQUECIDO_MS = { mamada: 3 * 3_600_000, sono: 14 * 3_600_000, arroto: 2 * 3_600_000 } as const;
 export function cronometroEsquecido(r: Registro, agora: Date): boolean {
-  if (r.fim || (r.tipo !== 'mamada' && r.tipo !== 'sono')) return false;
+  if (r.fim || (r.tipo !== 'mamada' && r.tipo !== 'sono' && r.tipo !== 'arroto')) return false;
   return agora.getTime() - ms(r.inicio) > LIMITE_ESQUECIDO_MS[r.tipo];
 }
 
@@ -189,13 +190,28 @@ export function finalizarSono(r: RegistroDe<'sono'>, agora: Date): RegistroDe<'s
   return { ...r, fim: new Date(fim).toISOString() };
 }
 
+// ---------- Arroto (bebê no colo, de pé, depois da mamada) ----------
+
+/** Tempo mínimo para ficar com o bebê em pé depois de mamar */
+export const META_ARROTO_MS = 20 * 60_000;
+
+export function iniciarArroto(base: Base, agora: Date): RegistroDe<'arroto'> {
+  return { ...base, tipo: 'arroto', inicio: agora.toISOString(), fim: null, observacao: null, dados: {} };
+}
+
+export function finalizarArroto(r: RegistroDe<'arroto'>, agora: Date): RegistroDe<'arroto'> {
+  const fim = Math.max(agora.getTime(), ms(r.inicio));
+  return { ...r, fim: new Date(fim).toISOString() };
+}
+
 // ---------- Situação atual ----------
 
-export function emAndamento(registros: Registro[]): { mamada: RegistroDe<'mamada'> | null; sono: RegistroDe<'sono'> | null } {
+export function emAndamento(registros: Registro[]): { mamada: RegistroDe<'mamada'> | null; sono: RegistroDe<'sono'> | null; arroto: RegistroDe<'arroto'> | null } {
   const recentes = ordenarRecentes(registros.filter((r) => !r.fim));
   return {
     mamada: (recentes.find((r) => r.tipo === 'mamada') as RegistroDe<'mamada'> | undefined) ?? null,
     sono: (recentes.find((r) => r.tipo === 'sono') as RegistroDe<'sono'> | undefined) ?? null,
+    arroto: (recentes.find((r) => r.tipo === 'arroto') as RegistroDe<'arroto'> | undefined) ?? null,
   };
 }
 
@@ -372,6 +388,13 @@ export function descrever(r: Registro, agora: Date): { titulo: string; detalhe: 
   if (r.tipo === 'refeicao') {
     const aceitou = { bem: 'aceitou bem', pouco: 'comeu pouco', recusou: 'recusou' }[r.dados.aceitacao];
     return { titulo: `Refeição · ${r.dados.alimentos.join(', ') || 'sem alimentos'}`, detalhe: `${horaCurta(r.inicio)} · ${aceitou}${r.dados.reacao ? ' · teve reação' : ''}` };
+  }
+  if (r.tipo === 'arroto') {
+    const dur = (r.fim ? ms(r.fim) : agora.getTime()) - ms(r.inicio);
+    return {
+      titulo: `Arroto · ${textoDuracao(dur, true)}`,
+      detalhe: r.fim ? `${horaCurta(r.inicio)} – ${horaCurta(r.fim)}${dur >= META_ARROTO_MS ? ' · meta de 20 min cumprida' : ' · menos de 20 min'}` : `${quando(r.inicio, agora)} · no colo`,
+    };
   }
   const dur = (r.fim ? ms(r.fim) : agora.getTime()) - ms(r.inicio);
   return {

@@ -2,7 +2,7 @@ import type { TipoCompromisso } from '../../supabase/functions/_shared/ics.ts';
 
 export type { TipoCompromisso };
 
-export type TipoRegistro = 'mamada' | 'mamadeira' | 'fralda' | 'sono' | 'remedio' | 'temperatura' | 'extracao' | 'refeicao';
+export type TipoRegistro = 'mamada' | 'mamadeira' | 'fralda' | 'sono' | 'remedio' | 'temperatura' | 'extracao' | 'refeicao' | 'arroto';
 export type Lado = 'E' | 'D';
 
 /** Trecho da mamada num peito. fim vazio = mamando agora neste lado. */
@@ -33,6 +33,7 @@ export interface DadosFralda {
 }
 
 export type DadosSono = Record<string, never>;
+export type DadosArroto = Record<string, never>;
 
 /** Dose de remédio dada (liga ao remédio em uso, quando houver) */
 export interface DadosRemedio {
@@ -80,7 +81,8 @@ export type Registro =
   | (RegistroBase & { tipo: 'remedio'; dados: DadosRemedio })
   | (RegistroBase & { tipo: 'temperatura'; dados: DadosTemperatura })
   | (RegistroBase & { tipo: 'extracao'; dados: DadosExtracao })
-  | (RegistroBase & { tipo: 'refeicao'; dados: DadosRefeicao });
+  | (RegistroBase & { tipo: 'refeicao'; dados: DadosRefeicao })
+  | (RegistroBase & { tipo: 'arroto'; dados: DadosArroto });
 
 export type RegistroDe<T extends TipoRegistro> = Extract<Registro, { tipo: T }>;
 

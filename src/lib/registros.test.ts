@@ -9,6 +9,9 @@ import {
   finalizarMamadaEm,
   finalizarMamadaNaHora,
   finalizarSono,
+  finalizarArroto,
+  iniciarArroto,
+  META_ARROTO_MS,
   iniciarMamada,
   iniciarSono,
   ehMamadaEmAndamentoAntiga,
@@ -122,7 +125,7 @@ describe('situação atual', () => {
     const fim = finalizarSono(sono, t('11:00'));
     const b = mamadeira('b', '12:00', 60);
     const m = iniciarMamada({ ...base, id: 'm' }, 'E', t('13:00'));
-    expect(emAndamento([fim, b, m])).toEqual({ mamada: m, sono: null });
+    expect(emAndamento([fim, b, m])).toEqual({ mamada: m, sono: null, arroto: null });
     expect(emAndamento([sono]).sono?.id).toBe('s');
     expect(ultimaAlimentacao([fim, b, m])?.id).toBe('m');
   });
@@ -257,5 +260,29 @@ describe('mamada de um toque', () => {
     expect(r.alimentacoes).toBe(5);
     expect(r.peitoMs).toBe(10 * 60_000);
     expect(resumoDia([simples('a', '08:00', 'E')], '2026-11-15', t('20:00')).peitoMs).toBe(0);
+  });
+});
+
+describe('arroto (bebê em pé depois da mamada)', () => {
+  const base = { id: 'a1', familia_id: 'f', bebe_id: 'b', criado_por: null };
+  it('começa em andamento e termina com a hora certa', () => {
+    const ini = new Date('2026-11-15T10:00:00Z');
+    const r = iniciarArroto(base, ini);
+    expect(r.fim).toBeNull();
+    expect(emAndamento([r]).arroto?.id).toBe('a1');
+    const f = finalizarArroto(r, new Date('2026-11-15T10:21:00Z'));
+    expect(emAndamento([f]).arroto).toBeNull();
+    expect(descrever(f, new Date('2026-11-15T11:00:00Z')).detalhe).toContain('meta de 20 min cumprida');
+  });
+  it('avisa quando terminou antes dos 20 minutos', () => {
+    const f = finalizarArroto(iniciarArroto(base, new Date('2026-11-15T10:00:00Z')), new Date('2026-11-15T10:12:00Z'));
+    expect(descrever(f, new Date('2026-11-15T11:00:00Z')).detalhe).toContain('menos de 20 min');
+  });
+  it('não deixa o fim antes do início e marca esquecido depois de 2 h', () => {
+    const r = iniciarArroto(base, new Date('2026-11-15T10:00:00Z'));
+    expect(finalizarArroto(r, new Date('2026-11-15T09:00:00Z')).fim).toBe(r.inicio);
+    expect(cronometroEsquecido(r, new Date('2026-11-15T11:59:00Z'))).toBe(false);
+    expect(cronometroEsquecido(r, new Date('2026-11-15T12:01:00Z'))).toBe(true);
+    expect(META_ARROTO_MS).toBe(20 * 60_000);
   });
 });

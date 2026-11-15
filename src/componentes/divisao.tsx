@@ -17,6 +17,7 @@ const NOMES_TIPO: Record<TipoRegistro, [string, string]> = {
   temperatura: ['temperatura', 'temperaturas'],
   extracao: ['extração', 'extrações'],
   refeicao: ['refeição', 'refeições'],
+  arroto: ['arroto', 'arrotos'],
 };
 
 const qtd = (n: number, [um, varios]: [string, string]) => `${n}\u00a0${n === 1 ? um : varios}`;
