@@ -7,7 +7,6 @@ import { Faixa24h, NumerosDoDia } from '../componentes/hoje-painel';
 import { MomentosDoDia } from '../componentes/momentos';
 import { MamadasHoje } from '../componentes/mamadas-hoje';
 import { RelogioDia } from '../componentes/relogio-dia';
-import { DivisaoDaSemana } from '../componentes/divisao';
 import { FolhaRegistroMais } from '../componentes/registrar-mais';
 import { CartaoArrotoAtivo, CartaoMamadaAtiva, CartaoSonoAtivo, useArroto, FolhaEditar, FolhaFralda, FolhaMamada, FolhaMamadeira, FolhaQueHorasTerminou, FolhaSono } from '../componentes/registrar';
 import { Icone, Selo } from '../componentes/ui';
@@ -315,7 +314,6 @@ export function Hoje() {
         <NumerosDoDia resumo={resumo} medias={medias} nascido={nascido} lados={contagemHoje} />
       </section>
     ),
-    divisao: nascido ? <DivisaoDaSemana /> : null,
     compromisso: proximo ? (
       <Link to="/agenda" className="cartao linha" style={{ textDecoration: 'none', color: 'inherit', flexWrap: 'nowrap' }} {...zoomAgenda}>
         <Selo tipo="agenda" />

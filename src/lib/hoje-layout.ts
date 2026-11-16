@@ -13,7 +13,6 @@ export type IdCartaoHoje =
   | 'outros'
   | 'avisos'
   | 'resumo'
-  | 'divisao'
   | 'compromisso'
   | 'recentes';
 
@@ -40,7 +39,6 @@ export const CARTOES_HOJE: CartaoHoje[] = [
   { id: 'outros', nome: 'Outros registros', descricao: 'Remédio, febre, extração e mais' },
   { id: 'avisos', nome: 'Avisos', descricao: 'Vacina, remédio e leite vencendo (quando pedem ação)' },
   { id: 'resumo', nome: 'Resumo do dia', descricao: 'Os números de hoje comparados com a média' },
-  { id: 'divisao', nome: 'Divisão da semana', descricao: 'Como os cuidados da semana se dividiram', soNascido: true },
   { id: 'compromisso', nome: 'Próximo compromisso', descricao: 'Consulta ou vacina marcada na Agenda (quando houver)' },
   { id: 'recentes', nome: 'Últimos registros', descricao: 'Os 5 registros mais recentes' },
 ];
